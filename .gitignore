@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.env
+.venv/
+venv/
+ENV/
+
+# Excel & Temporary files
+~$*.xlsx
+~$*.xls
+
+# Processed data
+data/output/*
+!data/output/.gitkeep
+data/input/*
+!data/input/.gitkeep
+
+# IDEs
+.vscode/
+.idea/
