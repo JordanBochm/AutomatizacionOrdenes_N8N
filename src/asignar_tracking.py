@@ -161,28 +161,66 @@ def _es_reporte_crudo(path):
         return False
 
 
-def detectar_excel(carpeta):
-    """Reporte original mas reciente (ignora temporales, archivos generados y el ejemplo)."""
-    cands = []
-    for f in glob.glob(os.path.join(carpeta, "*.xlsx")):
-        n = os.path.basename(f)
-        if n.startswith("~$") or n.startswith(("Guias ", "Guias_Techship", "Cierre_")) or n.endswith("_Tracking.xlsx"):
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+def detectar_excel(carpeta=None):
+    """Reporte original más reciente. Busca en carpeta indicada, data/input o data/samples."""
+    carpetas = []
+    if carpeta:
+        carpetas.append(Path(carpeta))
+    carpetas.extend([
+        PROJECT_ROOT / "data" / "input",
+        PROJECT_ROOT / "data" / "samples",
+        Path.cwd()
+    ])
+
+    for c in carpetas:
+        if not c.exists():
             continue
-        if _es_reporte_crudo(f):
-            cands.append(f)
-    return max(cands, key=os.path.getmtime) if cands else None
+        cands = []
+        for f in glob.glob(os.path.join(str(c), "*.xlsx")):
+            n = os.path.basename(f)
+            if n.startswith("~$") or n.startswith(("Guias ", "Guias_Techship", "Cierre_")) or n.endswith("_Tracking.xlsx"):
+                continue
+            if _es_reporte_crudo(f):
+                cands.append(f)
+        if cands:
+            return max(cands, key=os.path.getmtime)
+    return None
 
 
-def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
-    carpeta = carpeta or os.getcwd()
+def detectar_pdfs(carpeta=None):
+    """Busca PDFs de guías en carpeta indicada, data/input o data/samples."""
+    carpetas = []
+    if carpeta:
+        carpetas.append(Path(carpeta))
+    carpetas.extend([
+        PROJECT_ROOT / "data" / "input",
+        PROJECT_ROOT / "data" / "samples",
+        Path.cwd()
+    ])
+
+    for c in carpetas:
+        if not c.exists():
+            continue
+        pdfs = sorted(glob.glob(os.path.join(str(c), "*.pdf")), key=os.path.getmtime)
+        if pdfs:
+            return pdfs
+    return []
+
+
+def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None, output_path=None):
+    carpeta = carpeta or str(PROJECT_ROOT / "data" / "input")
     excel_path = excel_path or detectar_excel(carpeta)
+    
     if isinstance(pdf_paths, str):
         pdf_paths = [pdf_paths]
     elif pdf_paths is None:
-        pdf_paths = sorted(glob.glob(os.path.join(carpeta, "*.pdf")), key=os.path.getmtime)
+        pdf_paths = detectar_pdfs(carpeta)
 
     if not excel_path:
-        print("No encontre ningun .xlsx de reporte en la carpeta.")
+        print("No encontré ningún .xlsx de reporte crudo en data/input ni data/samples.")
         return None
 
     print(f"Excel : {os.path.basename(excel_path)}")
@@ -209,7 +247,6 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
 
     ws = wb[HOJA]
     
-    # Mapeo de encabezados insensible a mayusculas/minusculas
     encabezados = {}
     for c in range(1, ws.max_column + 1):
         v = ws.cell(1, c).value
@@ -235,7 +272,6 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
     cp_dudosos = []
     asignadas = 0
 
-    # 1. Asignar Serial Number (Confirmacion) y Tracking Number
     for r in range(2, limite):
         parent_val = ws.cell(r, col_parent).value
         if parent_val in (None, ""):
@@ -248,10 +284,8 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
         celda_serial = ws.cell(r, col_serial)
         celda_trk = ws.cell(r, col_tracking)
 
-        # Columna F (Serial Number) siempre se deja vacia
         celda_serial.value = None
 
-        # Columna G (Tracking Number) recibe el numero de confirmacion sin guiones
         if ref in confirmaciones or ref in guias:
             val_confirmacion = confirmaciones.get(ref) or guias.get(ref)
             celda_trk.value = str(val_confirmacion)
@@ -260,7 +294,6 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
             usadas.add(ref)
             asignadas += 1
 
-            # Validacion cruzada de CP
             if es_retorno:
                 esperado = CP_SEKO
             elif col_zip:
@@ -280,15 +313,12 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
             celda_trk.font = FUENTE_ERROR
             sin_match.append(parent)
 
-    # 2. Renombrar encabezados F (Serial Number) y G (Tracking Number)
     ws.cell(1, col_serial).value = "Serial Number"
     ws.cell(1, col_tracking).value = "Tracking Number"
 
-    # 3. Eliminar todas las filas a partir de la linea negra
     if limite <= ws.max_row:
         ws.delete_rows(limite, ws.max_row - limite + 1)
 
-    # 4. Eliminar columnas que no pertenecen a las 12 del formato de salida
     COLUMNAS_DESEADAS = [
         "parent", "request", "ship", "state", "created",
         "serial number", "tracking number", "product number", "product description",
@@ -300,10 +330,8 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
         if nombre_col not in COLUMNAS_DESEADAS:
             ws.delete_cols(c, 1)
 
-    # 5. Limpiar reglas de formato condicional que referenciaban celdas/columnas eliminadas
     ws.conditional_formatting._cf_rules.clear()
 
-    # 6. Sincronizar tablas de Excel (Table1) con las 12 columnas y filas reales
     for t in list(ws.tables.values()):
         t.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
         if t.autoFilter:
@@ -311,13 +339,11 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
         t.tableColumns = [TableColumn(id=i, name=str(ws.cell(1, i).value)) for i in range(1, ws.max_column + 1)]
         t.sortState = None
 
-    # 7. Ajustar anchos de columnas y fijar paneles en A2
     ws.freeze_panes = "A2"
     ws.column_dimensions.clear()
     for col, ancho in ANCHOS.items():
         ws.column_dimensions[col].width = ancho
 
-    # Generar nombre con la fecha actual del sistema (ej. Cierre_12_Octubre_2026.xlsx)
     import datetime
     now = datetime.date.today()
     meses_es = [
@@ -325,26 +351,33 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ]
     nombre_salida = f"Cierre_{now.day}_{meses_es[now.month - 1]}_{now.year}.xlsx"
-    salida = os.path.join(carpeta, nombre_salida)
+
+    if output_path:
+        salida = output_path if not os.path.isdir(output_path) else os.path.join(output_path, nombre_salida)
+    else:
+        out_dir = PROJECT_ROOT / "data" / "output"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        salida = str(out_dir / nombre_salida)
 
     try:
         wb.save(salida)
     except PermissionError:
         print(f"\n[ERROR DE PERMISO] No se pudo guardar '{os.path.basename(salida)}'.")
-        print("El archivo esta abierto en Microsoft Excel. Cierralo y vuelve a ejecutar.\n")
+        print("El archivo está abierto en Microsoft Excel. Ciérralo y vuelve a ejecutar.\n")
         return None
 
     sobrantes = sorted(set(guias) - usadas)
     filas_procesadas = ws.max_row - 1
     print(f"\nGuardado: {os.path.basename(salida)}")
-    print(f"  Filas procesadas : {filas_procesadas}")
+    print(f"  Ruta completa      : {salida}")
+    print(f"  Filas procesadas   : {filas_procesadas}")
     print(f"  Trackings asignados: {asignadas}")
     if sin_match:
-        print(f"  SIN guia ({len(sin_match)}): {', '.join(sin_match)}")
+        print(f"  SIN guía ({len(sin_match)}): {', '.join(sin_match)}")
     if sobrantes:
-        print(f"  Guias del PDF sin orden en el Excel ({len(sobrantes)}): {', '.join(sobrantes)}")
+        print(f"  Guías del PDF sin orden en el Excel ({len(sobrantes)}): {', '.join(sobrantes)}")
     for p, esp, real in cp_dudosos:
-        print(f"  REVISAR CP {p}: Excel {esp} vs guia {real}")
+        print(f"  REVISAR CP {p}: Excel {esp} vs guía {real}")
     for a in avisos:
         print(f"  AVISO: {a}")
 
@@ -352,8 +385,9 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Asigna trackings de PDFs de guias al reporte.")
-    ap.add_argument("--excel", help="Reporte original (por defecto el .xlsx mas reciente)")
-    ap.add_argument("--pdf", nargs="*", help="PDFs de guias (por defecto todos los .pdf de la carpeta)")
+    ap = argparse.ArgumentParser(description="Asigna trackings de PDFs de guías al reporte.")
+    ap.add_argument("--excel", "-e", help="Reporte original (por defecto busca en data/input o data/samples)")
+    ap.add_argument("--pdf", "-p", nargs="*", help="PDFs de guías (por defecto busca en data/input o data/samples)")
+    ap.add_argument("--output", "-o", help="Ruta o carpeta de salida del archivo de cierre")
     a = ap.parse_args()
-    sys.exit(0 if asignar_tracking(a.excel, a.pdf) else 1)
+    sys.exit(0 if asignar_tracking(a.excel, a.pdf, output_path=a.output) else 1)

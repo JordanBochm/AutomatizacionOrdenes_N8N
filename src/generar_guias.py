@@ -563,55 +563,90 @@ def process_excel(input_path, output_path, default_declared_value=None):
     print(f"Exportación exitosa. Archivo generado en: {output_path}")
     print(f"Proceso terminado. {total_processed} registros procesados, {records_with_errors} registros contienen errores.")
 
-def detect_files(directorio):
+from pathlib import Path
+import argparse
+
+# Directorio raíz del proyecto (un nivel arriba de src/)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+def detect_files(input_target=None, output_target=None):
     """
     Detecta automáticamente el archivo de reporte crudo de entrada y define el de salida.
-    Ignora archivos temporales de Excel (~$), la plantilla ('Guias ') y los archivos de salida generados.
+    Soporta rutas directas o busca en:
+    1. data/input/
+    2. data/samples/
+    3. directorio actual
     """
-    archivos = [f for f in os.listdir(directorio) if f.endswith('.xlsx')]
-    
-    reportes_crudos = []
-    for f in archivos:
-        # Ignorar archivos temporales ocultos de Excel
-        if f.startswith('~$'):
-            continue
-        # Ignorar la plantilla y los archivos de salida generados
-        if f.startswith('Guias ') or 'Guias_Techship' in f:
-            continue
-        reportes_crudos.append(f)
-        
-    if len(reportes_crudos) == 0:
-        raise FileNotFoundError("No se encontró ningún archivo de reporte crudo (.xlsx) en el directorio.")
-    elif len(reportes_crudos) > 1:
-        # Si hay más de uno, tomamos el más reciente por fecha de modificación
-        reportes_crudos.sort(key=lambda x: os.path.getmtime(os.path.join(directorio, x)), reverse=True)
-        print(f"⚠️ Se detectaron múltiples archivos de reporte. Se seleccionó el más reciente: {reportes_crudos[0]}")
-        
-    entrada_nombre = reportes_crudos[0]
-    archivo_entrada = os.path.join(directorio, entrada_nombre)
-    
-    # Generar el nombre de salida dinámicamente
+    if input_target and os.path.isfile(input_target):
+        archivo_entrada = input_target
+    else:
+        carpetas_busqueda = []
+        if input_target and os.path.isdir(input_target):
+            carpetas_busqueda.append(Path(input_target))
+        carpetas_busqueda.extend([
+            PROJECT_ROOT / "data" / "input",
+            PROJECT_ROOT / "data" / "samples",
+            Path.cwd(),
+        ])
+
+        reportes_crudos = []
+        for carpeta in carpetas_busqueda:
+            if not carpeta.exists():
+                continue
+            archivos = [carpeta / f for f in os.listdir(carpeta) if f.endswith(".xlsx")]
+            for f in archivos:
+                n = f.name
+                if n.startswith("~$") or n.startswith("Guias ") or "Guias_Techship" in n or n.startswith("Cierre_"):
+                    continue
+                reportes_crudos.append(f)
+            if reportes_crudos:
+                break
+
+        if not reportes_crudos:
+            raise FileNotFoundError("No se encontró ningún reporte crudo (.xlsx) en data/input ni en data/samples.")
+
+        # Seleccionar el más reciente
+        reportes_crudos.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        archivo_entrada = str(reportes_crudos[0])
+        print(f"Archivo de entrada detectado: {os.path.basename(archivo_entrada)}")
+
+    # Determinar ruta del archivo de salida
+    entrada_nombre = os.path.basename(archivo_entrada)
     sufijo = entrada_nombre
     for prefijo in ["SCTASK_SHP_Combined_Report_", "SCTASK_SHP_", "SCTASK_"]:
         if sufijo.startswith(prefijo):
             sufijo = sufijo[len(prefijo):]
             break
     sufijo = sufijo.replace(".xlsx", "")
-    
-    archivo_salida = os.path.join(directorio, f"Guias_Techship_Importada_{sufijo}.xlsx")
+    nombre_salida = f"Guias_Techship_Importada_{sufijo}.xlsx"
+
+    if output_target:
+        if os.path.isdir(output_target):
+            archivo_salida = str(Path(output_target) / nombre_salida)
+        else:
+            archivo_salida = output_target
+    else:
+        out_dir = PROJECT_ROOT / "data" / "output"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        archivo_salida = str(out_dir / nombre_salida)
+
     return archivo_entrada, archivo_salida
 
-if __name__ == '__main__':
-    directorio_base = r"c:\Users\KSTSu\OneDrive - Seko Global Logistics\Desktop\ProyectoAutomatizacionOrdenes"
-    
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Procesa reporte de órdenes y genera plantilla para Techship.")
+    parser.add_argument("--input", "-i", help="Ruta del archivo o carpeta de entrada (.xlsx)")
+    parser.add_argument("--output", "-o", help="Ruta del archivo o carpeta de salida (.xlsx)")
+    args = parser.parse_args()
+
     try:
-        archivo_entrada, archivo_salida = detect_files(directorio_base)
+        archivo_entrada, archivo_salida = detect_files(args.input, args.output)
         process_excel(archivo_entrada, archivo_salida)
     except FileNotFoundError as e:
         print(f"\n[ERROR] {e}\n")
         raise SystemExit(1)
     except PermissionError as e:
-        file_err = f" '{os.path.basename(e.filename)}'" if e.filename else " de Excel"
+        file_err = f" '{os.path.basename(e.filename)}'" if getattr(e, "filename", None) else " de Excel"
         print(f"\n[ERROR DE PERMISO] No se pudo acceder al archivo{file_err}.")
         print("Esto ocurre porque el archivo está abierto en Microsoft Excel.")
         print("Por favor, cierra el archivo en Excel y vuelve a ejecutar el script.\n")
