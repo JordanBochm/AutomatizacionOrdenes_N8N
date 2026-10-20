@@ -22,6 +22,7 @@ import copy
 import json
 import base64
 import re
+import io
 import datetime
 import argparse
 from pathlib import Path
@@ -32,6 +33,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import TableColumn
+from pypdf import PdfReader, PdfWriter
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -451,12 +453,13 @@ def _fila_limite(ws):
 
 def obtener_tracking_api(customer_order, client_code=CLIENT_CODE_KST, timeout=10):
     """
-    Consulta en la API de Techship una orden específica y extrae:
+    Consulta en la API de Techship una orden específica con labelPdfConversion=Enabled y extrae:
       - tracking22: Guía de 22 caracteres (Packages[0].TrackingNumber)
-      - tracking10: Código de rastreo de 10 dígitos (del ZPL de la etiqueta)
+      - tracking10: Código de rastreo de 10 dígitos (del PDF de la etiqueta)
       - cp_dest: Código postal de entrega registrado en Techship
       - status: Estatus de la orden en Techship
       - shipment_id: ID interno del envío
+      - pdf_bytes: Bytes del PDF de la etiqueta para consolidación
     """
     headers = get_auth_headers()
     order_str = str(customer_order).strip()
@@ -476,39 +479,55 @@ def obtener_tracking_api(customer_order, client_code=CLIENT_CODE_KST, timeout=10
                 if isinstance(shipments, list) and len(shipments) > 0:
                     s_id = shipments[0].get("Id")
                     status = shipments[0].get("Status")
-                    # Consultar detalle completo
-                    r_det = requests.get(f"{TECHSHIP_BASE_URL}/api/v3/shipments/{s_id}", headers=headers, timeout=timeout)
+                    # Consultar detalle completo solicitando conversión a PDF
+                    r_det = requests.get(f"{TECHSHIP_BASE_URL}/api/v3/shipments/{s_id}?labelPdfConversion=Enabled", headers=headers, timeout=timeout)
                     if r_det.status_code == 200:
                         det = r_det.json()
                         packages = det.get("Packages", [])
                         trk22 = None
                         trk10 = None
+                        pdf_bytes = None
                         if packages:
                             p0 = packages[0]
                             trk22 = p0.get("TrackingNumber")
                             labels = p0.get("Labels", [])
                             if labels:
                                 lbl_b64 = labels[0].get("Label", "")
+                                lbl_type = labels[0].get("Type")
                                 try:
-                                    zpl = base64.b64decode(lbl_b64).decode("utf-8", errors="ignore")
-                                    m = re.search(r'CODIGO DE RASTREO.*?\^FD(\d{10})\^FS', zpl, re.DOTALL)
-                                    if m:
-                                        trk10 = m.group(1)
+                                    raw_bytes = base64.b64decode(lbl_b64)
+                                    if lbl_type == "PDF" or raw_bytes.startswith(b"%PDF"):
+                                        pdf_bytes = raw_bytes
+                                        try:
+                                            reader = PdfReader(io.BytesIO(raw_bytes))
+                                            if reader.pages:
+                                                t = reader.pages[0].extract_text()
+                                                m = re.search(r'CODIGO DE RASTREO:\s*(\d{10})', t)
+                                                if m:
+                                                    trk10 = m.group(1)
+                                        except Exception:
+                                            pass
+                                    elif lbl_type == "ZPL" or b"^XA" in raw_bytes:
+                                        zpl = raw_bytes.decode("utf-8", errors="ignore")
+                                        m = re.search(r'CODIGO DE RASTREO.*?\^FD(\d{10})\^FS', zpl, re.DOTALL)
+                                        if m:
+                                            trk10 = m.group(1)
                                 except Exception:
                                     pass
                         cp_dest = det.get("ShipToAddress", {}).get("Postal")
-                        return trk22, trk10, cp_dest, status, s_id
+                        return trk22, trk10, cp_dest, status, s_id, pdf_bytes
         except Exception:
             pass
             
-    return None, None, None, None, None
+    return None, None, None, None, None, None
 
 
 def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_code=CLIENT_CODE_KST):
     """
     Lee el archivo SCTASK original (Combined Report), consulta vía API en Techship
-    las guías de 22 caracteres y códigos de 10 dígitos, valida CPs, y genera el
-    archivo Cierre_DD_Mes_AAAA.xlsx idéntico a asignar_tracking.py pero 100% por API.
+    las guías de 22 caracteres, códigos de 10 dígitos y etiquetas PDF, valida CPs,
+    genera el archivo Cierre_DD_Mes_AAAA.xlsx y un único PDF consolidado de etiquetas
+    en el orden exacto de empaque (Ida + Retorno consecutivos).
     """
     if not sctask_path:
         candidatos = sorted((PROJECT_ROOT / "data" / "input").glob("SCTASK_*.xlsx"), key=os.path.getmtime, reverse=True)
@@ -520,7 +539,7 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
             raise FileNotFoundError("No se encontró ningún reporte SCTASK_*.xlsx en data/input/ ni data/samples/")
             
     print(f"\n=======================================================")
-    print(f"  SINCRONIZACIÓN DE TRACKINGS VÍA API TECHSHIP V3      ")
+    print(f"  SINCRONIZACIÓN DE TRACKINGS Y ETIQUETAS VÍA API V3   ")
     print(f"=======================================================")
     print(f"Reporte de entrada  : {sctask_path}")
     print(f"Servidor API        : {TECHSHIP_BASE_URL}")
@@ -557,6 +576,10 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
     cp_dudosos = []
     detalle_filas = []
     
+    # Objeto para unir todas las páginas PDF en memoria
+    pdf_writer = PdfWriter()
+    paginas_pdf = 0
+    
     for r in range(2, limite):
         parent_val = ws.cell(r, col_parent).value
         if parent_val in (None, ""):
@@ -568,8 +591,8 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
         celda_trk = ws.cell(r, col_tracking)
         celda_serial.value = None
         
-        # Consultar en Techship API
-        trk22, trk10, cp_dest, status, s_id = obtener_tracking_api(parent, client_code=client_code)
+        # Consultar en Techship API (obtiene tracking22, rastreo10 y PDF bytes)
+        trk22, trk10, cp_dest, status, s_id, pdf_bytes = obtener_tracking_api(parent, client_code=client_code)
         
         if trk22 or trk10:
             val_final = trk22 if trk22 else trk10
@@ -578,6 +601,16 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
             asignadas += 1
             detalle_filas.append((parent, val_final, trk10, cp_dest))
             print(f"  [OK] Fila {r-1}: {parent} -> Guía: {val_final} (Rastreo 10: {trk10})")
+            
+            # Acumular página en el PDF consolidado
+            if pdf_bytes:
+                try:
+                    reader = PdfReader(io.BytesIO(pdf_bytes))
+                    for p in reader.pages:
+                        pdf_writer.add_page(p)
+                        paginas_pdf += 1
+                except Exception as e:
+                    print(f"    [AVISO] No se pudo unir página PDF de {parent}: {e}")
             
             # Validación de Código Postal
             if es_retorno:
@@ -653,16 +686,28 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
     try:
         wb.save(salida)
     except PermissionError:
-        # Si está abierto en Excel, intentar con sufijo numérico
         salida = str(Path(salida).with_name(f"Cierre_{now.day}_{meses_es[now.month - 1]}_{now.year}_API.xlsx"))
         wb.save(salida)
         
+    # Guardar PDF consolidado de etiquetas en el orden exacto de empaque
+    nombre_pdf = f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}.pdf"
+    salida_pdf = str(PROJECT_ROOT / "data" / "output" / nombre_pdf)
+    if paginas_pdf > 0:
+        try:
+            with open(salida_pdf, "wb") as f_pdf:
+                pdf_writer.write(f_pdf)
+        except PermissionError:
+            salida_pdf = str(PROJECT_ROOT / "data" / "output" / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}_API.pdf")
+            with open(salida_pdf, "wb") as f_pdf:
+                pdf_writer.write(f_pdf)
+                
     print(f"\n=======================================================")
     print(f"                 RESUMEN DE CIERRE                    ")
     print(f"=======================================================")
-    print(f"  Archivo generado   : {salida}")
-    print(f"  Filas procesadas   : {ws.max_row - 1}")
-    print(f"  Trackings asignados: {asignadas}/{total_ordenes}")
+    print(f"  Archivo Cierre Excel : {salida}")
+    print(f"  PDF Etiquetas Unificado: {salida_pdf} ({paginas_pdf} páginas consecutivas)")
+    print(f"  Filas procesadas     : {ws.max_row - 1}")
+    print(f"  Trackings asignados  : {asignadas}/{total_ordenes}")
     if sin_match:
         print(f"  Sin guía ({len(sin_match)}): {', '.join(sin_match)}")
     if cp_dudosos:
