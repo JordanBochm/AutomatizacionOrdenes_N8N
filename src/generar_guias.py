@@ -4,9 +4,9 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
 try:
-    from validador_postal import ValidadorPostal
+    from validador_postal import ValidadorPostal, normalizar_texto
 except ImportError:
-    from src.validador_postal import ValidadorPostal
+    from src.validador_postal import ValidadorPostal, normalizar_texto
 
 def clean_text_encoding(text):
     """
@@ -236,6 +236,11 @@ def process_excel(input_path, output_path, default_declared_value=None):
     print(f"Registros cargados para procesar: {len(df_raw)}")
     
     validador = ValidadorPostal()
+    incidencias = []  # (fila_excel, RITM, severidad, campo, valor_capturado, detalle)
+
+    def registrar(fila, ritm, severidad, campo, valor, detalle):
+        incidencias.append((fila, ritm, severidad, campo, valor, detalle))
+        print(f"  [{severidad}] Fila {fila} ({ritm}) | {campo}: '{valor}' -> {detalle}")
     
     # ── Columnas basadas en File_Template_NewInsurance.xlsx + ShipToCompany (requerido por Estafeta) ──
     # Se agrega ShipToCompany (col I) porque la API de Estafeta exige 'corporateName' != null.
@@ -355,7 +360,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
         else:
             # --- Address 1 (Calle + Número) ---
             calle_numero = street_clean
-            if house_apt_clean:
+            if house_apt_clean and house_apt_clean.strip().lower() not in street_clean.lower():
                 calle_numero = f"{street_clean} {house_apt_clean}"
             
             if len(calle_numero) <= 50:
@@ -392,18 +397,45 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 else:
                     state_val = "Estado de México"
                     
-        # 4. Validación SEPOMEX (Código Postal y Estado oficial)
+        # 4. Validación SEPOMEX: corrige SOLO lo verificable; lo demás se reporta como incidencia
         if not is_return and zip_val and not str(zip_val).startswith('ERROR'):
-            validacion_cp = validador.validar_direccion(
-                cp=zip_val,
-                estado=state_val,
-                municipio=city_val,
-                colonia=addr2_val
+            fila = idx + 2
+            an = validador.analizar(
+                zip_val,
+                [municipio_clean, city_raw_clean, localidad_clean, state_clean],
+                colonia=addr2_val if addr2_val and not str(addr2_val).startswith('ERROR') else None,
+                texto_calle=f"{street_clean} {house_apt_clean}",
             )
-            if not validacion_cp['cp_valido']:
-                print(f"  [ALERTA SEPOMEX] Fila {idx+2} ({parent}): {validacion_cp['alerta']}")
-            elif validacion_cp['alerta']:
-                print(f"  [AVISO SEPOMEX] Fila {idx+2} ({parent}): {validacion_cp['alerta']}")
+            if not an['existe']:
+                registrar(fila, parent, 'ERROR', 'Código Postal', raw_zip,
+                          f"El CP {zip_val} no existe en el catálogo SEPOMEX. Confirmar CP con el solicitante.")
+                has_address_error = True
+            elif not an['coherente']:
+                genericos = {'', 'CDMX', 'CIUDAD DE MEXICO', 'MEXICO', 'ESTADO DE MEXICO', 'EDO MEX', 'EDOMEX', 'DF', 'D F'}
+                especificos = [t for t in (municipio_clean, city_raw_clean)
+                               if normalizar_texto(t).split(',')[0].strip() not in genericos and normalizar_texto(t) not in genericos]
+                if especificos:
+                    registrar(fila, parent, 'ERROR', 'CP vs Municipio/Ciudad', f"CP {zip_val} | Mun: {municipio_clean} | City: {city_raw_clean}",
+                              f"El municipio capturado no coincide con el oficial del CP ({an['municipio_oficial'] or 'varios'}, {an['estado_oficial']}). "
+                              "No se corrigió: el error puede estar en el CP o en el municipio. Confirmar con el solicitante.")
+                    has_address_error = True
+                else:
+                    registrar(fila, parent, 'REVISAR', 'CP vs Municipio/Ciudad', f"CP {zip_val} | Mun: {municipio_clean} | City: {city_raw_clean}",
+                              f"El Excel solo trae datos genéricos, no se puede comprobar el municipio. El CP corresponde a {an['municipio_oficial'] or 'varios municipios'}, {an['estado_oficial']}. No se modificó.")
+            else:
+                # Ubicación coherente con el CP -> estado y ciudad oficiales son verificables
+                if normalizar_texto(state_val) != normalizar_texto(an['estado_plantilla']):
+                    registrar(fila, parent, 'CORREGIDO', 'State', state_val, f"'{an['estado_plantilla']}' (según CP {zip_val})")
+                    state_val = an['estado_plantilla']
+                if city_val and normalizar_texto(city_val) != normalizar_texto(an['municipio_oficial']):
+                    registrar(fila, parent, 'CORREGIDO', 'City', city_val, f"'{an['municipio_oficial']}' (municipio oficial del CP {zip_val})")
+                    city_val = an['municipio_oficial']
+            if an['existe'] and an['colonia_ok'] is False:
+                sugerencia = (f" Aparece '{an['colonia_en_calle']}' en calle/número, que sí es colonia válida del CP."
+                              if an['colonia_en_calle'] else
+                              f" Colonias oficiales del CP: {', '.join(an['colonias'][:8])}{'...' if len(an['colonias']) > 8 else ''}.")
+                registrar(fila, parent, 'REVISAR', 'Colonia (Localidad)', addr2_val,
+                          "No coincide con ninguna colonia del catálogo para ese CP." + sugerencia + " No se modificó.")
 
         # 5. Validación de Dirección de Retorno en Envío de Ida (Outbound)
         if not is_return and not has_address_error:
@@ -537,6 +569,17 @@ def process_excel(input_path, output_path, default_declared_value=None):
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
         df_output.to_excel(writer, index=False, sheet_name='Import Orders')
         ws = writer.sheets['Import Orders']
+
+        # Hoja con lo que requiere intervención humana / lo corregido automáticamente
+        orden = {'ERROR': 0, 'REVISAR': 1, 'CORREGIDO': 2}
+        df_inc = pd.DataFrame(
+            sorted(incidencias, key=lambda x: (orden.get(x[2], 9), x[0])),
+            columns=['Fila Excel origen', 'Orden (RITM)', 'Tipo', 'Campo', 'Valor capturado', 'Detalle'],
+        )
+        df_inc.to_excel(writer, index=False, sheet_name='Incidencias')
+        ws_inc = writer.sheets['Incidencias']
+        for col_letter, ancho in zip('ABCDEF', [16, 16, 12, 24, 40, 110]):
+            ws_inc.column_dimensions[col_letter].width = ancho
         
         # 1. Estilo del header (fila 1)
         for c in range(1, len(techship_columns) + 1):

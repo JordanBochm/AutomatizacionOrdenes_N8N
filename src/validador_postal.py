@@ -128,6 +128,94 @@ class ValidadorPostal:
             "alerta": alerta
         }
 
+    # Nombre de estado con el que se escribe en la plantilla (los oficiales largos se acortan).
+    ESTADO_PLANTILLA = {
+        "MEXICO": "Estado de México",
+        "VERACRUZ DE IGNACIO DE LA LLAVE": "Veracruz",
+        "COAHUILA DE ZARAGOZA": "Coahuila",
+        "MICHOACAN DE OCAMPO": "Michoacán",
+    }
+
+    @staticmethod
+    def _sin_prefijo_colonia(texto):
+        t = normalizar_texto(texto)
+        return re.sub(r"^(COLONIA|COL|FRACCIONAMIENTO|FRACC|BARRIO|UNIDAD HABITACIONAL|U H)\s+", "", t)
+
+    def analizar(self, cp, candidatos_ubicacion, colonia=None, texto_calle=""):
+        """
+        Compara lo capturado en el Excel contra el catálogo SEPOMEX SIN inventar datos.
+
+        - Solo declara 'coherente' si el CP existe Y algún texto de ubicación del Excel
+          (Municipio, City, Localidad, State) coincide con el municipio oficial de ese CP.
+        - Estado/municipio oficiales se devuelven siempre para ese CP, pero quien llama
+          solo debe usarlos para corregir cuando 'coherente' es True.
+        Retorna dict: existe, coherente, estado_oficial, municipio_oficial,
+        colonia_ok, colonias (lista oficial), colonia_en_calle (colonia oficial hallada en calle/número).
+        """
+        base = {"existe": False, "coherente": False, "estado_oficial": None,
+                "municipio_oficial": None, "colonia_ok": None, "colonias": [],
+                "colonia_en_calle": None}
+        conn = self._get_conn()
+        if not conn:
+            return base
+        digits = re.sub(r"[^\d]", "", str(cp).split(".")[0])
+        if not digits:
+            return base
+        cp_clean = digits[-5:].zfill(5)
+        regs = conn.execute(
+            "SELECT DISTINCT colonia, municipio, estado FROM sepomex WHERE cp = ?", (cp_clean,)
+        ).fetchall()
+        if not regs:
+            return base
+
+        municipios = sorted({r[1] for r in regs})
+        estados = sorted({r[2] for r in regs})
+        colonias = sorted({r[0] for r in regs})
+        norm_mun = {normalizar_texto(m): m for m in municipios}
+
+        municipio_match = None
+        for texto in candidatos_ubicacion:
+            nt = normalizar_texto(texto)
+            if not nt:
+                continue
+            for nm, original in norm_mun.items():
+                if nt == nm or nm in nt or (len(nt) >= 5 and nt in nm):
+                    municipio_match = original
+                    break
+            if municipio_match:
+                break
+
+        colonia_ok = None
+        if colonia:
+            nc = self._sin_prefijo_colonia(colonia)
+            colonia_ok = bool(nc) and any(
+                nc == self._sin_prefijo_colonia(c)
+                or self._sin_prefijo_colonia(c) in nc
+                or (len(nc) >= 4 and nc in self._sin_prefijo_colonia(c))
+                for c in colonias
+            )
+
+        colonia_en_calle = None
+        ntexto = normalizar_texto(texto_calle)
+        if ntexto:
+            for c in colonias:
+                nc = self._sin_prefijo_colonia(c)
+                if len(nc) >= 4 and re.search(rf"\b{re.escape(nc)}\b", ntexto):
+                    colonia_en_calle = c
+                    break
+
+        estado_of = estados[0]
+        return {
+            "existe": True,
+            "coherente": municipio_match is not None and len(estados) == 1,
+            "estado_oficial": estado_of,
+            "estado_plantilla": self.ESTADO_PLANTILLA.get(normalizar_texto(estado_of), estado_of),
+            "municipio_oficial": municipio_match or (municipios[0] if len(municipios) == 1 else None),
+            "colonia_ok": colonia_ok,
+            "colonias": colonias,
+            "colonia_en_calle": colonia_en_calle,
+        }
+
     def close(self):
         if self._conn:
             self._conn.close()

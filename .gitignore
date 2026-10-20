@@ -24,3 +24,6 @@ data/input/*
 # Databases
 *.db
 *.sqlite3
+
+# Reportes diarios con datos personales
+/SCTASK_*.xlsx
