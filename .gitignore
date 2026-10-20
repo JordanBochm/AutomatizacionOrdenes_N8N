@@ -27,5 +27,7 @@ data/input/*
 
 # Reportes diarios y PDFs con datos personales (PII)
 /SCTASK_*.xlsx
+/Guias_Techship_*.xlsx
+/Auditoria_*.xlsx
 *.pdf
 !data/samples/*.pdf
