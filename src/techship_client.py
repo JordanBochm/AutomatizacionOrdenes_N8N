@@ -245,12 +245,18 @@ def convertir_fila_excel_a_payload(row):
             "Insurance": False
         }
         
-    # 5. Estructura InputOrder completa para Techship v3
+    # 5. Lote / Batch
+    batch_num = str(row.get('BatchNumber', '')).strip() if pd.notna(row.get('BatchNumber')) else ''
+    if not batch_num or batch_num.lower() == 'nan':
+        batch_num = f"MX_{datetime.date.today().strftime('%m-%d-%y')}"
+
+    # 6. Estructura InputOrder completa para Techship v3
     payload = {
         "ClientCode": str(row.get('ClientCode', CLIENT_CODE_KST)).strip().split('.')[0],
         "CustomerOrder": customer_order,
         "CustomerPO": str(row.get('CustomerPO', '')).strip() if pd.notna(row.get('CustomerPO')) else None,
         "CustomerNumber": str(row.get('CustomerNumber', '')).strip() if pd.notna(row.get('CustomerNumber')) else None,
+        "BatchNumber": batch_num,
         "Routing": routing,
         "ShipToAddress": ship_to,
         "ShipFromAddress": ship_from,
@@ -404,14 +410,69 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
         print(json.dumps(sample_return_payload, indent=2, ensure_ascii=False))
         print("\n" + "-"*55 + "\n")
         
+    exitos = 0
+    fallos = 0
+    
     if dry_run:
-        print("[MODO DRY-RUN ACTIVO]: No se envió ninguna llamada de creación real a Estafeta.")
-        print("Para enviar llamadas de prueba a la API de Techship con validación sin timbrado,")
-        print("puedes habilitar la bandera correspondiente cuando el flujo esté autorizado.\n")
+        print("[MODO DRY-RUN ACTIVO]: Probando simulación de creación vía API (sin timbrar cobro real)...")
+        for co, p in listas_para_envio:
+            ok, msg, res = crear_shipment_api(p, dry_run=True)
+            if ok:
+                exitos += 1
+                print(f"  [SIMULACIÓN OK] {co} -> Aceptada por Techship/Estafeta")
+            else:
+                fallos += 1
+                print(f"  [SIMULACIÓN ERROR] {co} -> {msg}")
+        print(f"\nResultado Simulación: {exitos} aceptadas, {fallos} con error.")
     else:
-        # En fase de producción real:
-        print("[MODO PRODUCCIÓN]: Enviando órdenes a Techship...")
-        # Aquí se ejecutará el loop de envío real en la siguiente fase
+        print("[MODO PRODUCCIÓN]: Enviando órdenes y timbrando guías reales con Estafeta vía API...")
+        for co, p in listas_para_envio:
+            ok, msg, res = crear_shipment_api(p, dry_run=False)
+            if ok:
+                exitos += 1
+                trk = res.get('Packages', [{}])[0].get('TrackingNumber') or res.get('TrackingNumber') or 'Generada'
+                print(f"  [TIMBRADA] {co} -> Guía: {trk}")
+            else:
+                fallos += 1
+                print(f"  [ERROR ENVÍO] {co} -> {msg}")
+        print(f"\nResultado Timbrado: {exitos} timbradas exitosamente, {fallos} errores.")
+
+    return {
+        "total": total_filas,
+        "listas": len(listas_para_envio),
+        "duplicados": len(ya_existentes),
+        "bloqueadas": len(bloqueadas_error),
+        "exitos": exitos,
+        "fallos": fallos
+    }
+
+
+def crear_shipment_api(payload, dry_run=False, timeout=30):
+    """
+    Crea y procesa un envío en Techship API v3 vía POST /api/v3/shipments/create.
+    Parámetros:
+      dry_run=True: Valida contra Estafeta sin registrar en base de datos ni timbrar cobro real.
+      dry_run=False: Genera la guía real de Estafeta y el PDF de la etiqueta.
+      
+    Retorna:
+      (exito: bool, mensaje: str, data: dict)
+    """
+    headers = get_auth_headers()
+    params = {
+        "dryRun": "true" if dry_run else "false",
+        "labelPdfConversion": "Enabled",
+        "duplicateHandling": "5"  # Si ya existe y está procesada devuelve la existente
+    }
+    url = f"{TECHSHIP_BASE_URL}/api/v3/shipments/create"
+    try:
+        r = requests.post(url, headers=headers, params=params, json=payload, timeout=timeout)
+        if r.status_code == 200:
+            res = r.json()
+            return True, "OK", res
+        else:
+            return False, f"HTTP {r.status_code}: {r.text[:250]}", None
+    except Exception as e:
+        return False, f"Error de conexión: {str(e)}", None
         
 
 def _fila_limite(ws):
