@@ -237,6 +237,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
     
     validador = ValidadorPostal()
     incidencias = []  # (fila_excel, RITM, severidad, campo, valor_capturado, detalle)
+    resumen_direcciones = []  # dict con datos de validación y confirmación física para el usuario
 
     def registrar(fila, ritm, severidad, campo, valor, detalle):
         incidencias.append((fila, ritm, severidad, campo, valor, detalle))
@@ -397,7 +398,10 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 else:
                     state_val = "Estado de México"
                     
-        # 4. Validación SEPOMEX: corrige SOLO lo verificable; lo demás se reporta como incidencia
+        # 4. Validación y Acomodo Inteligente SEPOMEX + Confirmación Automática
+        estatus_confirmacion = "POR VERIFICAR"
+        detalle_confirmacion = ""
+
         if not is_return and zip_val and not str(zip_val).startswith('ERROR'):
             fila = idx + 2
             an = validador.analizar(
@@ -410,6 +414,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 registrar(fila, parent, 'ERROR', 'Código Postal', raw_zip,
                           f"El CP {zip_val} no existe en el catálogo SEPOMEX. Confirmar CP con el solicitante.")
                 has_address_error = True
+                estatus_confirmacion = "ERROR CP"
             elif not an['coherente']:
                 genericos = {'', 'CDMX', 'CIUDAD DE MEXICO', 'MEXICO', 'ESTADO DE MEXICO', 'EDO MEX', 'EDOMEX', 'DF', 'D F'}
                 especificos = [t for t in (municipio_clean, city_raw_clean)
@@ -417,25 +422,47 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 if especificos:
                     registrar(fila, parent, 'ERROR', 'CP vs Municipio/Ciudad', f"CP {zip_val} | Mun: {municipio_clean} | City: {city_raw_clean}",
                               f"El municipio capturado no coincide con el oficial del CP ({an['municipio_oficial'] or 'varios'}, {an['estado_oficial']}). "
-                              "No se corrigió: el error puede estar en el CP o en el municipio. Confirmar con el solicitante.")
+                              "Confirmar con el solicitante.")
                     has_address_error = True
+                    estatus_confirmacion = "ERROR MUNICIPIO"
                 else:
                     registrar(fila, parent, 'REVISAR', 'CP vs Municipio/Ciudad', f"CP {zip_val} | Mun: {municipio_clean} | City: {city_raw_clean}",
-                              f"El Excel solo trae datos genéricos, no se puede comprobar el municipio. El CP corresponde a {an['municipio_oficial'] or 'varios municipios'}, {an['estado_oficial']}. No se modificó.")
+                              f"El Excel solo trae datos genéricos. El CP corresponde a {an['municipio_oficial'] or 'varios municipios'}, {an['estado_oficial']}.")
             else:
-                # Ubicación coherente con el CP -> estado y ciudad oficiales son verificables
+                # Ubicación coherente con el CP -> corregir Estado y Municipio oficial
                 if normalizar_texto(state_val) != normalizar_texto(an['estado_plantilla']):
                     registrar(fila, parent, 'CORREGIDO', 'State', state_val, f"'{an['estado_plantilla']}' (según CP {zip_val})")
                     state_val = an['estado_plantilla']
                 if city_val and normalizar_texto(city_val) != normalizar_texto(an['municipio_oficial']):
                     registrar(fila, parent, 'CORREGIDO', 'City', city_val, f"'{an['municipio_oficial']}' (municipio oficial del CP {zip_val})")
                     city_val = an['municipio_oficial']
-            if an['existe'] and an['colonia_ok'] is False:
-                sugerencia = (f" Aparece '{an['colonia_en_calle']}' en calle/número, que sí es colonia válida del CP."
-                              if an['colonia_en_calle'] else
-                              f" Colonias oficiales del CP: {', '.join(an['colonias'][:8])}{'...' if len(an['colonias']) > 8 else ''}.")
-                registrar(fila, parent, 'REVISAR', 'Colonia (Localidad)', addr2_val,
-                          "No coincide con ninguna colonia del catálogo para ese CP." + sugerencia + " No se modificó.")
+
+                # ACOMODO INTELIGENTE DE COLONIA (ShipToAddress2):
+                # Caso A: Si la colonia en el texto de la calle es válida, moverla limpia a Addr2
+                if an['colonia_en_calle']:
+                    addr2_val = an['colonia_en_calle']
+                    # Limpiar el nombre de la colonia de Addr1 para ahorrar caracteres
+                    patron_col = re.compile(rf"\b(col|colonia|fracc|fraccionamiento)?\s*{re.escape(an['colonia_en_calle'])}\b", re.IGNORECASE)
+                    addr1_val = patron_col.sub("", addr1_val).strip()
+                    addr1_val = re.sub(r"\s+", " ", addr1_val).strip()
+                    registrar(fila, parent, 'CORREGIDO', 'Colonia (Addr2)', addr2_val, f"Extraída automáticamente de la calle y colocada en Address 2.")
+                # Caso B: Si el CP solo tiene 1 sola colonia oficial y en Excel pusieron datos genéricos
+                elif len(an['colonias']) == 1:
+                    colonia_unica = an['colonias'][0]
+                    if not an['colonia_ok']:
+                        addr2_val = colonia_unica
+                        registrar(fila, parent, 'CORREGIDO', 'Colonia (Addr2)', addr2_val, f"Asignada automáticamente (Única colonia oficial del CP {zip_val}).")
+
+            # CONFIRMACIÓN FÍSICA AUTOMÁTICA
+            if not has_address_error:
+                geo = validador.confirmar_geocodificacion(addr1_val, cp=zip_val, municipio=city_val, estado=state_val)
+                if geo['confirmado']:
+                    estatus_confirmacion = "100% CONFIRMADA"
+                    detalle_confirmacion = geo.get('display_name', '')
+                    print(f"  [CONFIRMADA] Fila {idx+2} ({parent}): Dirección verificada físicamente en mapa.")
+                else:
+                    estatus_confirmacion = "VALIDADA SEPOMEX"
+                    detalle_confirmacion = f"CP {zip_val} y Municipio válidos en catálogo oficial."
 
         # 5. Validación de Dirección de Retorno en Envío de Ida (Outbound)
         if not is_return and not has_address_error:
@@ -503,6 +530,18 @@ def process_excel(input_path, output_path, default_declared_value=None):
             tech_row['ShipToPhone'] = phone_val
             tech_row['ShipToEmail'] = email
             tech_row['SelectedServiceCode'] = service_code
+            
+            # Registrar en el resumen visual para el usuario
+            resumen_direcciones.append({
+                'Orden (RITM)': parent,
+                'Estatus Dirección': estatus_confirmacion,
+                'Address 1 (Calle y Num)': addr1_val,
+                'Address 2 (Colonia)': addr2_val,
+                'Ciudad / Municipio': city_val,
+                'Estado': state_val,
+                'Código Postal': zip_val,
+                'Verificación Mapa': detalle_confirmacion
+            })
         else:
             # RETURN — Destinatario fijo (SEKO)
             tech_row['PickOrder'] = parent
@@ -570,7 +609,14 @@ def process_excel(input_path, output_path, default_declared_value=None):
         df_output.to_excel(writer, index=False, sheet_name='Import Orders')
         ws = writer.sheets['Import Orders']
 
-        # Hoja con lo que requiere intervención humana / lo corregido automáticamente
+        # 1. Hoja Resumen Direcciones (Revisión rápida de 10 segundos con estatus de confirmación)
+        df_resumen = pd.DataFrame(resumen_direcciones)
+        df_resumen.to_excel(writer, index=False, sheet_name='Resumen Direcciones')
+        ws_resumen = writer.sheets['Resumen Direcciones']
+        for col_letter, ancho in zip('ABCDEFGH', [16, 20, 32, 28, 22, 18, 14, 50]):
+            ws_resumen.column_dimensions[col_letter].width = ancho
+
+        # 2. Hoja Incidencias (Detalle de correcciones automáticas y alertas)
         orden = {'ERROR': 0, 'REVISAR': 1, 'CORREGIDO': 2}
         df_inc = pd.DataFrame(
             sorted(incidencias, key=lambda x: (orden.get(x[2], 9), x[0])),

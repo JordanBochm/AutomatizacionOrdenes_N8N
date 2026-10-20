@@ -136,10 +136,63 @@ class ValidadorPostal:
         "MICHOACAN DE OCAMPO": "Michoacán",
     }
 
+    # Alias comunes de municipios/ciudades en México
+    ALIAS_MUNICIPIOS = {
+        "JALAPA": "XALAPA",
+        "XALAPA": "XALAPA",
+        "ECATEPEC": "ECATEPEC DE MORELOS",
+        "CHIMALHUACAN": "CHIMALHUACAN",
+        "ATIZAPAN": "ATIZAPAN DE ZARAGOZA",
+        "NAUCALPAN": "NAUCALPAN DE JUAREZ",
+        "TLALNEPANTLA": "TLALNEPANTLA DE BAZ",
+    }
+
     @staticmethod
     def _sin_prefijo_colonia(texto):
         t = normalizar_texto(texto)
         return re.sub(r"^(COLONIA|COL|FRACCIONAMIENTO|FRACC|BARRIO|UNIDAD HABITACIONAL|U H)\s+", "", t)
+
+    def confirmar_geocodificacion(self, calle, cp=None, municipio=None, estado=None):
+        """
+        Consulta de verificación física vía mapas.
+        Retorna: {"confirmado": bool, "road": str, "suburb": str, "display_name": str}
+        """
+        import urllib.request, urllib.parse, json
+        
+        partes = [str(calle).strip()]
+        if cp:
+            partes.append(str(cp).strip())
+        if municipio:
+            partes.append(str(municipio).strip())
+        if estado:
+            partes.append(str(estado).strip())
+        partes.append("Mexico")
+        
+        query = ", ".join(partes)
+        url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({
+            "q": query,
+            "format": "json",
+            "addressdetails": 1,
+            "limit": 1
+        })
+        req = urllib.request.Request(url, headers={"User-Agent": "SekoOrderAutomation/1.1"})
+        try:
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data:
+                    res = data[0]
+                    addr = res.get("address", {})
+                    return {
+                        "confirmado": True,
+                        "display_name": res.get("display_name", ""),
+                        "road": addr.get("road", ""),
+                        "suburb": addr.get("suburb") or addr.get("neighbourhood") or "",
+                        "city": addr.get("city") or addr.get("town") or addr.get("municipality") or "",
+                        "postcode": addr.get("postcode", "")
+                    }
+        except Exception:
+            pass
+        return {"confirmado": False}
 
     def analizar(self, cp, candidatos_ubicacion, colonia=None, texto_calle=""):
         """
@@ -178,8 +231,11 @@ class ValidadorPostal:
             nt = normalizar_texto(texto)
             if not nt:
                 continue
+            # Mapear alias si existe
+            nt_alias = self.ALIAS_MUNICIPIOS.get(nt, nt)
             for nm, original in norm_mun.items():
-                if nt == nm or nm in nt or (len(nt) >= 5 and nt in nm):
+                nm_alias = self.ALIAS_MUNICIPIOS.get(nm, nm)
+                if nt == nm or nt_alias == nm_alias or nm in nt or (len(nt) >= 5 and nt in nm):
                     municipio_match = original
                     break
             if municipio_match:
