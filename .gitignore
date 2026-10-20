@@ -20,3 +20,12 @@ data/input/*
 # IDEs
 .vscode/
 .idea/
+
+# Databases
+*.db
+*.sqlite3
+
+# Reportes diarios y PDFs con datos personales (PII)
+/SCTASK_*.xlsx
+*.pdf
+!data/samples/*.pdf

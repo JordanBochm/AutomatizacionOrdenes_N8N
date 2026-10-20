@@ -117,31 +117,46 @@ def leer_guias(pdf_paths):
 # ---------------------------------------------------------------- Excel
 def _fila_limite(ws):
     """
-    Replica exactamente la logica de find_black_line_row de generar_guias_techship.py:
-    1. Busca una fila sin datos (vacia) con formato de relleno negro solido
-       (start_color '00000000', 8 o 'FF000000').
+    Replica exactamente la logica de find_black_line_row de generar_guias.py:
+    1. Busca una fila sin datos (vacia en columnas clave) con formato de relleno negro solido
+       (color RGB '00000000', 'FF000000', '000000', indexado 8/0 o theme oscuro).
     2. Si no hay linea negra, busca la primera fila completamente vacia.
     3. Si no hay ninguna fila vacia, procesa hasta ws.max_row + 1.
     """
-    max_c = ws.max_column
-    # Paso 1: Fila vacia con relleno negro solido
     for r in range(2, ws.max_row + 1):
-        row_cells = [ws.cell(row=r, column=c) for c in range(1, max_c + 1)]
+        row_cells = [ws.cell(row=r, column=c) for c in range(1, min(ws.max_column + 1, 10))]
         is_empty = all(cell.value is None or str(cell.value).strip() == "" for cell in row_cells)
-        if is_empty:
-            first_cell_fill = ws.cell(row=r, column=1).fill
-            if first_cell_fill and first_cell_fill.fill_type == "solid":
-                color_val = getattr(first_cell_fill.start_color, "value", None)
-                if color_val in ("00000000", 8, "FF000000"):
-                    return r
+        
+        has_black_fill = False
+        first_cell_fill = ws.cell(row=r, column=1).fill
+        if first_cell_fill and first_cell_fill.fill_type == "solid":
+            c = getattr(first_cell_fill, "start_color", None)
+            if c:
+                val = getattr(c, "value", None)
+                theme = getattr(c, "theme", None)
+                rgb = getattr(c, "rgb", None)
+                color_type = getattr(c, "type", None)
+                
+                if val in ("00000000", "FF000000", "000000", 8, "8", 0, "0"):
+                    has_black_fill = True
+                elif rgb in ("00000000", "FF000000", "000000"):
+                    has_black_fill = True
+                elif color_type == "theme" and theme in (0, 1):
+                    tint = getattr(c, "tint", 0.0)
+                    if tint in (0.0, None, -1.0):
+                        has_black_fill = True
+                        
+        if is_empty and has_black_fill:
+            return r
 
     # Paso 2: Primera fila completamente vacia
     for r in range(2, ws.max_row + 1):
-        row_cells = [ws.cell(row=r, column=c) for c in range(1, max_c + 1)]
+        row_cells = [ws.cell(row=r, column=c) for c in range(1, ws.max_column + 1)]
         if all(cell.value is None or str(cell.value).strip() == "" for cell in row_cells):
             return r
 
     return ws.max_row + 1
+
 
 
 def _es_reporte_crudo(path):
@@ -299,7 +314,8 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None, output_path=
             elif col_zip:
                 raw_zip = ws.cell(r, col_zip).value
                 if raw_zip not in (None, ""):
-                    esperado = str(raw_zip).strip().split(".")[0].zfill(5)
+                    digits = re.sub(r'[^\d]', '', str(raw_zip).split('.')[0])
+                    esperado = digits[-5:].zfill(5) if digits else None
                 else:
                     esperado = None
             else:
