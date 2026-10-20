@@ -760,6 +760,21 @@ def detect_files(input_target=None, output_target=None):
     return archivo_entrada, archivo_salida
 
 
+def generar_guias(input_target=None, output_target=None):
+    """
+    Función de entrada para el pipeline maestro y automatizaciones externas.
+    Procesa el archivo SCTASK y genera la plantilla oficial de Techship (61 columnas)
+    junto con la auditoría de validación SEPOMEX.
+    
+    Retorna:
+        str: Ruta al archivo Excel generado (Guias_Techship_Importada_*.xlsx)
+    """
+    archivo_entrada, archivo_salida = detect_files(input_target, output_target)
+    process_excel(archivo_entrada, archivo_salida)
+    return archivo_salida
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Procesa reporte de órdenes y genera plantilla para Techship.")
     parser.add_argument("--input", "-i", help="Ruta del archivo o carpeta de entrada (.xlsx)")
