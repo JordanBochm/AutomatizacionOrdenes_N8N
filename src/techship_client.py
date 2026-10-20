@@ -20,19 +20,35 @@ import os
 import sys
 import copy
 import json
+import base64
+import re
+import datetime
 import argparse
 from pathlib import Path
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+import openpyxl
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import TableColumn
 
 # Cargar variables de entorno desde .env
 load_dotenv()
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TECHSHIP_API_KEY = os.getenv("TECHSHIP_API_KEY")
 TECHSHIP_API_SECRET = os.getenv("TECHSHIP_API_SECRET")
 TECHSHIP_BASE_URL = os.getenv("TECHSHIP_BASE_URL", "https://api-us.techship.io").rstrip("/")
 CLIENT_CODE_KST = os.getenv("TECHSHIP_CLIENT_CODE", "11")
+
+CP_SEKO = "52030"
+ANCHOS_CIERRE = {
+    "A": 19.6, "B": 15.6, "C": 18.6, "D": 16.7, "E": 13.6, "F": 26.0,
+    "G": 38.2, "H": 25.7, "I": 39.1, "J": 13.0, "K": 29.9, "L": 29.1
+}
+RELLENO_ERROR = PatternFill("solid", fgColor="FFC7CE")
+FUENTE_ERROR = Font(color="9C0006", bold=True)
 
 # Domicilio Oficial de Seko Lerma para los Retornos (-1)
 SEKO_LERMA_ADDRESS = {
@@ -396,15 +412,282 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
         # Aquí se ejecutará el loop de envío real en la siguiente fase
         
 
+def _fila_limite(ws):
+    """
+    Detecta la línea negra o la primera fila vacía en la hoja Combined Report.
+    """
+    for r in range(2, ws.max_row + 1):
+        row_cells = [ws.cell(row=r, column=c) for c in range(1, min(ws.max_column + 1, 10))]
+        is_empty = all(cell.value is None or str(cell.value).strip() == "" for cell in row_cells)
+        
+        has_black_fill = False
+        first_cell_fill = ws.cell(row=r, column=1).fill
+        if first_cell_fill and first_cell_fill.fill_type == "solid":
+            c = getattr(first_cell_fill, "start_color", None)
+            if c:
+                val = getattr(c, "value", None)
+                theme = getattr(c, "theme", None)
+                rgb = getattr(c, "rgb", None)
+                color_type = getattr(c, "type", None)
+                if val in ("00000000", "FF000000", "000000", 8, "8", 0, "0"):
+                    has_black_fill = True
+                elif rgb in ("00000000", "FF000000", "000000"):
+                    has_black_fill = True
+                elif color_type == "theme" and theme in (0, 1):
+                    tint = getattr(c, "tint", 0.0)
+                    if tint in (0.0, None, -1.0):
+                        has_black_fill = True
+                        
+        if is_empty and has_black_fill:
+            return r
+
+    for r in range(2, ws.max_row + 1):
+        row_cells = [ws.cell(row=r, column=c) for c in range(1, ws.max_column + 1)]
+        if all(cell.value is None or str(cell.value).strip() == "" for cell in row_cells):
+            return r
+
+    return ws.max_row + 1
+
+
+def obtener_tracking_api(customer_order, client_code=CLIENT_CODE_KST, timeout=10):
+    """
+    Consulta en la API de Techship una orden específica y extrae:
+      - tracking22: Guía de 22 caracteres (Packages[0].TrackingNumber)
+      - tracking10: Código de rastreo de 10 dígitos (del ZPL de la etiqueta)
+      - cp_dest: Código postal de entrega registrado en Techship
+      - status: Estatus de la orden en Techship
+      - shipment_id: ID interno del envío
+    """
+    headers = get_auth_headers()
+    order_str = str(customer_order).strip()
+    candidatos = [order_str]
+    if order_str.startswith("KYNDRYL_"):
+        candidatos.append(order_str.replace("KYNDRYL_", ""))
+    else:
+        candidatos.append(f"KYNDRYL_{order_str}")
+        
+    for cand in candidatos:
+        url = f"{TECHSHIP_BASE_URL}/api/v3/shipments"
+        params = {"clientCode": client_code, "customerOrder": cand}
+        try:
+            r = requests.get(url, headers=headers, params=params, timeout=timeout)
+            if r.status_code == 200:
+                shipments = r.json()
+                if isinstance(shipments, list) and len(shipments) > 0:
+                    s_id = shipments[0].get("Id")
+                    status = shipments[0].get("Status")
+                    # Consultar detalle completo
+                    r_det = requests.get(f"{TECHSHIP_BASE_URL}/api/v3/shipments/{s_id}", headers=headers, timeout=timeout)
+                    if r_det.status_code == 200:
+                        det = r_det.json()
+                        packages = det.get("Packages", [])
+                        trk22 = None
+                        trk10 = None
+                        if packages:
+                            p0 = packages[0]
+                            trk22 = p0.get("TrackingNumber")
+                            labels = p0.get("Labels", [])
+                            if labels:
+                                lbl_b64 = labels[0].get("Label", "")
+                                try:
+                                    zpl = base64.b64decode(lbl_b64).decode("utf-8", errors="ignore")
+                                    m = re.search(r'CODIGO DE RASTREO.*?\^FD(\d{10})\^FS', zpl, re.DOTALL)
+                                    if m:
+                                        trk10 = m.group(1)
+                                except Exception:
+                                    pass
+                        cp_dest = det.get("ShipToAddress", {}).get("Postal")
+                        return trk22, trk10, cp_dest, status, s_id
+        except Exception:
+            pass
+            
+    return None, None, None, None, None
+
+
+def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_code=CLIENT_CODE_KST):
+    """
+    Lee el archivo SCTASK original (Combined Report), consulta vía API en Techship
+    las guías de 22 caracteres y códigos de 10 dígitos, valida CPs, y genera el
+    archivo Cierre_DD_Mes_AAAA.xlsx idéntico a asignar_tracking.py pero 100% por API.
+    """
+    if not sctask_path:
+        candidatos = sorted((PROJECT_ROOT / "data" / "input").glob("SCTASK_*.xlsx"), key=os.path.getmtime, reverse=True)
+        if not candidatos:
+            candidatos = sorted((PROJECT_ROOT / "data" / "samples").glob("SCTASK_*.xlsx"), key=os.path.getmtime, reverse=True)
+        if candidatos:
+            sctask_path = str(candidatos[0])
+        else:
+            raise FileNotFoundError("No se encontró ningún reporte SCTASK_*.xlsx en data/input/ ni data/samples/")
+            
+    print(f"\n=======================================================")
+    print(f"  SINCRONIZACIÓN DE TRACKINGS VÍA API TECHSHIP V3      ")
+    print(f"=======================================================")
+    print(f"Reporte de entrada  : {sctask_path}")
+    print(f"Servidor API        : {TECHSHIP_BASE_URL}")
+    print(f"Cliente Code        : {client_code} (KST)")
+    print(f"-------------------------------------------------------")
+    
+    wb = openpyxl.load_workbook(sctask_path)
+    if "Combined Report" not in wb.sheetnames:
+        raise ValueError(f"La hoja 'Combined Report' no existe en {sctask_path}")
+        
+    ws = wb["Combined Report"]
+    
+    # Mapear encabezados
+    encabezados = {}
+    for col_idx in range(1, ws.max_column + 1):
+        v = ws.cell(1, col_idx).value
+        if v is not None:
+            encabezados[str(v).strip().lower()] = col_idx
+            
+    if "parent" not in encabezados:
+        raise ValueError("Columna 'Parent' no encontrada en la hoja 'Combined Report'.")
+        
+    col_parent = encabezados["parent"]
+    col_zip = encabezados.get("zip / postal code")
+    col_serial = encabezados.get("ticket age") or encabezados.get("serial number") or 6
+    col_tracking = encabezados.get("dispatched in 360?") or encabezados.get("tracking number") or 7
+    
+    limite = _fila_limite(ws)
+    total_ordenes = limite - 2
+    print(f"Filas con datos detectadas antes de la línea negra: {total_ordenes}")
+    
+    asignadas = 0
+    sin_match = []
+    cp_dudosos = []
+    detalle_filas = []
+    
+    for r in range(2, limite):
+        parent_val = ws.cell(r, col_parent).value
+        if parent_val in (None, ""):
+            continue
+        parent = str(parent_val).strip()
+        es_retorno = parent.endswith("-1")
+        
+        celda_serial = ws.cell(r, col_serial)
+        celda_trk = ws.cell(r, col_tracking)
+        celda_serial.value = None
+        
+        # Consultar en Techship API
+        trk22, trk10, cp_dest, status, s_id = obtener_tracking_api(parent, client_code=client_code)
+        
+        if trk22 or trk10:
+            val_final = trk22 if trk22 else trk10
+            celda_trk.value = str(val_final)
+            celda_trk.number_format = "@"
+            asignadas += 1
+            detalle_filas.append((parent, val_final, trk10, cp_dest))
+            print(f"  [OK] Fila {r-1}: {parent} -> Guía: {val_final} (Rastreo 10: {trk10})")
+            
+            # Validación de Código Postal
+            if es_retorno:
+                esperado = CP_SEKO
+            elif col_zip:
+                raw_zip = ws.cell(r, col_zip).value
+                if raw_zip not in (None, ""):
+                    digits = re.sub(r'[^\d]', '', str(raw_zip).split('.')[0])
+                    esperado = digits[-5:].zfill(5) if digits else None
+                else:
+                    esperado = None
+            else:
+                esperado = None
+                
+            if esperado and cp_dest and str(cp_dest).strip() != esperado:
+                cp_dudosos.append((parent, esperado, cp_dest))
+                print(f"    [ALERTA CP] {parent}: CP SCTASK ({esperado}) vs CP Techship ({cp_dest})")
+        else:
+            celda_trk.value = "ERROR: Tracking no encontrado en Techship"
+            celda_trk.fill = RELLENO_ERROR
+            celda_trk.font = FUENTE_ERROR
+            sin_match.append(parent)
+            print(f"  [ERROR] Fila {r-1}: {parent} -> No se encontró en Techship")
+
+    # Renombrar columnas clave
+    ws.cell(1, col_serial).value = "Serial Number"
+    ws.cell(1, col_tracking).value = "Tracking Number"
+    
+    # Eliminar filas después del límite
+    if limite <= ws.max_row:
+        ws.delete_rows(limite, ws.max_row - limite + 1)
+        
+    # Dejar exactamente las 12 columnas oficiales de Cierre
+    COLUMNAS_DESEADAS = [
+        "parent", "request", "ship", "state", "created",
+        "serial number", "tracking number", "product number", "product description",
+        "assignment group", "recipient first name", "recipient last name"
+    ]
+    for c in range(ws.max_column, 0, -1):
+        nombre_col = str(ws.cell(1, c).value or "").strip().lower()
+        if nombre_col not in COLUMNAS_DESEADAS:
+            ws.delete_cols(c, 1)
+            
+    # Limpiar reglas y tablas
+    ws.conditional_formatting._cf_rules.clear()
+    for t in list(ws.tables.values()):
+        t.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+        if t.autoFilter:
+            t.autoFilter.ref = t.ref
+        t.tableColumns = [TableColumn(id=i, name=str(ws.cell(1, i).value)) for i in range(1, ws.max_column + 1)]
+        t.sortState = None
+        
+    ws.freeze_panes = "A2"
+    ws.column_dimensions.clear()
+    for col, ancho in ANCHOS_CIERRE.items():
+        ws.column_dimensions[col].width = ancho
+        
+    # Guardar archivo de cierre con nombre oficial
+    now = datetime.date.today()
+    meses_es = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+    nombre_salida = f"Cierre_{now.day}_{meses_es[now.month - 1]}_{now.year}.xlsx"
+    
+    if output_path:
+        salida = output_path if not os.path.isdir(output_path) else os.path.join(output_path, nombre_salida)
+    else:
+        out_dir = PROJECT_ROOT / "data" / "output"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        salida = str(out_dir / nombre_salida)
+        
+    try:
+        wb.save(salida)
+    except PermissionError:
+        # Si está abierto en Excel, intentar con sufijo numérico
+        salida = str(Path(salida).with_name(f"Cierre_{now.day}_{meses_es[now.month - 1]}_{now.year}_API.xlsx"))
+        wb.save(salida)
+        
+    print(f"\n=======================================================")
+    print(f"                 RESUMEN DE CIERRE                    ")
+    print(f"=======================================================")
+    print(f"  Archivo generado   : {salida}")
+    print(f"  Filas procesadas   : {ws.max_row - 1}")
+    print(f"  Trackings asignados: {asignadas}/{total_ordenes}")
+    if sin_match:
+        print(f"  Sin guía ({len(sin_match)}): {', '.join(sin_match)}")
+    if cp_dudosos:
+        print(f"  Alertas de CP ({len(cp_dudosos)}):")
+        for p, esp, real in cp_dudosos:
+            print(f"    * {p}: Esperado {esp} vs Registrado {real}")
+    print(f"=======================================================\n")
+    return salida
+
+
 def main():
     parser = argparse.ArgumentParser(description="Cliente API Techship v3 para automatización de guías Estafeta.")
     parser.add_argument("-i", "--input", help="Ruta al archivo Excel de órdenes (Guias_Techship_Importada_*.xlsx).")
     parser.add_argument("-a", "--audit", help="Ruta al archivo de Auditoría (Auditoria_Direcciones_*.xlsx).")
+    parser.add_argument("-e", "--sctask", help="Ruta al archivo SCTASK original para sincronizar cierre.")
+    parser.add_argument("--sync-tracking", action="store_true", help="Sincroniza números de guía desde Techship API y genera el archivo Cierre_*.xlsx.")
     parser.add_argument("--dry-run", action="store_true", default=True, help="Ejecutar en modo simulación segura sin timbrar (default: True).")
     parser.add_argument("--live", action="store_true", help="Ejecutar en modo real de producción con timbrado en Estafeta.")
     
     args = parser.parse_args()
     
+    if args.sync_tracking:
+        sincronizar_tracking_desde_api(sctask_path=args.sctask)
+        return
+        
     input_file = args.input
     if not input_file:
         # Auto-detectar en data/output/
