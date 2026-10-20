@@ -202,16 +202,31 @@ def main():
     
     input_file = args.input
     if not input_file:
-        # Auto-detectar el reporte más reciente en data/input o data/samples
-        candidatos = sorted((PROJECT_ROOT / "data" / "input").glob("SCTASK_*.xlsx"), key=os.path.getmtime, reverse=True)
-        if not candidatos:
-            candidatos = sorted((PROJECT_ROOT / "data" / "samples").glob("SCTASK_*.xlsx"), key=os.path.getmtime, reverse=True)
+        # 1. Buscar en data/input cualquier archivo SCTASK o Excel crudo
+        candidatos = []
+        for carpeta in [PROJECT_ROOT / "data" / "input", PROJECT_ROOT / "data" / "samples"]:
+            if not carpeta.exists():
+                continue
+            for f in carpeta.glob("*.xlsx"):
+                nombre = f.name
+                # Descartar archivos temporales de Excel o salidas ya generadas
+                if nombre.startswith("~$") or "Guias_Techship" in nombre or nombre.startswith("Auditoria_") or nombre.startswith("Cierre_"):
+                    continue
+                candidatos.append(f)
+            if candidatos:
+                break
+                
         if candidatos:
+            # Tomar el más reciente según fecha de modificación
+            candidatos.sort(key=lambda x: x.stat().st_mtime, reverse=True)
             input_file = str(candidatos[0])
-            print(f"[AUTO-DETECT] Usando reporte más reciente: {input_file}")
+            print(f"[AUTO-DETECT] Usando reporte detectado: {candidatos[0].name}")
         else:
-            print("Error: No se especificó el archivo de entrada (-i) y no se encontró ningún SCTASK_*.xlsx en data/input/ ni data/samples/")
+            print("\n[ERROR] No se especificó el archivo (-i) y no se encontró ningún archivo Excel en data/input/")
+            print("Coloca tu archivo en la carpeta 'data/input/' o indica su ruta con:")
+            print("  python main.py -i \"ruta/a/tu_archivo.xlsx\"\n")
             sys.exit(1)
+
             
     is_live = bool(args.live and not args.dry_run)
     ejecutar_pipeline(
