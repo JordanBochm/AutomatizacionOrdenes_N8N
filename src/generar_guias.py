@@ -232,8 +232,12 @@ def process_excel(input_path, output_path, default_declared_value=None):
         incidencias.append((fila, ritm, severidad, campo, valor, detalle))
         print(f"  [{severidad}] Fila {fila} ({ritm}) | {campo}: '{valor}' -> {detalle}")
     
-    # ── Columnas basadas en File_Template_NewInsurance.xlsx + ShipToCompany (requerido por Estafeta) ──
-    # Total: 49 columnas (A–AW).
+    # ── Columnas basadas en File_Template_NewInsurance.xlsx + ShipToCompany + ShipFrom (A–BI) ──
+    # Se agrega ShipToCompany (col I) porque la API de Estafeta exige 'corporateName' != null.
+    # Se agregan las columnas ShipFrom* + HasShipFromAddress (AX–BI) para que en los retornos (-1)
+    # el remitente sea el empleado; sin ellas Techship usa el origen por defecto de la cuenta (SEKO)
+    # y la guía queda SEKO -> SEKO.
+    # Total: 61 columnas (A–BI).
     techship_columns = [
         'ClientCode', 'PickOrder', 'Sequence', 'CustomerOrder', 'CustomerPO',        # A–E
         'CustomerNumber', 'Terms', 'Volume',                                          # F–H
@@ -251,7 +255,12 @@ def process_excel(input_path, output_path, default_declared_value=None):
         'Package 3 - Weight', 'Package 3 - Height', 'Package 3 - Width', 'Package 3 - Length',   # AL–AO
         'Package 4 - Weight', 'Package 4 - Height', 'Package 4 - Width', 'Package 4 - Length',   # AP–AS
         'Package 5 - Weight', 'Package 5 - Height', 'Package 5 - Width', 'Package 5 - Length',   # AT–AW
+        'ShipFromAddress1', 'ShipFromAddress2', 'ShipFromAddress3',                   # AX–AZ
+        'ShipFromCity', 'ShipFromState', 'ShipFromZip', 'ShipFromCountry',            # BA–BD
+        'ShipFromCompany', 'ShipFromName', 'ShipFromPhone', 'ShipFromEmail',          # BE–BH
+        'HasShipFromAddress',                                                         # BI
     ]
+
     
     output_rows = []
     
@@ -497,6 +506,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
             tech_row['ShipToPhone'] = phone_val
             tech_row['ShipToEmail'] = email
             tech_row['SelectedServiceCode'] = service_code
+            tech_row['HasShipFromAddress'] = False
             
             resumen_direcciones.append({
                 'Orden (RITM)': parent,
@@ -516,6 +526,20 @@ def process_excel(input_path, output_path, default_declared_value=None):
             for key, val in seko_address.items():
                 tech_row[key] = val
             tech_row['SelectedServiceCode'] = service_code
+            tech_row['HasShipFromAddress'] = True
+            
+            # Remitente (ShipFrom) = empleado con dirección validada
+            tech_row['ShipFromAddress1'] = addr1_val
+            tech_row['ShipFromAddress2'] = addr2_val
+            tech_row['ShipFromAddress3'] = None
+            tech_row['ShipFromCity'] = city_val
+            tech_row['ShipFromState'] = state_val
+            tech_row['ShipFromZip'] = zip_val
+            tech_row['ShipFromCountry'] = 'MX'
+            tech_row['ShipFromCompany'] = full_name
+            tech_row['ShipFromName'] = full_name
+            tech_row['ShipFromPhone'] = phone_val
+            tech_row['ShipFromEmail'] = email
             
             # Registrar el domicilio del empleado de origen en Resumen Direcciones para auditoría de recolección
             resumen_direcciones.append({
@@ -532,6 +556,34 @@ def process_excel(input_path, output_path, default_declared_value=None):
             })
             
         output_rows.append(tech_row)
+
+    # ── Completar ShipFrom de los retornos (-1) con la orden de ida correspondiente si existe ──
+    shipfrom_map = {
+        'ShipFromAddress1': 'ShipToAddress1',
+        'ShipFromAddress2': 'ShipToAddress2',
+        'ShipFromAddress3': 'ShipToAddress3',
+        'ShipFromCity': 'City',
+        'ShipFromState': 'State',
+        'ShipFromZip': 'Zip',
+        'ShipFromCompany': 'ShipToCompany',
+        'ShipFromName': 'ShipToName',
+        'ShipFromPhone': 'ShipToPhone',
+        'ShipFromEmail': 'ShipToEmail',
+    }
+    outbound_by_parent = {
+        r['CustomerOrder']: r for r in output_rows if not str(r['CustomerOrder']).endswith('-1')
+    }
+    for r in output_rows:
+        parent = str(r['CustomerOrder'])
+        if not parent.endswith('-1'):
+            continue
+        outbound = outbound_by_parent.get(parent[:-2])
+        if outbound is not None:
+            for dst, src in shipfrom_map.items():
+                if outbound.get(src) is not None:
+                    r[dst] = outbound.get(src)
+            r['ShipFromCountry'] = 'MX'
+            r['HasShipFromAddress'] = True
         
     # ── Crear DataFrame y formatear tipos de datos ──
     df_output = pd.DataFrame(output_rows, columns=techship_columns)
@@ -543,6 +595,9 @@ def process_excel(input_path, output_path, default_declared_value=None):
         'ServiceCodeDescription', 'DeclaredValueType',
         'SignatureAdult', 'SignatureRequired', 'DoNotSafeDrop',
         'CollectOnDeliveryMethod',
+        'ShipFromAddress1', 'ShipFromAddress2', 'ShipFromAddress3',
+        'ShipFromCity', 'ShipFromState', 'ShipFromZip', 'ShipFromCountry',
+        'ShipFromCompany', 'ShipFromName', 'ShipFromPhone', 'ShipFromEmail',
     ]
     for col in str_columns:
         if col in df_output.columns:
@@ -575,29 +630,12 @@ def process_excel(input_path, output_path, default_declared_value=None):
     COLS_SHIPTO_DATA = [2, 4, 5, 9, 10, 11, 12, 14, 15, 17, 18, 19]
     COLS_SHIPTO_RETURN = list(range(9, 20))
     COLS_SERVICE_INS_PKG = list(range(21, 50))
+    COLS_SHIPFROM = list(range(50, 62))
     
+    # ── Exportar archivo Techship principal (Hoja ÚNICA 'Import Orders' de 61 columnas) ──
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-        # 1. Hoja Import Orders (Techship 49 columnas A–AW)
         df_output.to_excel(writer, index=False, sheet_name='Import Orders')
         ws = writer.sheets['Import Orders']
-
-        # 2. Hoja Resumen Direcciones (Dashboard de 10 segundos con semáforo y estatus físico)
-        df_resumen = pd.DataFrame(resumen_direcciones)
-        df_resumen.to_excel(writer, index=False, sheet_name='Resumen Direcciones')
-        ws_resumen = writer.sheets['Resumen Direcciones']
-        for col_letter, ancho in zip('ABCDEFGHIJ', [18, 26, 32, 34, 28, 22, 18, 14, 16, 55]):
-            ws_resumen.column_dimensions[col_letter].width = ancho
-
-        # 3. Hoja Incidencias (Bitácora de auditoría priorizada)
-        orden = {'ERROR': 0, 'REVISAR': 1, 'CORREGIDO': 2}
-        df_inc = pd.DataFrame(
-            sorted(incidencias, key=lambda x: (orden.get(x[2], 9), x[0])),
-            columns=['Fila Excel origen', 'Orden (RITM)', 'Tipo', 'Campo', 'Valor capturado', 'Detalle'],
-        )
-        df_inc.to_excel(writer, index=False, sheet_name='Incidencias')
-        ws_inc = writer.sheets['Incidencias']
-        for col_letter, ancho in zip('ABCDEF', [16, 16, 12, 24, 40, 110]):
-            ws_inc.column_dimensions[col_letter].width = ancho
         
         # Estilos visuales de Import Orders
         for c in range(1, len(techship_columns) + 1):
@@ -624,6 +662,8 @@ def process_excel(input_path, output_path, default_declared_value=None):
                         cell.fill = FILL_GRAY
                 elif c in COLS_SERVICE_INS_PKG:
                     cell.fill = FILL_LIGHT_GREEN
+                elif c in COLS_SHIPFROM and is_ret:
+                    cell.fill = FILL_GRAY
         
         # Auto-ajuste de anchos en Import Orders
         for col_idx, col_name in enumerate(df_output.columns, 1):
@@ -633,9 +673,36 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 if val_len > max_len:
                     max_len = val_len
             ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = max_len + 2
+
+    # ── Exportar archivo de Auditoría complementario (Resumen Direcciones e Incidencias) ──
+    audit_name = os.path.basename(output_path)
+    if audit_name.startswith("Guias_Techship_Importada_"):
+        audit_name = audit_name.replace("Guias_Techship_Importada_", "Auditoria_Direcciones_")
+    else:
+        audit_name = f"Auditoria_{audit_name}"
+    audit_path = str(Path(output_path).parent / audit_name)
     
-    print(f"Exportación exitosa. Archivo generado en: {output_path}")
+    with pd.ExcelWriter(audit_path, engine='openpyxl') as writer_audit:
+        df_resumen = pd.DataFrame(resumen_direcciones)
+        df_resumen.to_excel(writer_audit, index=False, sheet_name='Resumen Direcciones')
+        ws_resumen = writer_audit.sheets['Resumen Direcciones']
+        for col_letter, ancho in zip('ABCDEFGHIJ', [18, 26, 32, 34, 28, 22, 18, 14, 16, 55]):
+            ws_resumen.column_dimensions[col_letter].width = ancho
+
+        orden = {'ERROR': 0, 'REVISAR': 1, 'CORREGIDO': 2}
+        df_inc = pd.DataFrame(
+            sorted(incidencias, key=lambda x: (orden.get(x[2], 9), x[0])),
+            columns=['Fila Excel origen', 'Orden (RITM)', 'Tipo', 'Campo', 'Valor capturado', 'Detalle'],
+        )
+        df_inc.to_excel(writer_audit, index=False, sheet_name='Incidencias')
+        ws_inc = writer_audit.sheets['Incidencias']
+        for col_letter, ancho in zip('ABCDEF', [16, 16, 12, 24, 40, 110]):
+            ws_inc.column_dimensions[col_letter].width = ancho
+    
+    print(f"Exportación Techship exitosa (61 columnas, hoja única): {output_path}")
+    print(f"Auditoría complementaria generada: {audit_path}")
     print(f"Proceso terminado. {total_processed} registros procesados, {records_with_errors} registros contienen errores.")
+
 
 
 def detect_files(input_target=None, output_target=None):
