@@ -3,6 +3,10 @@ import re
 import pandas as pd
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
+try:
+    from validador_postal import ValidadorPostal
+except ImportError:
+    from src.validador_postal import ValidadorPostal
 
 def clean_text_encoding(text):
     """
@@ -30,15 +34,15 @@ def clean_text_encoding(text):
 def format_zip_code(zip_val):
     """
     Formatea el código postal para asegurar que sea un string de exactamente 5 dígitos.
-    Resuelve el problema de que Excel elimine los ceros a la izquierda y agregue decimales (.0).
+    Resuelve el problema de que Excel elimine los ceros a la izquierda, agregue decimales (.0)
+    o traiga prefijos como 'CP 01219'.
     """
     if pd.isna(zip_val):
         return ""
-    try:
-        numeric_zip = int(float(zip_val))
-        return f"{numeric_zip:05d}"
-    except (ValueError, TypeError):
-        return str(zip_val).strip().split('.')[0].zfill(5)
+    digits = re.sub(r'[^\d]', '', str(zip_val).split('.')[0])
+    if digits:
+        return digits[-5:].zfill(5)
+    return ""
 
 def format_phone_number(phone_val):
     """
@@ -231,6 +235,8 @@ def process_excel(input_path, output_path, default_declared_value=None):
         
     print(f"Registros cargados para procesar: {len(df_raw)}")
     
+    validador = ValidadorPostal()
+    
     # ── Columnas basadas en File_Template_NewInsurance.xlsx + ShipToCompany (requerido por Estafeta) ──
     # Se agrega ShipToCompany (col I) porque la API de Estafeta exige 'corporateName' != null.
     # Total: 49 columnas (A–AW).
@@ -386,7 +392,20 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 else:
                     state_val = "Estado de México"
                     
-        # 4. Validación de Dirección de Retorno en Envío de Ida (Outbound)
+        # 4. Validación SEPOMEX (Código Postal y Estado oficial)
+        if not is_return and zip_val and not str(zip_val).startswith('ERROR'):
+            validacion_cp = validador.validar_direccion(
+                cp=zip_val,
+                estado=state_val,
+                municipio=city_val,
+                colonia=addr2_val
+            )
+            if not validacion_cp['cp_valido']:
+                print(f"  [ALERTA SEPOMEX] Fila {idx+2} ({parent}): {validacion_cp['alerta']}")
+            elif validacion_cp['alerta']:
+                print(f"  [AVISO SEPOMEX] Fila {idx+2} ({parent}): {validacion_cp['alerta']}")
+
+        # 5. Validación de Dirección de Retorno en Envío de Ida (Outbound)
         if not is_return and not has_address_error:
             street_lower = street_clean.lower()
             # Si contiene 'lerma' y ('av', '1c', o 'seko'), o si el CP es 52030 (SEKO) y la calle contiene 'lerma'

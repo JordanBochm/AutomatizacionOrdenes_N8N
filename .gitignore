@@ -20,3 +20,7 @@ data/input/*
 # IDEs
 .vscode/
 .idea/
+
+# Databases
+*.db
+*.sqlite3

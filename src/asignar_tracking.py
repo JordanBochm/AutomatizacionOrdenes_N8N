@@ -299,7 +299,8 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None, output_path=
             elif col_zip:
                 raw_zip = ws.cell(r, col_zip).value
                 if raw_zip not in (None, ""):
-                    esperado = str(raw_zip).strip().split(".")[0].zfill(5)
+                    digits = re.sub(r'[^\d]', '', str(raw_zip).split('.')[0])
+                    esperado = digits[-5:].zfill(5) if digits else None
                 else:
                     esperado = None
             else:
