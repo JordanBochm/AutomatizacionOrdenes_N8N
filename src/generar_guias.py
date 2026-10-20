@@ -3,6 +3,25 @@ import re
 import pandas as pd
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
+from pathlib import Path
+import argparse
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+try:
+    from validador_postal import (
+        ValidadorPostal,
+        normalizar_texto,
+        validar_y_limpiar_telefono,
+        formatear_direccion_inteligente,
+    )
+except ImportError:
+    from src.validador_postal import (
+        ValidadorPostal,
+        normalizar_texto,
+        validar_y_limpiar_telefono,
+        formatear_direccion_inteligente,
+    )
 
 def clean_text_encoding(text):
     """
@@ -30,37 +49,22 @@ def clean_text_encoding(text):
 def format_zip_code(zip_val):
     """
     Formatea el código postal para asegurar que sea un string de exactamente 5 dígitos.
-    Resuelve el problema de que Excel elimine los ceros a la izquierda y agregue decimales (.0).
+    Resuelve el problema de que Excel elimine los ceros a la izquierda, agregue decimales (.0)
+    o traiga prefijos como 'CP 01219'.
     """
     if pd.isna(zip_val):
         return ""
-    try:
-        numeric_zip = int(float(zip_val))
-        return f"{numeric_zip:05d}"
-    except (ValueError, TypeError):
-        return str(zip_val).strip().split('.')[0].zfill(5)
+    digits = re.sub(r'[^\d]', '', str(zip_val).split('.')[0])
+    if digits:
+        return digits[-5:].zfill(5)
+    return ""
 
 def format_phone_number(phone_val):
     """
-    Limpia y formatea el número de teléfono móvil/fijo a 10 dígitos.
-    Elimina el prefijo internacional '+52' y caracteres no numéricos.
+    Wrapper retrocompatible para limpiar teléfonos a 10 dígitos.
     """
-    if pd.isna(phone_val):
-        return ""
-    
-    phone_str = str(phone_val).strip()
-    
-    if phone_str.endswith('.0'):
-        phone_str = phone_str[:-2]
-        
-    phone_digits = re.sub(r'[^\d+]', '', phone_str)
-    
-    if phone_digits.startswith('+52'):
-        phone_digits = phone_digits[3:]
-    elif phone_digits.startswith('52') and len(phone_digits) > 10:
-        phone_digits = phone_digits[2:]
-        
-    return phone_digits[-10:]
+    digits, _, _ = validar_y_limpiar_telefono(phone_val)
+    return digits
 
 def smart_truncate_address(address, max_length=50):
     """
@@ -71,10 +75,8 @@ def smart_truncate_address(address, max_length=50):
     if not isinstance(address, str) or len(address) <= max_length:
         return address, None
 
-    # Buscar el último espacio dentro del límite para no cortar palabras
     cut_pos = address.rfind(' ', 0, max_length)
     if cut_pos == -1:
-        # No hay espacio; cortar en el límite duro
         cut_pos = max_length
 
     part1 = address[:cut_pos].rstrip()
@@ -96,7 +98,6 @@ def parse_municipio(municipio_raw):
 
     text = municipio_raw.strip()
 
-    # Patrones que indican inicio de colonia/fraccionamiento
     col_patterns = [r'\bCol\.\s*', r'\bColonia\s+', r'\bFracc\.\s*', r'\bFraccionamiento\s+']
 
     for pattern in col_patterns:
@@ -104,20 +105,15 @@ def parse_municipio(municipio_raw):
         if match:
             before = text[:match.start()].strip().rstrip(',')
             after = text[match.start():].strip()
-            # Si antes del patrón hay texto, ese es la ciudad
             if before:
                 return before, after
-            # Si la colonia está al inicio (ej. 'Fracc. Los Olivos, Zapopan'),
-            # buscar la ciudad después de una coma dentro del segmento restante
             comma_in_after = after.find(',')
             if comma_in_after != -1:
                 colonia_part = after[:comma_in_after].strip()
                 city_part = after[comma_in_after + 1:].strip()
                 return city_part, colonia_part
-            # Sin coma y sin texto previo: todo es colonia, ciudad desconocida
             return after, None
 
-    # Sin patrón de colonia, intentar separar por coma
     if ',' in text:
         parts = text.split(',', 1)
         return parts[0].strip(), parts[1].strip() if parts[1].strip() else None
@@ -127,25 +123,40 @@ def parse_municipio(municipio_raw):
 def find_black_line_row(sheet):
     """
     Busca el índice de la fila que representa la 'línea negra' en la hoja de Excel.
-    Se define como una fila que no tiene datos (vacía) pero tiene formato de relleno negro sólido.
+    Criterios reforzados:
+    1. Fila con relleno negro/oscuro sólido (color RGB '00000000', 'FF000000', '000000', indexado 8/0, o theme oscuro)
+       y que además esté vacía en sus columnas de datos clave (Parent, Request, etc.).
+    2. Primera fila completamente vacía en todas sus celdas.
     """
     for r in range(2, sheet.max_row + 1):
-        row_cells = [sheet.cell(row=r, column=c) for c in range(1, sheet.max_column + 1)]
-        is_empty = all(cell.value is None for cell in row_cells)
+        row_cells = [sheet.cell(row=r, column=c) for c in range(1, min(sheet.max_column + 1, 10))]
+        is_empty = all(cell.value is None or str(cell.value).strip() == "" for cell in row_cells)
         
         has_black_fill = False
         first_cell_fill = sheet.cell(row=r, column=1).fill
         if first_cell_fill and first_cell_fill.fill_type == 'solid':
-            color_val = first_cell_fill.start_color.value
-            if color_val == '00000000' or color_val == 8 or color_val == 'FF000000':
-                has_black_fill = True
+            c = getattr(first_cell_fill, 'start_color', None)
+            if c:
+                val = getattr(c, 'value', None)
+                theme = getattr(c, 'theme', None)
+                rgb = getattr(c, 'rgb', None)
+                color_type = getattr(c, 'type', None)
                 
+                if val in ('00000000', 'FF000000', '000000', 8, '8', 0, '0'):
+                    has_black_fill = True
+                elif rgb in ('00000000', 'FF000000', '000000'):
+                    has_black_fill = True
+                elif color_type == 'theme' and theme in (0, 1):
+                    tint = getattr(c, 'tint', 0.0)
+                    if tint in (0.0, None, -1.0):
+                        has_black_fill = True
+                        
         if is_empty and has_black_fill:
             return r
             
     for r in range(2, sheet.max_row + 1):
         row_cells = [sheet.cell(row=r, column=c) for c in range(1, sheet.max_column + 1)]
-        if all(cell.value is None for cell in row_cells):
+        if all(cell.value is None or str(cell.value).strip() == "" for cell in row_cells):
             return r
             
     return None
@@ -153,9 +164,9 @@ def find_black_line_row(sheet):
 def map_service_code(state_val, is_return=False):
     """
     Mapea el campo 'State' de origen al 'SelectedServiceCode' de Techship.
-    - Si el valor de origen es 60 (o contiene 'next day' / 'second day') -> 'Next Day'
-    - Si el valor de origen es 70 (o contiene 'ground') -> 'Ground'
-    - Para retornos -> 'Ground' (asociado a la lógica de retorno/código 70)
+    - Si el valor de origen es 60 (o contiene 'next day' / 'second day') -> 60
+    - Si el valor de origen es 70 (o contiene 'ground') -> 70
+    - Para retornos -> 70 (asociado a la logística de retorno terrestre)
     """
     if is_return:
         return 70
@@ -164,9 +175,6 @@ def map_service_code(state_val, is_return=False):
         return 70
         
     val_str = str(state_val).strip().lower()
-    
-    # Mapeo basado en la plantilla funcional de Techship:
-    # Ground -> 70, Next Day / Second Day -> 60
     if 'next day' in val_str or 'next' in val_str or 'second day' in val_str or 'second' in val_str:
         return 60
     elif 'ground' in val_str:
@@ -177,22 +185,9 @@ def map_service_code(state_val, is_return=False):
 def resolve_insurance(declared_value, min_insurable=100):
     """
     Evalúa el valor declarado de una orden y determina si se debe comprar seguro.
-    
     Reglas de negocio:
       - Si declared_value es numérico y >= min_insurable → 'PU' + monto.
       - Si declared_value es < min_insurable, 0, vacío, None o no numérico → '' (vacío) + 0.
-    
-    Valores de retorno para TechShip:
-      - 'PU': Código estandarizado para seguro Purchase (max 2 chars).
-      - ''  : Celda vacía (casilla desmarcada, sin seguro).
-    
-    Args:
-        declared_value: Valor declarado de la mercancía (puede ser int, float, str o None).
-        min_insurable:  Monto mínimo para que el seguro aplique (default: 100).
-    
-    Returns:
-        tuple: (declared_value_type: str, declared_value_amount: float)
-               Ejemplo: ('PU', 1500.00) o ('', 0.0)
     """
     if declared_value is None or (isinstance(declared_value, float) and pd.isna(declared_value)):
         return '', 0.0
@@ -213,8 +208,6 @@ def process_excel(input_path, output_path, default_declared_value=None):
         raise ValueError("La hoja 'Combined Report' no se encuentra en el archivo de origen.")
         
     sheet = wb['Combined Report']
-    
-    # 1. Encontrar la línea negra divisoria para filtrar
     limit_row = find_black_line_row(sheet)
     wb.close()
     
@@ -231,8 +224,15 @@ def process_excel(input_path, output_path, default_declared_value=None):
         
     print(f"Registros cargados para procesar: {len(df_raw)}")
     
+    validador = ValidadorPostal()
+    incidencias = []
+    resumen_direcciones = []
+
+    def registrar(fila, ritm, severidad, campo, valor, detalle):
+        incidencias.append((fila, ritm, severidad, campo, valor, detalle))
+        print(f"  [{severidad}] Fila {fila} ({ritm}) | {campo}: '{valor}' -> {detalle}")
+    
     # ── Columnas basadas en File_Template_NewInsurance.xlsx + ShipToCompany (requerido por Estafeta) ──
-    # Se agrega ShipToCompany (col I) porque la API de Estafeta exige 'corporateName' != null.
     # Total: 49 columnas (A–AW).
     techship_columns = [
         'ClientCode', 'PickOrder', 'Sequence', 'CustomerOrder', 'CustomerPO',        # A–E
@@ -272,6 +272,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
     records_with_errors = 0
     
     for idx, row in df_raw.iterrows():
+        fila_excel = idx + 2
         parent = str(row['Parent']).strip()
         
         if pd.isna(row['Parent']) or parent == 'None' or parent == '':
@@ -281,26 +282,26 @@ def process_excel(input_path, output_path, default_declared_value=None):
         total_processed += 1
         row_has_error = False
         
-        # 1. Validación de Teléfono
+        # 1. Validación Estricta de Teléfono (a 10 dígitos)
         raw_phone = row.get('Contact number')
-        phone = format_phone_number(raw_phone)
-        if pd.isna(raw_phone) or phone == "" or len(phone) != 10:
-            phone_val = 'ERROR: Celular Inválido'
-            row_has_error = True
-            print(f"  [ERROR] Fila {idx+2} ({parent}): Celular inválido o vacío: {repr(raw_phone)}")
+        phone_limpio, phone_es_valido, alerta_phone = validar_y_limpiar_telefono(raw_phone)
+        if not phone_es_valido:
+            registrar(fila_excel, parent, 'REVISAR', 'Teléfono', raw_phone, alerta_phone)
+            phone_val = phone_limpio if len(phone_limpio) == 10 else 'ERROR: Celular Inválido'
+            if phone_val == 'ERROR: Celular Inválido':
+                row_has_error = True
         else:
-            phone_val = phone
+            phone_val = phone_limpio
             
         # 2. Validación de Código Postal
         raw_zip = row.get('Zip / Postal code')
-        if pd.isna(raw_zip) or str(raw_zip).strip() == "":
+        zip_val = format_zip_code(raw_zip)
+        if not zip_val:
             zip_val = 'ERROR: CP Faltante'
             row_has_error = True
-            print(f"  [ERROR] Fila {idx+2} ({parent}): Código Postal faltante o vacío")
-        else:
-            zip_val = format_zip_code(raw_zip)
+            registrar(fila_excel, parent, 'ERROR', 'Código Postal', raw_zip, 'Código Postal faltante o vacío')
             
-        # 3. Validación de Dirección (Campos: Street, House/Appt, Localidad, Municipio, City, State/Province)
+        # 3. Limpieza y preparación de Dirección
         raw_street = row.get('Street')
         raw_house = row.get('House / Appt number')
         raw_localidad = row.get('Localidad')
@@ -308,7 +309,6 @@ def process_excel(input_path, output_path, default_declared_value=None):
         raw_city = row.get('City')
         raw_state = row.get('State / Province')
         
-        # Limpiar codificación de cada campo
         street_clean = clean_text_encoding(raw_street) if pd.notna(raw_street) else ""
         house_apt_clean = clean_text_encoding(raw_house) if pd.notna(raw_house) else ""
         localidad_clean = clean_text_encoding(raw_localidad) if pd.notna(raw_localidad) else ""
@@ -316,68 +316,29 @@ def process_excel(input_path, output_path, default_declared_value=None):
         city_raw_clean = clean_text_encoding(raw_city) if pd.notna(raw_city) else ""
         state_clean = clean_text_encoding(raw_state) if pd.notna(raw_state) else ""
         
-        # Filtrar valores que sean 'nan' como string
         house_apt_clean = "" if str(house_apt_clean).strip().lower() == 'nan' else house_apt_clean
         localidad_clean = "" if str(localidad_clean).strip().lower() == 'nan' else localidad_clean
         
-        # Validar campos individuales
         has_address_error = False
         
-        # --- Validar calle (campo mínimo obligatorio) ---
+        # Validar calle (campo mínimo obligatorio)
         if not street_clean or street_clean.strip() == "":
             has_address_error = True
-            print(f"  [ERROR] Fila {idx+2} ({parent}): Calle (Street) vacía o faltante")
+            registrar(fila_excel, parent, 'ERROR', 'Calle (Street)', raw_street, 'Calle vacía o faltante')
         
-        # --- City: Extraer ciudad limpia para columna City de Techship ---
-        # Prioridad: columna 'City' del crudo; si está vacía, usar 'Municipio'
-        city_val = None
+        # Extraer ciudad limpia
         city_source = city_raw_clean.strip() if city_raw_clean.strip() else municipio_clean.strip()
         if not city_source:
             city_val = 'ERROR: Dirección incompleta'
             has_address_error = True
-            print(f"  [ERROR] Fila {idx+2} ({parent}): Ciudad y Municipio vacíos o faltantes")
+            registrar(fila_excel, parent, 'ERROR', 'Ciudad/Municipio', '', 'Ciudad y Municipio vacíos o faltantes')
         else:
             city_val, _ = parse_municipio(city_source)
         
-        # --- Distribución limpia de campos de dirección ---
-        addr1_val = None
-        addr2_val = None
-        addr3_val = None
-        
-        if has_address_error:
-            addr1_val = 'ERROR: Dirección incompleta'
-        else:
-            # --- Address 1 (Calle + Número) ---
-            calle_numero = street_clean
-            if house_apt_clean:
-                calle_numero = f"{street_clean} {house_apt_clean}"
-            
-            if len(calle_numero) <= 50:
-                addr1_val = calle_numero
-            else:
-                # Overflow de Address 1 va a Address 3 (no mezclar con colonia)
-                addr1_val, addr3_val = smart_truncate_address(calle_numero, max_length=50)
-                print(f"  [INFO] Fila {idx+2} ({parent}): Addr1 excede 50 chars -> "
-                      f"Addr1='{addr1_val}' | Addr3='{addr3_val}'")
-            
-            # --- Address 2 (Colonia / Localidad) ---
-            # Regla Estafeta: settlementName no puede ser nulo -> fallback a Municipio
-            if localidad_clean:
-                addr2_val = localidad_clean
-            elif municipio_clean:
-                addr2_val = municipio_clean
-                print(f"  [INFO] Fila {idx+2} ({parent}): Localidad vacía, usando Municipio "
-                      f"como Addr2: '{municipio_clean}'")
-            
-            # Truncar Address 2 si supera 50 caracteres
-            if addr2_val and len(addr2_val) > 50:
-                addr2_val = addr2_val[:50].rstrip()
-                print(f"  [INFO] Fila {idx+2} ({parent}): Addr2 truncado a 50 chars: '{addr2_val}'")
-
         if not state_clean or state_clean.strip() == "":
             state_val = 'ERROR: Dirección incompleta'
             has_address_error = True
-            print(f"  [ERROR] Fila {idx+2} ({parent}): Estado/Provincia vacío o faltante")
+            registrar(fila_excel, parent, 'ERROR', 'Estado', raw_state, 'Estado/Provincia vacío o faltante')
         else:
             state_val = state_clean
             if state_val == "México":
@@ -385,66 +346,150 @@ def process_excel(input_path, output_path, default_declared_value=None):
                     state_val = "CDMX"
                 else:
                     state_val = "Estado de México"
-                    
-        # 4. Validación de Dirección de Retorno en Envío de Ida (Outbound)
+
+        # 4. Análisis Postal SEPOMEX (Aplica tanto a Outbound como a Retornos)
+        estatus_confirmacion = "POR VERIFICAR"
+        detalle_confirmacion = ""
+        an = None
+
+        if zip_val and not str(zip_val).startswith('ERROR'):
+            an = validador.analizar(
+                zip_val,
+                [municipio_clean, city_raw_clean, localidad_clean, state_clean],
+                colonia=localidad_clean,
+                texto_calle=f"{street_clean} {house_apt_clean}",
+            )
+            if not an['existe']:
+                registrar(fila_excel, parent, 'ERROR', 'Código Postal', raw_zip,
+                          f"El CP {zip_val} no existe en el catálogo SEPOMEX. Confirmar con solicitante.")
+                has_address_error = True
+                estatus_confirmacion = "ERROR CP"
+            elif not an['coherente']:
+                genericos = {'', 'CDMX', 'CIUDAD DE MEXICO', 'MEXICO', 'ESTADO DE MEXICO', 'EDO MEX', 'EDOMEX', 'DF', 'D F'}
+                especificos = [t for t in (municipio_clean, city_raw_clean)
+                               if normalizar_texto(t).split(',')[0].strip() not in genericos and normalizar_texto(t) not in genericos]
+                if especificos:
+                    registrar(fila_excel, parent, 'ERROR', 'CP vs Municipio/Ciudad', f"CP {zip_val} | Mun: {municipio_clean} | City: {city_raw_clean}",
+                              f"El municipio capturado no coincide con el oficial del CP ({an['municipio_oficial'] or 'varios'}, {an['estado_oficial']}). Confirmar con solicitante.")
+                    has_address_error = True
+                    estatus_confirmacion = "ERROR MUNICIPIO"
+                else:
+                    registrar(fila_excel, parent, 'REVISAR', 'CP vs Municipio/Ciudad', f"CP {zip_val} | Mun: {municipio_clean} | City: {city_raw_clean}",
+                              f"El Excel solo trae datos genéricos. El CP corresponde a {an['municipio_oficial'] or 'varios municipios'}, {an['estado_oficial']}.")
+            else:
+                # Ubicación coherente con el CP -> corregir Estado y Municipio oficial
+                if normalizar_texto(state_val) != normalizar_texto(an['estado_plantilla']):
+                    registrar(fila_excel, parent, 'CORREGIDO', 'State', state_val, f"'{an['estado_plantilla']}' (según CP {zip_val})")
+                    state_val = an['estado_plantilla']
+                if city_val and normalizar_texto(city_val) != normalizar_texto(an['municipio_oficial']):
+                    registrar(fila_excel, parent, 'CORREGIDO', 'City', city_val, f"'{an['municipio_oficial']}' (municipio oficial del CP {zip_val})")
+                    city_val = an['municipio_oficial']
+
+        # 5. Compresión Inteligente y Protección de Número Interior (Address 1 y Address 2 <= 50 chars)
+        colonia_en_calle = an.get('colonia_en_calle') if an else None
+        colonia_oficial = None
+        if an and an.get('existe'):
+            if an.get('colonia_en_calle'):
+                colonia_oficial = an['colonia_en_calle']
+            elif an.get('colonia_ok'):
+                colonia_oficial = localidad_clean
+            elif len(an.get('colonias', [])) == 1:
+                colonia_oficial = an['colonias'][0]
+
+        fmt_dir = formatear_direccion_inteligente(
+            calle_raw=street_clean,
+            num_ext_int_raw=house_apt_clean,
+            colonia_raw=localidad_clean if localidad_clean else municipio_clean,
+            colonia_en_calle=colonia_en_calle,
+            colonia_oficial=colonia_oficial
+        )
+
+        addr1_val = fmt_dir['addr1']
+        addr2_val = fmt_dir['addr2']
+
+        # Alerta si no tiene número exterior explícito (S/N)
+        if fmt_dir['alerta_num_ext']:
+            registrar(fila_excel, parent, 'REVISAR', 'Número Exterior', addr1_val, fmt_dir['alerta_num_ext'])
+
+        # Alerta si hubo riesgo crítico de pérdida de interior
+        if fmt_dir['error_longitud_critico']:
+            has_address_error = True
+            registrar(fila_excel, parent, 'ERROR', 'Longitud Dirección', addr1_val, fmt_dir['alerta_interior'])
+        elif fmt_dir['interior_protegido']:
+            registrar(fila_excel, parent, 'CORREGIDO', 'Número Interior', addr1_val,
+                      f"Indicador de interior protegido y colocado al inicio de Address 2: '{addr2_val}'")
+
+        if fmt_dir['colonia_extraida']:
+            registrar(fila_excel, parent, 'CORREGIDO', 'Colonia (Addr2)', addr2_val,
+                      "Colonia extraída de la calle y colocada limpia en Address 2.")
+        elif an and an['existe']:
+            if len(an['colonias']) == 1 and not an['colonia_ok']:
+                colonia_unica = an['colonias'][0]
+                if not fmt_dir['interior_protegido']:
+                    addr2_val = colonia_unica
+                registrar(fila_excel, parent, 'CORREGIDO', 'Colonia (Addr2)', colonia_unica,
+                          f"Asignada automáticamente (Única colonia oficial del CP {zip_val}).")
+            elif an['colonia_ok'] is False and len(an['colonias']) > 1:
+                registrar(fila_excel, parent, 'REVISAR', 'Colonia (Localidad)', localidad_clean,
+                          f"No coincide con ninguna colonia del catálogo para CP {zip_val}. Opciones oficiales: {', '.join(an['colonias'][:6])}...")
+
+
+        # 6. Geocodificación y Verificación Física en Mapa (con Caché)
+        if not has_address_error and zip_val and not str(zip_val).startswith('ERROR'):
+            geo = validador.confirmar_geocodificacion(addr1_val, cp=zip_val, municipio=city_val, estado=state_val)
+            estatus_confirmacion = geo['estatus']
+            detalle_confirmacion = geo['display_name'] if geo['confirmado'] else f"CP {zip_val} y Municipio válidos en catálogo oficial SEPOMEX."
+        else:
+            detalle_confirmacion = "Requiere revisión previa por inconsistencia o error en dirección."
+
+        # 7. Validación de Dirección de Retorno en Envío de Ida (Outbound)
         if not is_return and not has_address_error:
             street_lower = street_clean.lower()
-            # Si contiene 'lerma' y ('av', '1c', o 'seko'), o si el CP es 52030 (SEKO) y la calle contiene 'lerma'
             if ("lerma" in street_lower and ("av" in street_lower or "1c" in street_lower or "seko" in street_lower)) or (zip_val == "52030" and "lerma" in street_lower):
                 addr1_val = 'ERROR: Dirección coincide con retorno'
                 addr2_val = 'ERROR: Dirección coincide con retorno'
                 has_address_error = True
-                print(f"  [ERROR] Fila {idx+2} ({parent}): Envío de ida tiene dirección de retorno (SEKO/Lerma): {repr(raw_street)}")
+                registrar(fila_excel, parent, 'ERROR', 'Dirección Outbound', raw_street, 'Envío de ida tiene dirección de retorno (SEKO/Lerma)')
                     
         if has_address_error:
             row_has_error = True
-            
-        # Incrementar contador de filas con error si aplica
-        if row_has_error:
             records_with_errors += 1
             
         # Extraer información del empleado
         first_name = clean_text_encoding(row.get('Recipient first name'))
         last_name = clean_text_encoding(row.get('Recipient last name'))
         full_name = f"{first_name} {last_name}".strip() if pd.notna(first_name) or pd.notna(last_name) else ""
-        
         email = str(row.get('Email') or row.get('Contact Email Address ') or "").strip()
         
-        # Mapeo del código de servicio
         service_code = map_service_code(row.get('State'), is_return=is_return)
         
-        # Estructura del registro Techship (48 columnas — NewInsurance)
+        # ── Estructura del registro Techship (49 columnas A–AW) ──
         tech_row = {col: None for col in techship_columns}
         tech_row['ClientCode'] = 11
         tech_row['CustomerOrder'] = parent
         tech_row['CustomerPO'] = parent
         
-        # Valores de paquete por defecto
         tech_row['OrderWeight'] = 3
         tech_row['Package 1 - Weight'] = 3
         tech_row['Package 1 - Height'] = 51
         tech_row['Package 1 - Width'] = 38
         tech_row['Package 1 - Length'] = 15
         
-        # ── Lógica de seguro (DeclaredValueType + DeclaredValue) ──
-        # Prioridad: columna del archivo de origen > parámetro default_declared_value > None (vacío)
         raw_declared_value = row.get('Declared Value', row.get('DeclaredValue', None))
         if raw_declared_value is None or (isinstance(raw_declared_value, float) and pd.isna(raw_declared_value)):
             raw_declared_value = default_declared_value
         ins_type, ins_amount = resolve_insurance(raw_declared_value)
         tech_row['DeclaredValueType'] = ins_type if ins_type else None
         tech_row['DeclaredValue'] = ins_amount if ins_type == 'PU' else None
-        print(f"  [SEGURO] {parent}: DeclaredValueType={ins_type or '(vacío)'}, DeclaredValue={ins_amount if ins_type == 'PU' else 'N/A'}")
         
         if not is_return:
-            # OUTBOUND
+            # OUTBOUND: Destinatario = Empleado
             tech_row['PickOrder'] = f"KYNDRYL_{parent}"
-            
             tech_row['ShipToCompany'] = full_name
             tech_row['ShipToName'] = full_name
             tech_row['ShipToAddress1'] = addr1_val
             tech_row['ShipToAddress2'] = addr2_val
-            tech_row['ShipToAddress3'] = addr3_val
+            tech_row['ShipToAddress3'] = None  # En Techship la etiqueta física solo imprime Address 1 y 2
             tech_row['City'] = city_val
             tech_row['State'] = state_val
             tech_row['Country'] = 'MX'
@@ -452,20 +497,45 @@ def process_excel(input_path, output_path, default_declared_value=None):
             tech_row['ShipToPhone'] = phone_val
             tech_row['ShipToEmail'] = email
             tech_row['SelectedServiceCode'] = service_code
-        else:
-            # RETURN — Destinatario fijo (SEKO)
-            tech_row['PickOrder'] = parent
             
+            resumen_direcciones.append({
+                'Orden (RITM)': parent,
+                'Tipo Envío': 'OUTBOUND (Entrega)',
+                'Estatus Dirección': estatus_confirmacion,
+                'Address 1 (Calle y Num)': addr1_val,
+                'Address 2 (Colonia)': addr2_val,
+                'Ciudad / Municipio': city_val,
+                'Estado': state_val,
+                'Código Postal': zip_val,
+                'Teléfono (10d)': phone_val,
+                'Verificación Mapa': detalle_confirmacion
+            })
+        else:
+            # RETURN: Destinatario fijo = SEKO Logistics (Lerma)
+            tech_row['PickOrder'] = parent
             for key, val in seko_address.items():
                 tech_row[key] = val
             tech_row['SelectedServiceCode'] = service_code
             
+            # Registrar el domicilio del empleado de origen en Resumen Direcciones para auditoría de recolección
+            resumen_direcciones.append({
+                'Orden (RITM)': f"{parent} [RETORNO]",
+                'Tipo Envío': 'RETORNO (Recolección en Empleado)',
+                'Estatus Dirección': estatus_confirmacion,
+                'Address 1 (Calle y Num)': addr1_val,
+                'Address 2 (Colonia)': addr2_val,
+                'Ciudad / Municipio': city_val,
+                'Estado': state_val,
+                'Código Postal': zip_val,
+                'Teléfono (10d)': phone_val,
+                'Verificación Mapa': detalle_confirmacion
+            })
+            
         output_rows.append(tech_row)
         
-    # ── Crear DataFrame y limpiar tipos de datos antes de exportar ──
+    # ── Crear DataFrame y formatear tipos de datos ──
     df_output = pd.DataFrame(output_rows, columns=techship_columns)
     
-    # Asegurar tipos correctos para evitar errores de formato en Excel
     str_columns = [
         'ClientCode', 'PickOrder', 'CustomerOrder', 'CustomerPO',
         'ShipToCompany', 'ShipToName', 'ShipToAddress1', 'ShipToAddress2', 'ShipToAddress3',
@@ -492,66 +562,70 @@ def process_excel(input_path, output_path, default_declared_value=None):
         if col in df_output.columns:
             df_output[col] = pd.to_numeric(df_output[col], errors='coerce')
     
-    # ── Definir colores RGB equivalentes a los temas del template ──
-    # Dorado/Oliva claro (para ClientCode y Country)
     FILL_GOLD = PatternFill(start_color='D7C87F', end_color='D7C87F', fill_type='solid')
-    # Gris claro (para datos ShipTo en filas outbound)
     FILL_GRAY = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
-    # Verde oliva (para datos ShipTo en filas de retorno - SEKO)
     FILL_GREEN = PatternFill(start_color='A9C47F', end_color='A9C47F', fill_type='solid')
-    # Verde claro (para SelectedServiceCode, seguro, paquetes)
     FILL_LIGHT_GREEN = PatternFill(start_color='C4E1A4', end_color='C4E1A4', fill_type='solid')
     
     FONT_HEADER = Font(name='Calibri', size=11, bold=True)
     FONT_DATA = Font(name='Calibri', size=11)
     
-    # ── Índices de columna (1-indexed) — 49 columnas (A–AW) ──
-    # A(1)=ClientCode, B(2)=PickOrder, ..., I(9)=ShipToCompany, J(10)=ShipToName,
-    # K(11)=Addr1, ..., P(16)=Country, Q(17)=Zip, ..., U(21)=SelectedServiceCode,
-    # V(22)=DeclaredValueType, W(23)=DeclaredValue, ..., AD(30)=Pkg1-Weight, ..., AW(49)=Pkg5-Length
     COL_CLIENT_CODE = 1
-    COL_COUNTRY = 16                                            # Country = col P = 16
-    COLS_SHIPTO_DATA = [2, 4, 5, 9, 10, 11, 12, 14, 15, 17, 18, 19]  # PickOrder, CustOrder, CustPO, ShipTo*
-    COLS_SHIPTO_RETURN = list(range(9, 20))                     # ShipToCompany(9) a ShipToEmail(19)
-    COLS_SERVICE_INS_PKG = list(range(21, 50))                  # SelectedServiceCode(21) a Pkg5-Length(49)
+    COL_COUNTRY = 16
+    COLS_SHIPTO_DATA = [2, 4, 5, 9, 10, 11, 12, 14, 15, 17, 18, 19]
+    COLS_SHIPTO_RETURN = list(range(9, 20))
+    COLS_SERVICE_INS_PKG = list(range(21, 50))
     
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+        # 1. Hoja Import Orders (Techship 49 columnas A–AW)
         df_output.to_excel(writer, index=False, sheet_name='Import Orders')
         ws = writer.sheets['Import Orders']
+
+        # 2. Hoja Resumen Direcciones (Dashboard de 10 segundos con semáforo y estatus físico)
+        df_resumen = pd.DataFrame(resumen_direcciones)
+        df_resumen.to_excel(writer, index=False, sheet_name='Resumen Direcciones')
+        ws_resumen = writer.sheets['Resumen Direcciones']
+        for col_letter, ancho in zip('ABCDEFGHIJ', [18, 26, 32, 34, 28, 22, 18, 14, 16, 55]):
+            ws_resumen.column_dimensions[col_letter].width = ancho
+
+        # 3. Hoja Incidencias (Bitácora de auditoría priorizada)
+        orden = {'ERROR': 0, 'REVISAR': 1, 'CORREGIDO': 2}
+        df_inc = pd.DataFrame(
+            sorted(incidencias, key=lambda x: (orden.get(x[2], 9), x[0])),
+            columns=['Fila Excel origen', 'Orden (RITM)', 'Tipo', 'Campo', 'Valor capturado', 'Detalle'],
+        )
+        df_inc.to_excel(writer, index=False, sheet_name='Incidencias')
+        ws_inc = writer.sheets['Incidencias']
+        for col_letter, ancho in zip('ABCDEF', [16, 16, 12, 24, 40, 110]):
+            ws_inc.column_dimensions[col_letter].width = ancho
         
-        # 1. Estilo del header (fila 1)
+        # Estilos visuales de Import Orders
         for c in range(1, len(techship_columns) + 1):
             cell = ws.cell(row=1, column=c)
             cell.font = FONT_HEADER
         
-        # 2. Estilo de filas de datos
         for row_idx in range(2, len(df_output) + 2):
-            pick_order = ws.cell(row=row_idx, column=2).value  # PickOrder
-            is_return = str(pick_order).endswith('-1') if pick_order else False
+            pick_order = ws.cell(row=row_idx, column=2).value
+            is_ret = str(pick_order).endswith('-1') if pick_order else False
             
             for c in range(1, len(techship_columns) + 1):
                 cell = ws.cell(row=row_idx, column=c)
                 cell.font = FONT_DATA
                 
-                # ClientCode (col 1) y Country (col 16): siempre Dorado
                 if c == COL_CLIENT_CODE or c == COL_COUNTRY:
                     cell.fill = FILL_GOLD
-                # Zona de datos ShipTo (cols 2,4,5,9-19)
                 elif c in COLS_SHIPTO_DATA or c == 12:
-                    if is_return:
-                        # Retorno: ShipTo es SEKO -> verde oliva para cols 9-19
+                    if is_ret:
                         if c in COLS_SHIPTO_RETURN or c == 13:
                             cell.fill = FILL_GREEN
                         else:
-                            cell.fill = FILL_GOLD  # PickOrder, CustOrder, CustPO en retorno
+                            cell.fill = FILL_GOLD
                     else:
-                        # Outbound: ShipTo es el empleado -> gris claro
                         cell.fill = FILL_GRAY
-                # Zona de ServiceCode + Seguro + Paquetes (cols 21-49)
                 elif c in COLS_SERVICE_INS_PKG:
                     cell.fill = FILL_LIGHT_GREEN
         
-        # 3. Auto-ajustar el ancho de cada columna al contenido más largo
+        # Auto-ajuste de anchos en Import Orders
         for col_idx, col_name in enumerate(df_output.columns, 1):
             max_len = len(str(col_name))
             for val in df_output[col_name].dropna():
@@ -563,20 +637,8 @@ def process_excel(input_path, output_path, default_declared_value=None):
     print(f"Exportación exitosa. Archivo generado en: {output_path}")
     print(f"Proceso terminado. {total_processed} registros procesados, {records_with_errors} registros contienen errores.")
 
-from pathlib import Path
-import argparse
-
-# Directorio raíz del proyecto (un nivel arriba de src/)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 def detect_files(input_target=None, output_target=None):
-    """
-    Detecta automáticamente el archivo de reporte crudo de entrada y define el de salida.
-    Soporta rutas directas o busca en:
-    1. data/input/
-    2. data/samples/
-    3. directorio actual
-    """
     if input_target and os.path.isfile(input_target):
         archivo_entrada = input_target
     else:
@@ -605,12 +667,10 @@ def detect_files(input_target=None, output_target=None):
         if not reportes_crudos:
             raise FileNotFoundError("No se encontró ningún reporte crudo (.xlsx) en data/input ni en data/samples.")
 
-        # Seleccionar el más reciente
         reportes_crudos.sort(key=lambda x: x.stat().st_mtime, reverse=True)
         archivo_entrada = str(reportes_crudos[0])
         print(f"Archivo de entrada detectado: {os.path.basename(archivo_entrada)}")
 
-    # Determinar ruta del archivo de salida
     entrada_nombre = os.path.basename(archivo_entrada)
     sufijo = entrada_nombre
     for prefijo in ["SCTASK_SHP_Combined_Report_", "SCTASK_SHP_", "SCTASK_"]:
