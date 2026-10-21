@@ -1,6 +1,7 @@
 @echo off
 title SEKO Logistics - Kyndryl Orders Automation Dashboard
 color 0B
+set "PATH=C:\Program Files\nodejs;%PATH%"
 
 echo ===============================================================================
 echo            SEKO LOGISTICS MEXICO - AUTOMATIZACION DE GUIAS KYNDRYL

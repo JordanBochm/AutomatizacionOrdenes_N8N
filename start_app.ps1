@@ -9,6 +9,7 @@ Write-Host "====================================================================
 
 $ROOT_DIR = $PSScriptRoot
 Set-Location $ROOT_DIR
+$env:Path = "C:\Program Files\nodejs;" + $env:Path
 
 # 1. Iniciar FastAPI en segundo plano
 Write-Host "[1/3] Iniciando Backend FastAPI en http://localhost:8000 ..." -ForegroundColor Yellow
