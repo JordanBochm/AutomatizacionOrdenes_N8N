@@ -546,8 +546,16 @@ def obtener_tracking_api(customer_order, client_code=CLIENT_CODE_KST, timeout=10
             if r.status_code == 200:
                 shipments = r.json()
                 if isinstance(shipments, list) and len(shipments) > 0:
-                    s_id = shipments[0].get("Id")
-                    status = shipments[0].get("Status")
+                    # Priorizar envíos procesados o que ya cuenten con tracking
+                    target = None
+                    for s in shipments:
+                        if s.get("TrackingNumber") or s.get("Status") in ["Processed", "Shipped"]:
+                            target = s
+                            break
+                    if not target:
+                        target = shipments[0]
+                    s_id = target.get("Id")
+                    status = target.get("Status")
                     # Consultar detalle completo solicitando conversión a PDF
                     r_det = requests.get(f"{TECHSHIP_BASE_URL}/api/v3/shipments/{s_id}?labelPdfConversion=Enabled", headers=headers, timeout=timeout)
                     if r_det.status_code == 200:
