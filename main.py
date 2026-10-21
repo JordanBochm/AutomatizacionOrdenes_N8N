@@ -121,6 +121,19 @@ def ejecutar_pipeline(input_path, is_live=False, output_dir=None, skip_api=False
     print(f"     * Omitidas duplic : {res_techship.get('duplicados', 0)}")
     print(f"     * Bloqueadas error: {res_techship.get('bloqueadas', 0)}\n")
     
+    if is_dry_run:
+        print("=" * 74)
+        print("           SIMULACION COMPLETADA CON EXITO (MODO DRY-RUN)            ")
+        print("=" * 74)
+        print("  * Todas las direcciones y paquetes fueron validados con exito.")
+        print("  * NO se generaron cobros ni guias reales en Estafeta.")
+        print(f"  * Plantilla Techship lista : {ruta_techship_excel}")
+        print(f"  * Auditoria SEPOMEX lista  : {ruta_auditoria_excel}")
+        print("\n  >>> PARA TIMBRAR GUÍAS REALES Y GENERAR CIERRE + PDF:")
+        print(f"      python main.py --live\n")
+        print("=" * 74 + "\n")
+        return str(ruta_techship_excel)
+
     if skip_cierre:
         print("[INFO] Bandera --skip-cierre activa. Proceso concluido en Paso 2.")
         return str(ruta_techship_excel)
