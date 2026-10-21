@@ -245,10 +245,14 @@ def convertir_fila_excel_a_payload(row):
             "Insurance": False
         }
         
-    # 5. Lote / Batch
+    # 5. Lote / Batch y Transacción
     batch_num = str(row.get('BatchNumber', '')).strip() if pd.notna(row.get('BatchNumber')) else ''
     if not batch_num or batch_num.lower() == 'nan':
         batch_num = f"MX_{datetime.date.today().strftime('%m-%d-%y')}"
+
+    txn_num = str(row.get('TransactionNumber', '')).strip() if pd.notna(row.get('TransactionNumber')) else ''
+    if not txn_num or txn_num.lower() == 'nan':
+        txn_num = f"KYNDRYL_{customer_order}" if not customer_order.startswith("KYNDRYL_") else customer_order
 
     # 6. Estructura InputOrder completa para Techship v3
     payload = {
@@ -256,6 +260,7 @@ def convertir_fila_excel_a_payload(row):
         "CustomerOrder": customer_order,
         "CustomerPO": str(row.get('CustomerPO', '')).strip() if pd.notna(row.get('CustomerPO')) else None,
         "CustomerNumber": str(row.get('CustomerNumber', '')).strip() if pd.notna(row.get('CustomerNumber')) else None,
+        "TransactionNumber": txn_num,
         "BatchNumber": batch_num,
         "Routing": routing,
         "ShipToAddress": ship_to,
@@ -468,6 +473,9 @@ def crear_shipment_api(payload, dry_run=False, timeout=30):
         r = requests.post(url, headers=headers, params=params, json=payload, timeout=timeout)
         if r.status_code == 200:
             res = r.json()
+            if res.get("HasErrors"):
+                err_estafeta = res.get("ProcessingErrors") or "Estafeta no pudo procesar la etiqueta"
+                return False, f"Error Estafeta: {err_estafeta}", res
             return True, "OK", res
         else:
             return False, f"HTTP {r.status_code}: {r.text[:250]}", None
