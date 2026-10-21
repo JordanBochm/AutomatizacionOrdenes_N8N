@@ -1,5 +1,5 @@
 ' ===============================================================================
-' SEKO LOGISTICS MEXICO - LANZADOR SILENCIOSO EN SEGUNDO PLANO
+' SUPPLYCHAIN MEXICO - LANZADOR SILENCIOSO EN SEGUNDO PLANO
 ' Inicia FastAPI y Next.js sin ninguna ventana de terminal visible (Modo 100% Oculto)
 ' ===============================================================================
 
@@ -13,8 +13,8 @@ WshShell.CurrentDirectory = currentDir
 ' 1. Iniciar FastAPI Backend en modo oculto (0 = Sin ventana)
 WshShell.Run "cmd /c ""python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000""", 0, False
 
-' 2. Iniciar Next.js Frontend en modo oculto (0 = Sin ventana)
-WshShell.Run "cmd /c ""set PATH=C:\Program Files\nodejs;%PATH% && cd frontend && npm run dev""", 0, False
+' 2. Iniciar Next.js Frontend en modo oculto con PATH y npm.cmd garantizados (0 = Sin ventana)
+WshShell.Run "cmd /c ""set PATH=C:\Program Files\nodejs;%PATH% && cd /d """ & currentDir & "\frontend"" && npm.cmd run dev""", 0, False
 
 ' 3. Esperar 3 segundos para que los servidores inicialicen
 WScript.Sleep 3000

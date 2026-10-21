@@ -12,23 +12,17 @@ import {
   FileText,
   RefreshCw,
   Search,
-  Filter,
   Edit3,
-  Download,
   ShieldAlert,
-  ArrowRight,
   Package,
-  MapPin,
   Phone,
-  Building,
   Check,
   X,
-  Clock,
-  Layers,
-  ExternalLink,
-  ChevronRight,
-  AlertCircle,
   Truck,
+  ArrowUpDown,
+  Building2,
+  HelpCircle,
+  AlertCircle,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -77,7 +71,7 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"ALL" | "ISSUES" | "CONFIRMED" | "OUTBOUND" | "RETURN">("ALL");
 
-  // Estado para modal de edición
+  // Estado para modal de edición en caliente
   const [editingOrder, setEditingOrder] = useState<OrderItem | null>(null);
   const [editFormData, setEditFormData] = useState({
     phone: "",
@@ -226,7 +220,7 @@ export default function DashboardPage() {
       if (data.batch) {
         setBatchData(data.batch);
       }
-      triggerToast(`Orden ${editingOrder.order_id} corregida y validada.`, "success");
+      triggerToast(`Orden ${editingOrder.order_id} corregida y revalidada con SEPOMEX.`, "success");
       setEditingOrder(null);
     } catch (err: any) {
       triggerToast(err.message || "Error al actualizar", "error");
@@ -283,7 +277,7 @@ export default function DashboardPage() {
       }
 
       const data = await res.json();
-      triggerToast(data.message || "Cierre y PDF sincronizados correctamente.", "success");
+      triggerToast(data.message || "Cierre y PDF de etiquetas sincronizados correctamente.", "success");
     } catch (err: any) {
       triggerToast(err.message || "Error en sincronización de cierre", "error");
     } finally {
@@ -291,7 +285,7 @@ export default function DashboardPage() {
     }
   };
 
-  // Descarga directa de archivos
+  // Descarga directa de archivos operativos
   const handleDownload = (fileType: string) => {
     const url = `${API_BASE}/api/files/download/${fileType}`;
     window.open(url, "_blank");
@@ -323,72 +317,106 @@ export default function DashboardPage() {
   }, [batchData, searchTerm, activeTab]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md transition-all animate-bounce-short ${
+          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all ${
             toast.type === "success"
-              ? "bg-emerald-950/90 border-emerald-500/50 text-emerald-200"
+              ? "bg-emerald-50 border-emerald-300 text-emerald-800"
               : toast.type === "error"
-              ? "bg-rose-950/90 border-rose-500/50 text-rose-200"
-              : "bg-cyan-950/90 border-cyan-500/50 text-cyan-200"
+              ? "bg-red-50 border-red-300 text-red-800"
+              : "bg-blue-50 border-blue-300 text-blue-900"
           }`}
         >
-          {toast.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-          {toast.type === "error" && <XCircle className="w-5 h-5 text-rose-400" />}
-          {toast.type === "info" && <AlertCircle className="w-5 h-5 text-cyan-400" />}
-          <span className="text-sm font-medium">{toast.message}</span>
+          {toast.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+          {toast.type === "error" && <XCircle className="w-5 h-5 text-red-600" />}
+          {toast.type === "info" && <AlertCircle className="w-5 h-5 text-[#233762]" />}
+          <span className="text-sm font-semibold">{toast.message}</span>
         </div>
       )}
 
-      {/* Header Corporativo SEKO / Kyndryl */}
-      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      {/* HEADER OFICIAL: SUPPLYCHAIN MÉXICO */}
+      <header className="border-b border-slate-200 bg-white shadow-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20">
-              SK
+            {/* Logo Oficial SupplyChain México con Fallback Vectorial */}
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo-supplychain.png"
+                alt="SupplyChain México"
+                className="h-12 w-auto object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const fallback = document.getElementById("svg-logo-fallback");
+                  if (fallback) fallback.style.display = "flex";
+                }}
+              />
+
+              <div id="svg-logo-fallback" className="hidden items-center gap-3">
+                <svg viewBox="0 0 48 48" className="w-10 h-10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 12L18 24L6 36L12 36L24 24L12 12H6Z" fill="#233762" />
+                  <path d="M20 12L32 24L20 36L26 36L38 24L26 12H20Z" fill="#CE3A39" />
+                </svg>
+                <div className="flex flex-col">
+                  <div className="flex items-baseline">
+                    <span className="text-2xl font-black italic tracking-tighter text-[#233762]">Supply</span>
+                    <span className="text-2xl font-black italic tracking-tighter text-[#CE3A39]">Chain</span>
+                  </div>
+                  <span className="text-[10px] font-extrabold tracking-[0.35em] text-[#233762] uppercase -mt-1">
+                    M É X I C O
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
+
+            <div className="h-9 w-px bg-slate-200 hidden md:block" />
+
+            {/* Badge Operativo */}
+            <div className="hidden sm:flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-wide text-white">SEKO LOGISTICS</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-cyan-400 border border-cyan-500/30 font-mono">
-                  KST / KYNDRYL #11
+                <span className="text-xs font-bold text-[#233762] tracking-wide">
+                  Operación KST / Kyndryl — Estafeta TMS
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                  Client #11
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Dashboard Operativo de Envíos y Validación Postal SEPOMEX</p>
+              <p className="text-[11px] text-slate-500 font-medium">
+                Validación Postal SEPOMEX · Timbrado Techship v3 · Cierres Oficiales
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Indicador de conexión API */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/60 text-xs font-mono">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono">
               <span
                 className={`w-2 h-2 rounded-full ${
                   apiConnected ? "bg-emerald-500 shadow-sm shadow-emerald-500" : "bg-rose-500"
                 }`}
               />
-              <span className="text-slate-300">{apiConnected ? "API FastAPI Online" : "API Desconectada"}</span>
+              <span className="text-slate-700 font-medium">{apiConnected ? "API FastAPI Online" : "API Offline"}</span>
             </div>
 
             <button
               onClick={fetchHealthAndBatch}
               disabled={loading}
-              title="Recargar estado del lote"
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+              title="Recargar estado del lote activo"
+              className="p-2 rounded-lg bg-slate-100 hover:bg-[#EFF3F9] text-[#233762] border border-slate-200 transition"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-cyan-400" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#233762]" : ""}`} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Contenido Principal */}
+      {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ZONA 1: Ingesta y 4 Tarjetas KPI */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Dropzone de Ingesta */}
-          <div className="lg:col-span-4 bg-slate-900/40 border border-dashed border-slate-700/80 hover:border-cyan-500/60 rounded-2xl p-5 flex flex-col justify-between transition-colors relative overflow-hidden group">
+          <div className="lg:col-span-4 bg-white border-2 border-dashed border-slate-300 hover:border-[#233762] rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group">
             <input
               type="file"
               ref={fileInputRef}
@@ -398,22 +426,22 @@ export default function DashboardPage() {
               disabled={uploading}
             />
             <div className="flex items-start gap-3">
-              <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 group-hover:scale-105 transition-transform">
+              <div className="p-3 rounded-xl bg-[#EFF3F9] text-[#233762] border border-[#233762]/20 group-hover:scale-105 transition-transform">
                 <UploadCloud className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-semibold text-sm text-slate-100">Ingestar Reporte ServiceNow</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Arrastra el archivo SCTASK_SHP_Combined_Report_MX_*.xlsx</p>
+                <h3 className="font-bold text-sm text-[#233762]">Ingestar Reporte ServiceNow</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Arrastra el archivo SCTASK_SHP_Combined_Report_MX_*.xlsx</p>
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-              <span className="text-slate-400 font-mono">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-mono truncate max-w-[200px]" title={batchData?.batch_filename}>
                 {batchData?.batch_filename ? batchData.batch_filename : "Sin archivo activo"}
               </span>
               <button
                 type="button"
-                className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium shadow-sm transition"
+                className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold shadow-sm transition"
               >
                 {uploading ? "Procesando..." : "Examinar..."}
               </button>
@@ -423,76 +451,77 @@ export default function DashboardPage() {
           {/* Tarjetas KPI */}
           <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
             {/* Total Órdenes */}
-            <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-xs font-medium">Total Órdenes</span>
-                <Package className="w-4 h-4 text-cyan-400" />
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-[#233762]" />
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#233762]">Total Órdenes</span>
+                <Package className="w-4 h-4 text-[#233762]" />
               </div>
               <div className="mt-2">
-                <span className="text-3xl font-extrabold text-white font-mono">
+                <span className="text-3xl font-extrabold text-[#233762] font-mono">
                   {batchData?.metrics.total_orders || 0}
                 </span>
-                <p className="text-[11px] text-slate-400 mt-0.5">Ida y Retorno</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Ida y Retorno (-1)</p>
               </div>
             </div>
 
             {/* Confirmadas 100% */}
-            <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-xs font-medium">Confirmadas</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmadas</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               </div>
               <div className="mt-2">
-                <span className="text-3xl font-extrabold text-emerald-400 font-mono">
+                <span className="text-3xl font-extrabold text-emerald-600 font-mono">
                   {batchData?.metrics.confirmed_100 || 0}
                 </span>
-                <p className="text-[11px] text-emerald-500/80 mt-0.5">Semáforo Verde</p>
+                <p className="text-[11px] text-emerald-600/80 mt-0.5">Semáforo Verde</p>
               </div>
             </div>
 
             {/* Por Revisar */}
-            <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-xs font-medium">Por Revisar</span>
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Por Revisar</span>
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
               </div>
               <div className="mt-2">
-                <span className="text-3xl font-extrabold text-amber-400 font-mono">
+                <span className="text-3xl font-extrabold text-amber-600 font-mono">
                   {batchData?.metrics.review || 0}
                 </span>
-                <p className="text-[11px] text-amber-500/80 mt-0.5">Semáforo Amarillo</p>
+                <p className="text-[11px] text-amber-700/80 mt-0.5">Semáforo Amarillo</p>
               </div>
             </div>
 
-            {/* Bloqueadas / Error */}
-            <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-rose-500" />
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-xs font-medium">Bloqueadas</span>
-                <XCircle className="w-4 h-4 text-rose-400" />
+            {/* Bloqueadas por Error */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-[#CE3A39]" />
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#CE3A39]">Bloqueadas</span>
+                <XCircle className="w-4 h-4 text-[#CE3A39]" />
               </div>
               <div className="mt-2">
-                <span className="text-3xl font-extrabold text-rose-400 font-mono">
+                <span className="text-3xl font-extrabold text-[#CE3A39] font-mono">
                   {batchData?.metrics.error_blocked || 0}
                 </span>
-                <p className="text-[11px] text-rose-500/80 mt-0.5">Teléfono / CP Inválido</p>
+                <p className="text-[11px] text-[#CE3A39]/80 mt-0.5">Teléfono / CP Inválido</p>
               </div>
             </div>
           </div>
         </section>
 
         {/* ZONA 2: Barra Maestra de Acciones Techship y Descargas */}
-        <section className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Botón 1: Simulación Segura */}
             <button
               onClick={() => handleTechshipProcess(true)}
               disabled={!batchData || actionLoading === "sim"}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-sm font-semibold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Play className="w-4 h-4 text-cyan-400 fill-cyan-400/20" />
+              <Play className="w-4 h-4 fill-white" />
               <span>{actionLoading === "sim" ? "Simulando..." : "1. Simular en Techship (Dry-Run)"}</span>
             </button>
 
@@ -500,9 +529,9 @@ export default function DashboardPage() {
             <button
               onClick={() => setShowLiveModal(true)}
               disabled={!batchData || actionLoading === "live"}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-sm font-bold shadow-lg shadow-rose-900/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+              <Zap className="w-4 h-4 fill-white" />
               <span>{actionLoading === "live" ? "Timbrando..." : "2. Timbrar Guías Reales (--live)"}</span>
             </button>
 
@@ -510,7 +539,7 @@ export default function DashboardPage() {
             <button
               onClick={handleSyncClosing}
               disabled={!batchData || actionLoading === "sync"}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-900/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Truck className="w-4 h-4" />
               <span>{actionLoading === "sync" ? "Sincronizando..." : "3. Sincronizar Cierre y Etiquetas"}</span>
@@ -518,13 +547,13 @@ export default function DashboardPage() {
           </div>
 
           {/* Grupo de Descarga Directa de Archivos */}
-          <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-4">
-            <span className="text-xs text-slate-400 font-medium mr-1 hidden md:inline">Descargar:</span>
+          <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
+            <span className="text-xs text-slate-500 font-bold mr-1 hidden md:inline">Descargar:</span>
 
             <button
               onClick={() => handleDownload("cierre_excel")}
               title="Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-mono transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Cierre.xlsx</span>
@@ -533,7 +562,7 @@ export default function DashboardPage() {
             <button
               onClick={() => handleDownload("etiquetas_pdf")}
               title="Descargar o imprimir PDF consolidado de etiquetas"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-rose-400 border border-rose-500/30 text-xs font-mono transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Etiquetas.pdf</span>
@@ -542,7 +571,7 @@ export default function DashboardPage() {
             <button
               onClick={() => handleDownload("techship_excel")}
               title="Descargar Guias_Techship_Importada_*.xlsx (61 columnas)"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 text-xs font-mono transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Techship.xlsx</span>
@@ -551,7 +580,7 @@ export default function DashboardPage() {
             <button
               onClick={() => handleDownload("auditoria_excel")}
               title="Descargar Auditoria_Direcciones_*.xlsx con bitácora"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-mono transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Auditoría.xlsx</span>
@@ -559,16 +588,16 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ZONA 3: Tabla Interactiva de Auditoría y Edición Inline */}
-        <section className="bg-slate-900/60 border border-slate-800/90 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+        {/* ZONA 3: Tabla de Órdenes y Auditoría */}
+        <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
           {/* Barra de Filtros y Búsqueda */}
-          <div className="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-900/80">
+          <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80">
             {/* Pestañas de Filtro */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/70 border border-slate-800 text-xs font-medium">
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold">
               <button
                 onClick={() => setActiveTab("ALL")}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  activeTab === "ALL" ? "bg-cyan-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+                  activeTab === "ALL" ? "bg-[#233762] text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Todas ({batchData?.orders.length || 0})
@@ -576,9 +605,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setActiveTab("ISSUES")}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  activeTab === "ISSUES"
-                    ? "bg-rose-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-white"
+                  activeTab === "ISSUES" ? "bg-[#CE3A39] text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Solo Errores / Revisar (
@@ -587,9 +614,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setActiveTab("CONFIRMED")}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  activeTab === "CONFIRMED"
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-white"
+                  activeTab === "CONFIRMED" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Confirmadas ({batchData?.metrics.confirmed_100 || 0})
@@ -597,7 +622,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setActiveTab("OUTBOUND")}
                 className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                  activeTab === "OUTBOUND" ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                  activeTab === "OUTBOUND" ? "bg-slate-700 text-white" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Solo Ida
@@ -605,7 +630,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => setActiveTab("RETURN")}
                 className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                  activeTab === "RETURN" ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                  activeTab === "RETURN" ? "bg-slate-700 text-white" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Solo Retorno (-1)
@@ -617,10 +642,10 @@ export default function DashboardPage() {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar por RITM, empleado, CP, teléfono..."
+                placeholder="Buscar RITM, empleado, CP, teléfono..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-950/80 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition"
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition shadow-2xs"
               />
             </div>
           </div>
@@ -629,7 +654,7 @@ export default function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-semibold uppercase tracking-wider">
+                <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4">Tipo</th>
                   <th className="py-3 px-4">Orden (RITM)</th>
                   <th className="py-3 px-4">Semáforo</th>
@@ -640,10 +665,10 @@ export default function DashboardPage() {
                   <th className="py-3 px-4 text-center">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-sans">
+              <tbody className="divide-y divide-slate-200">
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
                       {batchData
                         ? "No hay órdenes que coincidan con los filtros seleccionados."
                         : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
@@ -658,25 +683,25 @@ export default function DashboardPage() {
                     return (
                       <tr
                         key={order.order_id}
-                        className={`hover:bg-slate-800/40 transition-colors ${
-                          isError ? "bg-rose-950/20" : isWarning ? "bg-amber-950/10" : ""
+                        className={`hover:bg-slate-50 transition-colors ${
+                          isError ? "bg-red-50/50" : isWarning ? "bg-amber-50/30" : ""
                         }`}
                       >
                         {/* Tipo de Envío */}
                         <td className="py-3 px-4 whitespace-nowrap">
                           {order.type === "RETURN" ? (
-                            <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded-md bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 font-mono text-[10px] font-bold">
                               RETORNO
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded-md bg-[#EFF3F9] text-[#233762] border border-[#233762]/30 font-mono text-[10px] font-bold">
                               ENTREGA
                             </span>
                           )}
                         </td>
 
                         {/* CustomerOrder / RITM */}
-                        <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-slate-100">
+                        <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-[#233762]">
                           {order.order_id}
                         </td>
 
@@ -684,19 +709,19 @@ export default function DashboardPage() {
                         <td className="py-3 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             {isGreen && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium text-[11px]">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px]">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 100% Confirmada
                               </span>
                             )}
                             {isWarning && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium text-[11px]">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
                                 <AlertTriangle className="w-3.5 h-3.5" />
                                 Revisar Colonia
                               </span>
                             )}
                             {isError && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium text-[11px]">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-bold text-[11px]">
                                 <XCircle className="w-3.5 h-3.5" />
                                 Error / Bloqueada
                               </span>
@@ -706,38 +731,40 @@ export default function DashboardPage() {
 
                         {/* Destinatario */}
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="font-semibold text-slate-200">{order.recipient_name}</div>
-                          <div className="text-[11px] text-slate-400 truncate max-w-[180px]">{order.email}</div>
+                          <div className="font-bold text-slate-800">{order.recipient_name}</div>
+                          <div className="text-[11px] text-slate-500 truncate max-w-[180px]">{order.email}</div>
                         </td>
 
                         {/* Teléfono */}
                         <td className="py-3 px-4 whitespace-nowrap font-mono">
                           {order.phone.includes("ERROR") || order.phone.length !== 10 ? (
-                            <span className="text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30">
+                            <span className="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded border border-red-300">
                               {order.phone || "FALTA"}
                             </span>
                           ) : (
-                            <span className="text-slate-300">{order.phone}</span>
+                            <span className="text-slate-700 font-semibold">{order.phone}</span>
                           )}
                         </td>
 
                         {/* Dirección */}
                         <td className="py-3 px-4 max-w-xs">
-                          <div className="text-slate-200 truncate font-mono text-[11px]">{order.address1}</div>
-                          <div className="text-[11px] text-slate-400 truncate">{order.address2 || "—"}</div>
+                          <div className="text-slate-800 font-mono text-[11px] truncate font-medium">
+                            {order.address1}
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate">{order.address2 || "—"}</div>
                         </td>
 
                         {/* Ubicación y CP */}
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="font-mono text-cyan-400 font-bold">CP {order.zip}</div>
-                          <div className="text-[11px] text-slate-400">{order.city}, {order.state}</div>
+                          <div className="font-mono text-[#233762] font-bold">CP {order.zip}</div>
+                          <div className="text-[11px] text-slate-500">{order.city}, {order.state}</div>
                         </td>
 
                         {/* Botón de Corrección Rápida */}
                         <td className="py-3 px-4 text-center whitespace-nowrap">
                           <button
                             onClick={() => handleOpenEdit(order)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-cyan-600 hover:text-white text-slate-300 border border-slate-700 hover:border-cyan-500 text-xs font-semibold transition"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                             <span>Corregir</span>
@@ -753,27 +780,27 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      {/* MODAL DE EDICIÓN EN CALIENTE (PATCH /api/batches/order/{pick_order}) */}
+      {/* MODAL DE EDICIÓN EN CALIENTE */}
       {editingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
+                <div className="p-2 rounded-lg bg-[#EFF3F9] text-[#233762]">
                   <Edit3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    Corregir Orden <span className="font-mono text-cyan-400">{editingOrder.order_id}</span>
+                  <h3 className="text-base font-extrabold text-[#233762] flex items-center gap-2">
+                    Corregir Orden <span className="font-mono text-[#CE3A39]">{editingOrder.order_id}</span>
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Modifica los campos para re-evaluar con SEPOMEX y quitar el bloqueo en tiempo real.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setEditingOrder(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -782,7 +809,7 @@ export default function DashboardPage() {
             <form onSubmit={handleSavePatch} className="p-6 space-y-4">
               {/* Teléfono */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-[#233762] mb-1">
                   Teléfono de Contacto (Exactamente 10 dígitos)
                 </label>
                 <div className="relative">
@@ -793,7 +820,7 @@ export default function DashboardPage() {
                     maxLength={10}
                     value={editFormData.phone}
                     onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
-                    className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-slate-950 border border-slate-700 font-mono text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
                     placeholder="Ej. 5576682213"
                   />
                 </div>
@@ -801,8 +828,8 @@ export default function DashboardPage() {
 
               {/* Address 1 */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Calle y Número Exterior/Interior (Address 1, max 50 chars)
+                <label className="block text-xs font-bold text-[#233762] mb-1">
+                  Calle y Número Exterior/Interior (Address 1, max 50 caracteres)
                 </label>
                 <input
                   type="text"
@@ -810,52 +837,52 @@ export default function DashboardPage() {
                   maxLength={50}
                   value={editFormData.address1}
                   onChange={(e) => setEditFormData({ ...editFormData, address1: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-950 border border-slate-700 font-mono text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
                 />
               </div>
 
               {/* Address 2 (Colonia) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Colonia / Asentamiento Oficial (Address 2, max 50 chars)
+                <label className="block text-xs font-bold text-[#233762] mb-1">
+                  Colonia / Asentamiento Oficial (Address 2, max 50 caracteres)
                 </label>
                 <input
                   type="text"
                   maxLength={50}
                   value={editFormData.address2}
                   onChange={(e) => setEditFormData({ ...editFormData, address2: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
                 />
               </div>
 
               {/* Fila CP, Ciudad, Estado */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Código Postal</label>
+                  <label className="block text-xs font-bold text-[#233762] mb-1">Código Postal</label>
                   <input
                     type="text"
                     maxLength={5}
                     value={editFormData.zip}
                     onChange={(e) => setEditFormData({ ...editFormData, zip: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-950 border border-slate-700 font-mono text-cyan-400 font-bold focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-[#233762] font-bold focus:outline-none focus:border-[#233762]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Ciudad / Municipio</label>
+                  <label className="block text-xs font-bold text-[#233762] mb-1">Ciudad / Municipio</label>
                   <input
                     type="text"
                     value={editFormData.city}
                     onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Estado</label>
+                  <label className="block text-xs font-bold text-[#233762] mb-1">Estado</label>
                   <input
                     type="text"
                     value={editFormData.state}
                     onChange={(e) => setEditFormData({ ...editFormData, state: e.target.value })}
-                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
                   />
                 </div>
               </div>
@@ -868,29 +895,29 @@ export default function DashboardPage() {
                     id="syncCounterpart"
                     checked={editFormData.sync_counterpart}
                     onChange={(e) => setEditFormData({ ...editFormData, sync_counterpart: e.target.checked })}
-                    className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500 bg-slate-950 border-slate-700"
+                    className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300"
                   />
-                  <label htmlFor="syncCounterpart" className="text-xs text-slate-300 cursor-pointer">
+                  <label htmlFor="syncCounterpart" className="text-xs text-slate-700 cursor-pointer font-medium">
                     Sincronizar y corregir también su orden par de Retorno (
-                    <span className="font-mono text-cyan-400">{editingOrder.order_id}-1</span>)
+                    <span className="font-mono text-[#233762] font-bold">{editingOrder.order_id}-1</span>)
                   </label>
                 </div>
               )}
 
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setEditingOrder(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading === "patch"}
-                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold shadow-md transition"
+                  className="px-5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-sm font-bold shadow-sm transition"
                 >
-                  {actionLoading === "patch" ? "Guardando..." : "Guardar y Re-validar"}
+                  {actionLoading === "patch" ? "Guardando..." : "Guardar y Revalidar"}
                 </button>
               </div>
             </form>
@@ -900,29 +927,29 @@ export default function DashboardPage() {
 
       {/* MODAL DE CONFIRMACIÓN DE TIMBRADO REAL (--live) */}
       {showLiveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-rose-500/50 rounded-2xl w-full max-w-md shadow-2xl p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 border border-red-200 text-[#CE3A39] flex items-center justify-center mx-auto">
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">¿Confirmar Timbrado Oficial en Estafeta?</h3>
-              <p className="text-xs text-slate-300 mt-2">
+              <h3 className="text-lg font-extrabold text-slate-900">¿Confirmar Timbrado Oficial en Estafeta?</h3>
+              <p className="text-xs text-slate-600 mt-2">
                 Esta acción creará las guías reales con cargo en la cuenta de Estafeta REST en Techship. Las órdenes
-                bloqueadas con <span className="text-rose-400 font-bold">ROJO</span> serán omitidas automáticamente para
+                bloqueadas con <span className="text-[#CE3A39] font-bold">ROJO</span> serán omitidas automáticamente para
                 proteger la operación.
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => setShowLiveModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => handleTechshipProcess(false)}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 text-white text-xs font-bold shadow-lg shadow-rose-900/40 transition"
+                className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 transition"
               >
                 Sí, Timbrar Guías Reales
               </button>
@@ -933,18 +960,18 @@ export default function DashboardPage() {
 
       {/* MODAL DE RESULTADOS DE SIMULACIÓN TECHSHIP */}
       {simResults && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-base font-bold text-white">
+                <CheckCircle2 className="w-5 h-5 text-[#233762]" />
+                <h3 className="text-base font-bold text-[#233762]">
                   Resultado de Evaluación en Techship ({simResults.dry_run ? "Simulación Segura" : "Timbrado Real"})
                 </h3>
               </div>
               <button
                 onClick={() => setSimResults(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -953,56 +980,56 @@ export default function DashboardPage() {
             <div className="p-6 overflow-y-auto space-y-4">
               {/* Tarjetas resumen */}
               <div className="grid grid-cols-4 gap-3 text-center">
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <div className="text-xs text-slate-400">Total en Lote</div>
-                  <div className="text-xl font-bold font-mono text-white mt-1">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500 font-medium">Total en Lote</div>
+                  <div className="text-xl font-bold font-mono text-slate-900 mt-1">
                     {simResults.summary.total}
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <div className="text-xs text-slate-400">Listas / Éxito</div>
-                  <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <div className="text-xs text-emerald-700 font-medium">Listas / Éxito</div>
+                  <div className="text-xl font-bold font-mono text-emerald-700 mt-1">
                     {simResults.summary.success || simResults.summary.ready}
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <div className="text-xs text-slate-400">Anti-Duplicadas</div>
-                  <div className="text-xl font-bold font-mono text-blue-400 mt-1">
+                <div className="p-3 rounded-xl bg-[#EFF3F9] border border-[#233762]/20">
+                  <div className="text-xs text-[#233762] font-medium">Anti-Duplicadas</div>
+                  <div className="text-xl font-bold font-mono text-[#233762] mt-1">
                     {simResults.summary.duplicates}
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <div className="text-xs text-slate-400">Bloqueadas</div>
-                  <div className="text-xl font-bold font-mono text-rose-400 mt-1">
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                  <div className="text-xs text-[#CE3A39] font-medium">Bloqueadas</div>
+                  <div className="text-xl font-bold font-mono text-[#CE3A39] mt-1">
                     {simResults.summary.blocked}
                   </div>
                 </div>
               </div>
 
               {/* Lista detallada de órdenes */}
-              <div className="border border-slate-800 rounded-xl overflow-hidden">
-                <div className="bg-slate-950/80 px-4 py-2 text-xs font-semibold text-slate-400 uppercase">
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="bg-[#233762] px-4 py-2 text-xs font-semibold text-white uppercase">
                   Detalle por Orden
                 </div>
-                <div className="divide-y divide-slate-800/60 max-h-60 overflow-y-auto font-mono text-xs">
+                <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto font-mono text-xs">
                   {simResults.details?.map((item: any, idx: number) => (
-                    <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-800/30">
+                    <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-50">
                       <div>
-                        <span className="font-bold text-slate-200">{item.order}</span>
-                        <span className="text-[11px] text-slate-400 ml-2">({item.type})</span>
-                        <div className="text-[11px] text-slate-400 font-sans mt-0.5">{item.message}</div>
+                        <span className="font-bold text-[#233762]">{item.order}</span>
+                        <span className="text-[11px] text-slate-500 ml-2">({item.type})</span>
+                        <div className="text-[11px] text-slate-600 font-sans mt-0.5">{item.message}</div>
                       </div>
                       <div>
                         {item.status === "OK" || item.status === "LISTA" ? (
-                          <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
                             ACEPTADA
                           </span>
                         ) : item.status === "DUPLICADO" ? (
-                          <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded bg-[#EFF3F9] text-[#233762] font-bold text-[10px]">
                             YA EXISTE (ID {item.shipment_id})
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded bg-red-100 text-[#CE3A39] font-bold text-[10px]">
                             BLOQUEADA
                           </span>
                         )}
@@ -1013,10 +1040,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/40 flex justify-end">
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
               <button
                 onClick={() => setSimResults(null)}
-                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                className="px-4 py-1.5 rounded-xl bg-[#233762] text-white text-xs font-bold transition hover:bg-[#1B2A4A]"
               >
                 Cerrar
               </button>
