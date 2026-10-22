@@ -7,7 +7,7 @@
   }
 
   body {
-    background-color: #f8fafc;
+    background-color: #ffffff;
     color: #0f172a;
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   }
@@ -31,10 +31,4 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
-}
-
-/* Sutil cuadrícula técnica institucional */
-.bg-tech-grid {
-  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-  background-size: 20px 20px;
 }

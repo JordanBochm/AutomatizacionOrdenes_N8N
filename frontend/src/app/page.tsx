@@ -386,7 +386,7 @@ export default function DashboardPage() {
   }, [batchData, searchTerm, activeTab]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden bg-tech-grid">
+    <div className="min-h-screen bg-white text-slate-800 flex flex-col font-sans relative overflow-x-hidden">
       {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
       <div className="h-1.5 w-full flex relative z-50">
         <div className="w-1/2 bg-[#233762]" />
