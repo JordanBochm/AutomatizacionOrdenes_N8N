@@ -21,6 +21,38 @@ import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
+# ==============================================================================
+# Manejo seguro de flujos estándar (sys.stdout / sys.stderr) para evitar
+# [WinError 233] (ERROR_PIPE_NOT_CONNECTED) o BrokenPipeError al ejecutarse
+# en segundo plano o como proceso oculto en Windows sin consola conectada.
+# ==============================================================================
+class SafeStream:
+    """Evita excepciones de tubería rota (BrokenPipe / WinError 233) en segundo plano."""
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, data):
+        try:
+            if self._stream:
+                return self._stream.write(data)
+        except (OSError, BrokenPipeError):
+            pass
+
+    def flush(self):
+        try:
+            if self._stream:
+                self._stream.flush()
+        except (OSError, BrokenPipeError):
+            pass
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+if sys.stdout is not None:
+    sys.stdout = SafeStream(sys.stdout)
+if sys.stderr is not None:
+    sys.stderr = SafeStream(sys.stderr)
+
 import openpyxl
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body

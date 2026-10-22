@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *.class
 *.env
+*.log
+data/*.log
 .venv/
 venv/
 ENV/

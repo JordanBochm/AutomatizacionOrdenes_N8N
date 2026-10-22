@@ -11,10 +11,10 @@ currentDir = FSO.GetParentFolderName(WScript.ScriptFullName)
 WshShell.CurrentDirectory = currentDir
 
 ' 1. Iniciar FastAPI Backend en modo oculto con recarga automatica de src/
-WshShell.Run "cmd /c ""python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 --reload --reload-dir src""", 0, False
+WshShell.Run "cmd /c ""python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 --reload --reload-dir src >> data\api_server.log 2>&1""", 0, False
 
 ' 2. Iniciar Next.js Frontend en modo oculto
-WshShell.Run "cmd /c ""set PATH=C:\Program Files\nodejs;%PATH% && cd /d """ & currentDir & "\frontend"" && npm.cmd run dev""", 0, False
+WshShell.Run "cmd /c ""set PATH=C:\Program Files\nodejs;%PATH% && cd /d """ & currentDir & "\frontend"" && npm.cmd run dev >> ..\data\frontend.log 2>&1""", 0, False
 
 ' 3. Esperar 3 segundos para que los servidores inicialicen
 WScript.Sleep 3000
