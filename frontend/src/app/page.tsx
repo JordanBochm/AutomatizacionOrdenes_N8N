@@ -485,19 +485,21 @@ export default function DashboardPage() {
             {/* Tarjeta 1: Asset Management (Activo) */}
             <div
               onClick={() => setActiveModule("asset_management")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 flex flex-col items-center text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
             >
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
               <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 Activo
               </span>
-              <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
-                <Boxes className="w-8 h-8" />
+              <div className="flex flex-col items-center w-full">
+                <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
+                  <Boxes className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Automatización de órdenes, validación SEPOMEX y guías Techship.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Automatización de órdenes, validación SEPOMEX y guías Techship.
-              </p>
               <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
                 <span>Ingresar</span>
                 <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
@@ -507,20 +509,16 @@ export default function DashboardPage() {
             {/* Tarjeta 2: CSM (En desarrollo) */}
             <div
               onClick={() => triggerToast("Módulo CSM en construcción", "info")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 flex flex-col items-center text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
             >
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#233762]/30 transition-colors duration-300" />
-              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                Próximamente
-              </span>
-              <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
-                <Headphones className="w-8 h-8" />
+              <div className="flex flex-col items-center w-full">
+                <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                  <Headphones className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
               </div>
-              <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Gestión de atención a clientes, tickets de soporte y seguimiento.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+              <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
                 En desarrollo
               </span>
             </div>
@@ -528,20 +526,16 @@ export default function DashboardPage() {
             {/* Tarjeta 3: Almacén (En desarrollo) */}
             <div
               onClick={() => triggerToast("Módulo Almacén en construcción", "info")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 flex flex-col items-center text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
             >
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#CE3A39]/30 transition-colors duration-300" />
-              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                Próximamente
-              </span>
-              <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
-                <Warehouse className="w-8 h-8" />
+              <div className="flex flex-col items-center w-full">
+                <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                  <Warehouse className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
               </div>
-              <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Control de inventario físico, cross-docking, picking y empaque.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+              <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
                 En desarrollo
               </span>
             </div>
