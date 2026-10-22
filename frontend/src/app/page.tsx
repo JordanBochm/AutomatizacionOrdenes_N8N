@@ -31,7 +31,21 @@ import {
   Boxes,
   Warehouse,
   Headphones,
+  Eye,
+  EyeOff,
+  LogOut,
 } from "lucide-react";
+
+// ==============================================================================
+// GALERÍA FOTOGRÁFICA DE LOGÍSTICA PARA LOGIN (Fácilmente Personalizable)
+// Puedes reemplazar estas URLs por rutas locales en public/ (ej. "/login/foto1.jpg")
+// cuando desees colocar fotografías propias de la operación.
+// ==============================================================================
+const LOGISTICS_IMAGES = [
+  "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1920&q=85", // Almacén y distribución logística
+  "https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=1920&q=85", // Transporte multimodal, contenedores y carga aérea/terrestre
+  "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=1920&q=85", // Tráiler de carga en ruta
+];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -104,8 +118,13 @@ export default function DashboardPage() {
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-  // Control de módulo activo: 'hub' (Portal Principal) | 'asset_management' (Automatizador KST)
-  const [activeModule, setActiveModule] = useState<"hub" | "asset_management">("hub");
+  
+  // Control de módulo activo: 'login' | 'hub' (Portal Principal) | 'asset_management' (Automatizador KST)
+  const [activeModule, setActiveModule] = useState<"login" | "hub" | "asset_management">("login");
+  const [userEmail, setUserEmail] = useState<string>("Jordi.Bochm@sekologistics.com");
+  const [loginPassword, setLoginPassword] = useState<string>("••••••••••••");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [logoError, setLogoError] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -150,8 +169,50 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    // 1. Verificar si hay sesión en sessionStorage al montar
+    if (typeof window !== "undefined") {
+      const savedEmail = sessionStorage.getItem("sc_user_email");
+      if (savedEmail) {
+        setUserEmail(savedEmail);
+        setActiveModule("hub");
+      } else {
+        setActiveModule("login");
+      }
+    }
     fetchHealthAndBatch();
   }, []);
+
+  // 2. Rotación automática de imágenes del carrusel de login cada 8 segundos
+  useEffect(() => {
+    if (activeModule !== "login") return;
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % LOGISTICS_IMAGES.length);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [activeModule]);
+
+  // Iniciar sesión
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userEmail.trim()) {
+      triggerToast("Por favor ingresa un correo electrónico válido.", "error");
+      return;
+    }
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("sc_user_email", userEmail.trim());
+    }
+    setActiveModule("hub");
+    triggerToast(`Sesión iniciada como ${userEmail.trim()}`, "success");
+  };
+
+  // Cerrar sesión
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("sc_user_email");
+    }
+    setActiveModule("login");
+    triggerToast("Sesión cerrada correctamente.", "info");
+  };
 
   // Subir reporte Excel (SCTASK_*.xlsx)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -422,29 +483,32 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* RENDER CONDICIONAL: PORTAL HUB (ESTILO EXTENSIV MINIMALISTA) O DASHBOARD DE ASSET MANAGEMENT */}
-      {activeModule === "hub" ? (
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col items-center justify-center py-12 px-6">
-          {/* LOGOTIPO OFICIAL CENTRADO ARRIBA */}
-          <div className="flex flex-col items-center mb-10 sm:mb-14">
-            {!logoError ? (
-              <img
-                src="/logo-supplychain.png"
-                alt="SupplyChain México"
-                className="h-28 sm:h-36 md:h-40 w-auto object-contain select-none transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <div className="flex flex-col items-center select-none">
-                <div className="flex items-center gap-4">
+      {/* RENDER CONDICIONAL: LOGIN SPLIT-SCREEN | PORTAL HUB | DASHBOARD DE ASSET MANAGEMENT */}
+      {activeModule === "login" ? (
+        <div className="flex-1 min-h-[calc(100vh-6px)] w-full flex flex-col lg:flex-row bg-white">
+          {/* ============================================================ */}
+          {/* COLUMNA IZQUIERDA: Formulario Minimalista Extensiv Style     */}
+          {/* ============================================================ */}
+          <div className="w-full lg:w-[460px] xl:w-[520px] min-h-[calc(100vh-6px)] bg-white flex flex-col justify-between p-8 sm:p-10 lg:p-14 shrink-0 z-10 shadow-xl">
+            {/* 1. Esquina Superior Izquierda: Logotipo Oficial */}
+            <div>
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-14 sm:h-16 w-auto object-contain select-none"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="flex items-center gap-3 select-none">
                   <svg
                     viewBox="383 -66 380 380"
-                    className="w-16 h-16 sm:w-20 sm:h-20 overflow-visible"
+                    className="w-10 h-10 overflow-visible"
                     role="img"
                     aria-label="SupplyChain México"
                   >
                     <defs>
-                      <clipPath id="sc-vector-clip">
+                      <clipPath id="sc-login-vector-clip">
                         <circle cx="584.5" cy="186.1" r="75" />
                       </clipPath>
                     </defs>
@@ -457,7 +521,7 @@ export default function DashboardPage() {
                         fill="#CE3A39"
                         d="M595.5 242.0C588.3 241.2 580.1 239.5 574.5 237.5C569.8 235.8 554.0 227.7 554.0 227.0C554.0 226.5 555.5 225.1 557.2 223.9C559.0 222.7 568.4 213.8 578.1 204.3C595.0 187.7 595.8 187.0 598.4 188.0C603.5 189.9 616.9 189.2 624.2 186.7C633.9 183.2 639.3 179.4 651.0 167.3L661.5 156.5L653.9 156.2C642.3 155.8 642.5 156.1 642.5 132.5C642.5 114.9 642.7 113.0 644.4 111.1C646.3 109.0 646.8 109.0 694.0 109.0L741.7 109.0L743.8 111.3C747.0 114.7 747.3 206.2 744.1 210.1C742.2 212.4 741.8 212.5 723.3 212.8C699.4 213.2 699.0 213.0 699.0 201.4C699.0 197.3 698.7 194.0 698.2 194.0C697.8 194.0 691.9 199.7 685.0 206.6C656.1 235.6 631.1 245.5 595.5 242.0ZM517.0 183.9C510.0 170.9 506.8 142.0 510.5 125.3C515.8 101.4 524.7 86.0 542.8 69.0C547.8 64.3 558.1 54.4 565.7 46.9C573.3 39.5 582.2 31.2 585.5 28.6C588.8 26.0 592.0 23.3 592.5 22.6C594.0 20.9 602.8 15.7 608.0 13.6C610.5 12.6 613.4 11.4 614.5 10.9C629.0 4.9 672.6 5.0 679.5 11.1C680.0 11.6 681.0 12.0 681.8 12.0C682.6 12.0 686.8 13.8 691.2 16.0C714.4 27.7 732.5 48.5 740.4 72.4C743.4 81.4 744.8 81.0 713.0 81.0L685.1 81.0L681.4 76.5C671.5 64.3 653.9 57.5 639.0 60.0C620.4 63.1 620.9 62.8 600.5 83.4C566.6 117.7 562.0 124.9 562.0 143.4L562.0 148.6L545.8 164.6C526.1 184.0 519.4 188.5 517.0 183.9Z"
                       />
-                      <g clipPath="url(#sc-vector-clip)">
+                      <g clipPath="url(#sc-login-vector-clip)">
                         <path
                           fill="#233762"
                           d="M490.0 242.0C452.2 238.5 418.8 212.8 406.9 178.0C403.2 167.0 401.9 167.5 432.9 167.2L459.1 167.0L465.4 173.4C476.7 184.8 485.9 189.1 500.0 189.2C517.5 189.4 524.7 186.2 539.9 171.5C573.9 138.7 582.7 126.5 583.6 111.2C583.9 107.0 584.3 102.6 584.5 101.4C585.1 98.4 614.7 69.4 620.8 65.8C627.5 62.0 628.0 62.2 631.3 71.6C644.1 108.7 635.4 146.2 607.2 174.9C595.0 187.3 562.5 218.7 556.5 223.7C541.6 236.3 513.2 244.1 490.0 242.0ZM403.2 137.4L401.0 135.9L401.0 88.2C401.0 62.0 401.4 40.0 401.8 39.4C403.7 36.6 407.4 36.0 424.3 36.0C446.5 36.0 447.0 36.3 447.0 47.6C447.0 51.7 447.3 55.0 447.6 55.0C447.9 55.0 454.7 48.7 462.6 41.1C477.8 26.4 483.6 22.1 496.0 15.8C522.8 2.4 559.0 3.3 586.1 18.2C593.1 22.1 593.1 21.7 587.4 25.9C584.9 27.8 575.7 36.4 567.0 45.1L551.1 60.8L543.6 59.7C525.8 57.1 514.3 61.8 496.8 78.8C482.7 92.5 482.5 93.0 492.3 93.0C503.2 93.0 503.0 92.5 503.0 116.3C503.0 135.4 502.9 135.9 500.8 137.4C498.8 138.8 492.5 139.0 452.0 139.0C411.5 139.0 405.2 138.8 403.2 137.4Z"
@@ -465,79 +529,277 @@ export default function DashboardPage() {
                       </g>
                     </g>
                   </svg>
-                  <div className="flex items-baseline font-extrabold italic text-4xl sm:text-5xl tracking-tight">
+                  <div className="flex items-baseline font-extrabold italic text-2xl tracking-tight">
                     <span className="text-[#233762]">Supply</span>
                     <span className="text-[#CE3A39]">Chain</span>
                   </div>
                 </div>
-                <span className="text-xs sm:text-sm font-bold text-slate-500 tracking-[0.35em] mt-2">M É X I C O</span>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* 2. Bloque Central del Formulario */}
+            <div className="max-w-sm w-full mx-auto my-auto py-8">
+              <h2 className="text-2xl font-bold text-[#233762] mb-8">
+                Iniciar sesión
+              </h2>
+
+              <form onSubmit={handleLoginSubmit} className="space-y-6">
+                {/* Campo Email (Floating Outlined Label) */}
+                <div className="relative border border-slate-300 rounded-md px-3.5 py-3 focus-within:border-[#233762] focus-within:ring-1 focus-within:ring-[#233762] transition-all bg-white">
+                  <label className="absolute -top-2.5 left-3 bg-white px-1 text-xs font-medium text-slate-500 pointer-events-none">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    placeholder="nombre@sekologistics.com"
+                    className="w-full text-sm text-slate-800 placeholder-slate-400 bg-transparent outline-none"
+                  />
+                </div>
+
+                {/* Campo Password (Floating Outlined Label con Show/Hide) */}
+                <div className="relative border border-slate-300 rounded-md px-3.5 py-3 focus-within:border-[#233762] focus-within:ring-1 focus-within:ring-[#233762] transition-all bg-white flex items-center justify-between">
+                  <label className="absolute -top-2.5 left-3 bg-white px-1 text-xs font-medium text-slate-500 pointer-events-none">
+                    Password
+                  </label>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full text-sm text-slate-800 placeholder-slate-400 bg-transparent outline-none pr-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-slate-400 hover:text-slate-600 focus:outline-none p-0.5 transition-colors"
+                    tabIndex={-1}
+                    title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {/* Botón Principal LOGIN */}
+                <button
+                  type="submit"
+                  className="w-full py-3 mt-6 rounded-md font-bold text-sm tracking-wider uppercase text-white shadow-md bg-[#CE3A39] hover:bg-[#B02E2D] active:scale-[0.99] transition-all duration-200 cursor-pointer"
+                >
+                  LOGIN
+                </button>
+
+                {/* Enlace ¿Olvidaste tu contraseña? */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      triggerToast(
+                        "Comunícate con soporte TI (it.support@sekologistics.com) para restablecer tu contraseña.",
+                        "info"
+                      )
+                    }
+                    className="text-sm text-slate-600 underline hover:text-[#233762] transition-colors cursor-pointer"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* 3. Pie del Panel Izquierdo */}
+            <div className="text-xs text-slate-400 pt-4 font-normal">
+              © SupplyChain México • Operación SEKO Logistics / KST
+            </div>
           </div>
 
-          {/* LAS 3 TARJETAS DE MÓDULOS (ESTILO TARJETA ELEVADA MINIMALISTA) */}
-          <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
-            {/* Tarjeta 1: Asset Management (Activo) */}
-            <div
-              onClick={() => setActiveModule("asset_management")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
-            >
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
-              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Activo
-              </span>
-              <div className="flex flex-col items-center w-full">
-                <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
-                  <Boxes className="w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Automatización de órdenes, validación SEPOMEX y guías Techship.
-                </p>
+          {/* ============================================================ */}
+          {/* COLUMNA DERECHA: Galería Fotográfica de Logística             */}
+          {/* ============================================================ */}
+          <div className="hidden lg:block flex-1 min-h-[calc(100vh-6px)] relative overflow-hidden bg-[#1B2A4A]">
+            {/* Imágenes del carrusel con transición suave */}
+            {LOGISTICS_IMAGES.map((imgSrc, idx) => (
+              <div
+                key={idx}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                  idx === currentImageIndex ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
+                }`}
+                style={{ transitionProperty: "opacity, transform", transitionDuration: "1000ms" }}
+              >
+                <img
+                  src={imgSrc}
+                  alt={`Operación logística ${idx + 1}`}
+                  className="w-full h-full object-cover object-center select-none"
+                />
               </div>
-              <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
-                <span>Ingresar</span>
-                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-              </span>
+            ))}
+
+            {/* Degradado protector inferior y viñeta suave */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#233762]/85 via-transparent to-black/20 pointer-events-none" />
+
+            {/* Leyenda en esquina inferior izquierda */}
+            <div className="absolute bottom-8 left-8 z-20 max-w-lg text-white">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[11px] font-bold tracking-wider uppercase mb-2">
+                <span className="w-2 h-2 rounded-full bg-[#CE3A39] animate-pulse" />
+                <span>SupplyChain México</span>
+              </div>
+              <h3 className="text-lg font-bold text-white drop-shadow-md">
+                Plataforma de Orquestación Logística y Última Milla Nacional
+              </h3>
             </div>
 
-            {/* Tarjeta 2: CSM (En desarrollo) */}
-            <div
-              onClick={() => triggerToast("Módulo CSM en construcción", "info")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+            {/* Controles de paginación del carrusel en esquina inferior derecha */}
+            <div className="absolute bottom-8 right-8 z-20 flex items-center gap-2">
+              {LOGISTICS_IMAGES.map((_, dotIdx) => (
+                <button
+                  key={dotIdx}
+                  onClick={() => setCurrentImageIndex(dotIdx)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    dotIdx === currentImageIndex
+                      ? "w-8 bg-[#CE3A39]"
+                      : "w-2 bg-white/60 hover:bg-white"
+                  }`}
+                  aria-label={`Ir a foto ${dotIdx + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : activeModule === "hub" ? (
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-6 px-6">
+          {/* Barra superior de usuario y logout */}
+          <div className="w-full max-w-5xl mx-auto flex items-center justify-end gap-3 text-xs mb-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-medium text-slate-600">{userEmail}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+              title="Cerrar sesión"
             >
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#233762]/30 transition-colors duration-300" />
-              <div className="flex flex-col items-center w-full">
-                <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
-                  <Headphones className="w-8 h-8" />
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center">
+            {/* LOGOTIPO OFICIAL CENTRADO ARRIBA */}
+            <div className="flex flex-col items-center mb-10 sm:mb-14">
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-28 sm:h-36 md:h-40 w-auto object-contain select-none transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="flex flex-col items-center select-none">
+                  <div className="flex items-center gap-4">
+                    <svg
+                      viewBox="383 -66 380 380"
+                      className="w-16 h-16 sm:w-20 sm:h-20 overflow-visible"
+                      role="img"
+                      aria-label="SupplyChain México"
+                    >
+                      <defs>
+                        <clipPath id="sc-vector-clip">
+                          <circle cx="584.5" cy="186.1" r="75" />
+                        </clipPath>
+                      </defs>
+                      <g>
+                        <path
+                          fill="#233762"
+                          d="M490.0 242.0C452.2 238.5 418.8 212.8 406.9 178.0C403.2 167.0 401.9 167.5 432.9 167.2L459.1 167.0L465.4 173.4C476.7 184.8 485.9 189.1 500.0 189.2C517.5 189.4 524.7 186.2 539.9 171.5C573.9 138.7 582.7 126.5 583.6 111.2C583.9 107.0 584.3 102.6 584.5 101.4C585.1 98.4 614.7 69.4 620.8 65.8C627.5 62.0 628.0 62.2 631.3 71.6C644.1 108.7 635.4 146.2 607.2 174.9C595.0 187.3 562.5 218.7 556.5 223.7C541.6 236.3 513.2 244.1 490.0 242.0ZM403.2 137.4L401.0 135.9L401.0 88.2C401.0 62.0 401.4 40.0 401.8 39.4C403.7 36.6 407.4 36.0 424.3 36.0C446.5 36.0 447.0 36.3 447.0 47.6C447.0 51.7 447.3 55.0 447.6 55.0C447.9 55.0 454.7 48.7 462.6 41.1C477.8 26.4 483.6 22.1 496.0 15.8C522.8 2.4 559.0 3.3 586.1 18.2C593.1 22.1 593.1 21.7 587.4 25.9C584.9 27.8 575.7 36.4 567.0 45.1L551.1 60.8L543.6 59.7C525.8 57.1 514.3 61.8 496.8 78.8C482.7 92.5 482.5 93.0 492.3 93.0C503.2 93.0 503.0 92.5 503.0 116.3C503.0 135.4 502.9 135.9 500.8 137.4C498.8 138.8 492.5 139.0 452.0 139.0C411.5 139.0 405.2 138.8 403.2 137.4Z"
+                        />
+                        <path
+                          fill="#CE3A39"
+                          d="M595.5 242.0C588.3 241.2 580.1 239.5 574.5 237.5C569.8 235.8 554.0 227.7 554.0 227.0C554.0 226.5 555.5 225.1 557.2 223.9C559.0 222.7 568.4 213.8 578.1 204.3C595.0 187.7 595.8 187.0 598.4 188.0C603.5 189.9 616.9 189.2 624.2 186.7C633.9 183.2 639.3 179.4 651.0 167.3L661.5 156.5L653.9 156.2C642.3 155.8 642.5 156.1 642.5 132.5C642.5 114.9 642.7 113.0 644.4 111.1C646.3 109.0 646.8 109.0 694.0 109.0L741.7 109.0L743.8 111.3C747.0 114.7 747.3 206.2 744.1 210.1C742.2 212.4 741.8 212.5 723.3 212.8C699.4 213.2 699.0 213.0 699.0 201.4C699.0 197.3 698.7 194.0 698.2 194.0C697.8 194.0 691.9 199.7 685.0 206.6C656.1 235.6 631.1 245.5 595.5 242.0ZM517.0 183.9C510.0 170.9 506.8 142.0 510.5 125.3C515.8 101.4 524.7 86.0 542.8 69.0C547.8 64.3 558.1 54.4 565.7 46.9C573.3 39.5 582.2 31.2 585.5 28.6C588.8 26.0 592.0 23.3 592.5 22.6C594.0 20.9 602.8 15.7 608.0 13.6C610.5 12.6 613.4 11.4 614.5 10.9C629.0 4.9 672.6 5.0 679.5 11.1C680.0 11.6 681.0 12.0 681.8 12.0C682.6 12.0 686.8 13.8 691.2 16.0C714.4 27.7 732.5 48.5 740.4 72.4C743.4 81.4 744.8 81.0 713.0 81.0L685.1 81.0L681.4 76.5C671.5 64.3 653.9 57.5 639.0 60.0C620.4 63.1 620.9 62.8 600.5 83.4C566.6 117.7 562.0 124.9 562.0 143.4L562.0 148.6L545.8 164.6C526.1 184.0 519.4 188.5 517.0 183.9Z"
+                        />
+                        <g clipPath="url(#sc-vector-clip)">
+                          <path
+                            fill="#233762"
+                            d="M490.0 242.0C452.2 238.5 418.8 212.8 406.9 178.0C403.2 167.0 401.9 167.5 432.9 167.2L459.1 167.0L465.4 173.4C476.7 184.8 485.9 189.1 500.0 189.2C517.5 189.4 524.7 186.2 539.9 171.5C573.9 138.7 582.7 126.5 583.6 111.2C583.9 107.0 584.3 102.6 584.5 101.4C585.1 98.4 614.7 69.4 620.8 65.8C627.5 62.0 628.0 62.2 631.3 71.6C644.1 108.7 635.4 146.2 607.2 174.9C595.0 187.3 562.5 218.7 556.5 223.7C541.6 236.3 513.2 244.1 490.0 242.0ZM403.2 137.4L401.0 135.9L401.0 88.2C401.0 62.0 401.4 40.0 401.8 39.4C403.7 36.6 407.4 36.0 424.3 36.0C446.5 36.0 447.0 36.3 447.0 47.6C447.0 51.7 447.3 55.0 447.6 55.0C447.9 55.0 454.7 48.7 462.6 41.1C477.8 26.4 483.6 22.1 496.0 15.8C522.8 2.4 559.0 3.3 586.1 18.2C593.1 22.1 593.1 21.7 587.4 25.9C584.9 27.8 575.7 36.4 567.0 45.1L551.1 60.8L543.6 59.7C525.8 57.1 514.3 61.8 496.8 78.8C482.7 92.5 482.5 93.0 492.3 93.0C503.2 93.0 503.0 92.5 503.0 116.3C503.0 135.4 502.9 135.9 500.8 137.4C498.8 138.8 492.5 139.0 452.0 139.0C411.5 139.0 405.2 138.8 403.2 137.4Z"
+                          />
+                        </g>
+                      </g>
+                    </svg>
+                    <div className="flex items-baseline font-extrabold italic text-4xl sm:text-5xl tracking-tight">
+                      <span className="text-[#233762]">Supply</span>
+                      <span className="text-[#CE3A39]">Chain</span>
+                    </div>
+                  </div>
+                  <span className="text-xs sm:text-sm font-bold text-slate-500 tracking-[0.35em] mt-2">M É X I C O</span>
                 </div>
-                <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
-              </div>
-              <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
-                En desarrollo
-              </span>
+              )}
             </div>
 
-            {/* Tarjeta 3: Almacén (En desarrollo) */}
-            <div
-              onClick={() => triggerToast("Módulo Almacén en construcción", "info")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
-            >
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#CE3A39]/30 transition-colors duration-300" />
-              <div className="flex flex-col items-center w-full">
-                <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
-                  <Warehouse className="w-8 h-8" />
+            {/* LAS 3 TARJETAS DE MÓDULOS (ESTILO TARJETA ELEVADA MINIMALISTA) */}
+            <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
+              {/* Tarjeta 1: Asset Management (Activo) */}
+              <div
+                onClick={() => setActiveModule("asset_management")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Activo
+                </span>
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
+                    <Boxes className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Automatización de órdenes, validación SEPOMEX y guías Techship.
+                  </p>
                 </div>
-                <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
+                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                  <span>Ingresar</span>
+                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                </span>
               </div>
-              <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
-                En desarrollo
-              </span>
+
+              {/* Tarjeta 2: CSM (En desarrollo) */}
+              <div
+                onClick={() => triggerToast("Módulo CSM en construcción", "info")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#233762]/30 transition-colors duration-300" />
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                    <Headphones className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
+                </div>
+                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
+                  En desarrollo
+                </span>
+              </div>
+
+              {/* Tarjeta 3: Almacén (En desarrollo) */}
+              <div
+                onClick={() => triggerToast("Módulo Almacén en construcción", "info")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#CE3A39]/30 transition-colors duration-300" />
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                    <Warehouse className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
+                </div>
+                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
+                  En desarrollo
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Pie de página sutil del Hub */}
-          <p className="text-xs text-slate-400 mt-14 font-medium tracking-wide">
+          <p className="text-xs text-slate-400 mt-14 font-medium tracking-wide text-center">
             SupplyChain México &bull; Plataforma Logística Integral
           </p>
         </div>
@@ -574,6 +836,22 @@ export default function DashboardPage() {
                     KST / Kyndryl
                   </span>
                 </div>
+              </div>
+
+              {/* Usuario activo y Cerrar sesión */}
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-medium font-mono text-slate-600">{userEmail}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cerrar sesión</span>
+                </button>
               </div>
             </div>
           </header>
