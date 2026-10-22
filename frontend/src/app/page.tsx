@@ -431,20 +431,20 @@ export default function DashboardPage() {
       {activeModule === "hub" ? (
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col items-center justify-center py-12 px-6">
           {/* LOGOTIPO OFICIAL CENTRADO ARRIBA */}
-          <div className="flex flex-col items-center mb-12 sm:mb-16">
+          <div className="flex flex-col items-center mb-10 sm:mb-14">
             {!logoError ? (
               <img
                 src="/logo-supplychain.png"
                 alt="SupplyChain México"
-                className="h-14 sm:h-16 w-auto object-contain select-none transition-transform hover:scale-105 duration-300"
+                className="h-28 sm:h-36 md:h-40 w-auto object-contain select-none transition-transform hover:scale-105 duration-300 drop-shadow-xs"
                 onError={() => setLogoError(true)}
               />
             ) : (
               <div className="flex flex-col items-center select-none">
-                <div className="flex items-center gap-3.5">
+                <div className="flex items-center gap-4">
                   <svg
                     viewBox="383 -66 380 380"
-                    className="w-12 h-12 overflow-visible"
+                    className="w-16 h-16 sm:w-20 sm:h-20 overflow-visible"
                     role="img"
                     aria-label="SupplyChain México"
                   >
@@ -470,12 +470,12 @@ export default function DashboardPage() {
                       </g>
                     </g>
                   </svg>
-                  <div className="flex items-baseline font-extrabold italic text-3xl tracking-tight">
+                  <div className="flex items-baseline font-extrabold italic text-4xl sm:text-5xl tracking-tight">
                     <span className="text-[#233762]">Supply</span>
                     <span className="text-[#CE3A39]">Chain</span>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 tracking-[0.3em] mt-1">M É X I C O</span>
+                <span className="text-xs sm:text-sm font-bold text-slate-500 tracking-[0.35em] mt-2">M É X I C O</span>
               </div>
             )}
           </div>
