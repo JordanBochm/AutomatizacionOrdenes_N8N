@@ -25,6 +25,7 @@ import {
   Building2,
   HelpCircle,
   AlertCircle,
+  Archive,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -89,6 +90,7 @@ export default function DashboardPage() {
 
   // Modales de Techship
   const [showLiveModal, setShowLiveModal] = useState<boolean>(false);
+  const [archivePreview, setArchivePreview] = useState<any | null>(null);
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
@@ -293,6 +295,60 @@ export default function DashboardPage() {
     window.open(url, "_blank");
   };
 
+  // Archivar días anteriores: llamada genérica (dryRun = solo vista previa)
+  const callArchive = async (dryRun: boolean) => {
+    const res = await fetch(`${API_BASE}/api/batches/archive-previous`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dry_run: dryRun }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "No se pudo consultar el archivado");
+    }
+    return res.json();
+  };
+
+  // Paso 1: vista previa de lo que se va a archivar
+  const handleArchivePreview = async () => {
+    try {
+      setActionLoading("archive");
+      const data = await callArchive(true);
+      if (data.moved_count === 0) {
+        triggerToast("No hay archivos de días anteriores. Todo está enfocado en hoy.", "info");
+        return;
+      }
+      setArchivePreview(data);
+    } catch (err: any) {
+      triggerToast(err.message || "Error al consultar archivos", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Paso 2: confirmar y mover los archivos a data/archive/
+  const handleArchiveConfirm = async () => {
+    try {
+      setActionLoading("archive");
+      const data = await callArchive(false);
+      setArchivePreview(null);
+      if (data.skipped?.length) {
+        triggerToast(
+          `${data.moved_count} archivados. ${data.skipped.length} no se movieron (¿abiertos en Excel?).`,
+          "error"
+        );
+      } else {
+        triggerToast(`${data.moved_count} archivos de días anteriores archivados.`, "success");
+      }
+      setBatchData(null);
+      await fetchHealthAndBatch();
+    } catch (err: any) {
+      triggerToast(err.message || "Error al archivar", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // Filtrado reactivo de órdenes
   const filteredOrders = useMemo(() => {
     if (!batchData?.orders) return [];
@@ -376,6 +432,18 @@ export default function DashboardPage() {
               />
               <span className="text-slate-700 font-medium">{apiConnected ? "API FastAPI Online" : "API Offline"}</span>
             </div>
+
+            <button
+              onClick={handleArchivePreview}
+              disabled={actionLoading === "archive"}
+              title="Mover los archivos de días anteriores a data/archive (no se borran)"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50"
+            >
+              <Archive className="w-4 h-4" />
+              <span className="hidden md:inline">
+                {actionLoading === "archive" ? "Revisando..." : "Limpiar días anteriores"}
+              </span>
+            </button>
 
             <button
               onClick={fetchHealthAndBatch}
@@ -899,6 +967,61 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN: LIMPIAR DÍAS ANTERIORES */}
+      {archivePreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-[#FDF2F2] text-[#CE3A39]">
+                <Archive className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-[#233762]">Limpiar días anteriores</h3>
+                <p className="text-xs text-slate-500">
+                  Se moverán <span className="font-bold font-mono">{archivePreview.moved_count}</span> archivos
+                  anteriores a hoy (<span className="font-mono">{archivePreview.today}</span>).
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3 overflow-y-auto">
+              <div className="rounded-xl bg-[#EFF3F9] border border-[#233762]/20 p-3 text-xs text-[#233762]">
+                <strong>No se borra nada.</strong> Los archivos se guardan en{" "}
+                <span className="font-mono">data/archive/AAAA-MM-DD/</span> por si necesitas un Cierre o PDF
+                anterior.
+              </div>
+
+              <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                {archivePreview.moved?.map((f: any, idx: number) => (
+                  <div key={idx} className="px-3 py-2 flex items-center justify-between gap-3 text-xs">
+                    <span className="font-mono text-slate-700 truncate" title={f.file}>
+                      {f.file}
+                    </span>
+                    <span className="font-mono text-slate-400 whitespace-nowrap">{f.date}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+              <button
+                onClick={() => setArchivePreview(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleArchiveConfirm}
+                disabled={actionLoading === "archive"}
+                className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
+              >
+                {actionLoading === "archive" ? "Archivando..." : "Sí, archivar y enfocar en hoy"}
+              </button>
+            </div>
           </div>
         </div>
       )}

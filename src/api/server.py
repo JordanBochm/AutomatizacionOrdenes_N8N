@@ -14,6 +14,7 @@ Expone endpoints para:
 """
 
 import os
+import re
 import sys
 import shutil
 import datetime
@@ -584,6 +585,90 @@ def download_file(file_type: str):
         filename=target_file.name,
         media_type=media_type,
     )
+
+
+# -------------------------------------------------------------
+# ARCHIVADO DE LOTES DE DÍAS ANTERIORES
+# -------------------------------------------------------------
+
+DATA_ARCHIVE = PROJECT_ROOT / "data" / "archive"
+
+_MESES_ES = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+}
+
+
+class ArchiveRequest(BaseModel):
+    dry_run: bool = Field(default=False, description="True = solo vista previa, no mueve nada")
+
+
+def _fecha_de_archivo(path: Path) -> datetime.date:
+    """
+    Deduce la fecha operativa de un archivo:
+      1. Por nombre MX_MM-DD-YY  (SCTASK, Guias_Techship, Auditoria)
+      2. Por nombre DD_Mes_AAAA  (Cierre, Etiquetas_Lote)
+      3. Si no coincide ningún patrón, por fecha de modificación.
+    """
+    nombre = path.stem
+    m = re.search(r"(\d{2})-(\d{2})-(\d{2})", nombre)
+    if m:
+        try:
+            return datetime.date(2000 + int(m.group(3)), int(m.group(1)), int(m.group(2)))
+        except ValueError:
+            pass
+    m = re.search(r"(\d{1,2})_([A-Za-z]+)_(\d{4})", nombre)
+    if m and m.group(2).lower() in _MESES_ES:
+        try:
+            return datetime.date(int(m.group(3)), _MESES_ES[m.group(2).lower()], int(m.group(1)))
+        except ValueError:
+            pass
+    return datetime.date.fromtimestamp(path.stat().st_mtime)
+
+
+@app.post("/api/batches/archive-previous")
+def archive_previous(req: ArchiveRequest = Body(default_factory=ArchiveRequest)):
+    """
+    Mueve (NO borra) los archivos de días anteriores de data/input y data/output
+    a data/archive/AAAA-MM-DD/{input|output}/ para que el dashboard solo muestre el día de hoy.
+    """
+    hoy = datetime.date.today()
+    movidos, omitidos = [], []
+
+    for carpeta, etiqueta in ((DATA_INPUT, "input"), (DATA_OUTPUT, "output")):
+        for f in sorted(carpeta.iterdir()):
+            if not f.is_file() or f.name.startswith(".") or f.name.startswith("~$"):
+                continue
+            fecha = _fecha_de_archivo(f)
+            if fecha >= hoy:
+                continue
+
+            destino_dir = DATA_ARCHIVE / fecha.isoformat() / etiqueta
+            destino = destino_dir / f.name
+            item = {"file": f.name, "folder": etiqueta, "date": fecha.isoformat()}
+
+            if req.dry_run:
+                movidos.append(item)
+                continue
+            try:
+                destino_dir.mkdir(parents=True, exist_ok=True)
+                if destino.exists():
+                    destino = destino_dir / f"{f.stem}_{datetime.datetime.now():%H%M%S}{f.suffix}"
+                shutil.move(str(f), str(destino))
+                movidos.append(item)
+            except PermissionError:
+                omitidos.append({**item, "reason": "Archivo abierto en Excel u otro programa"})
+            except Exception as e:
+                omitidos.append({**item, "reason": str(e)})
+
+    return {
+        "dry_run": req.dry_run,
+        "today": hoy.isoformat(),
+        "archive_path": str(DATA_ARCHIVE),
+        "moved_count": len(movidos),
+        "moved": movidos,
+        "skipped": omitidos,
+    }
 
 
 # -------------------------------------------------------------

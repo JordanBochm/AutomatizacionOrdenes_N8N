@@ -16,6 +16,7 @@ data/output/*
 !data/output/.gitkeep
 data/input/*
 !data/input/.gitkeep
+data/archive/
 
 # IDEs
 .vscode/
