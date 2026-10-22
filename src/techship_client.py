@@ -415,6 +415,12 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
         print(json.dumps(sample_return_payload, indent=2, ensure_ascii=False))
         print("\n" + "-"*55 + "\n")
         
+    detalles = []
+    for co, mot in bloqueadas_error:
+        detalles.append({"order": co, "status": "BLOQUEADA", "message": mot, "tracking": None})
+    for co, mot in ya_existentes:
+        detalles.append({"order": co, "status": "DUPLICADO", "message": mot, "tracking": None})
+
     exitos = 0
     fallos = 0
     
@@ -424,9 +430,11 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
             ok, msg, res = crear_shipment_api(p, dry_run=True)
             if ok:
                 exitos += 1
+                detalles.append({"order": co, "status": "SIMULACION_OK", "message": "Aceptada por Techship/Estafeta", "tracking": None, "shipment_id": res.get("ShipmentId") if res else None})
                 print(f"  [SIMULACIÓN OK] {co} -> Aceptada por Techship/Estafeta")
             else:
                 fallos += 1
+                detalles.append({"order": co, "status": "SIMULACION_ERROR", "message": msg, "tracking": None, "shipment_id": None})
                 print(f"  [SIMULACIÓN ERROR] {co} -> {msg}")
         print(f"\nResultado Simulación: {exitos} aceptadas, {fallos} con error.")
     else:
@@ -436,9 +444,11 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
             if ok:
                 exitos += 1
                 trk = res.get('Packages', [{}])[0].get('TrackingNumber') or res.get('TrackingNumber') or 'Generada'
+                detalles.append({"order": co, "status": "TIMBRADA", "message": "Guía generada exitosamente", "tracking": trk, "shipment_id": res.get("ShipmentId") if res else None})
                 print(f"  [TIMBRADA] {co} -> Guía: {trk}")
             else:
                 fallos += 1
+                detalles.append({"order": co, "status": "ERROR_ENVIO", "message": msg, "tracking": None, "shipment_id": None})
                 print(f"  [ERROR ENVÍO] {co} -> {msg}")
         print(f"\nResultado Timbrado: {exitos} timbradas exitosamente, {fallos} errores.")
 
@@ -448,7 +458,8 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
         "duplicados": len(ya_existentes),
         "bloqueadas": len(bloqueadas_error),
         "exitos": exitos,
-        "fallos": fallos
+        "fallos": fallos,
+        "detalles": detalles
     }
 
 
