@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import SplashScreen from "@/components/layout/SplashScreen";
 import AnimatedLogo from "@/components/layout/AnimatedLogo";
+import SupplyChainLoader from "@/components/layout/SupplyChainLoader";
 import {
   UploadCloud,
   CheckCircle2,
@@ -395,6 +396,11 @@ export default function DashboardPage() {
 
       {/* Pantalla de Bienvenida (Splash Screen) */}
       <SplashScreen ready={!loading} />
+
+      {/* Cargador Universal con Logo Animado SupplyChain México (Sólo logo animado, sin textos) */}
+      <SupplyChainLoader
+        active={Boolean(uploading || actionLoading)}
+      />
 
       {/* Toast Notification */}
       {toast && (
