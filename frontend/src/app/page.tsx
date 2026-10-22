@@ -99,7 +99,6 @@ export default function DashboardPage() {
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-  const [currentDateStr, setCurrentDateStr] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,15 +143,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchHealthAndBatch();
-    const d = new Date();
-    setCurrentDateStr(
-      d.toLocaleDateString("es-MX", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    );
   }, []);
 
   // Subir reporte Excel (SCTASK_*.xlsx)
@@ -397,26 +387,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden bg-tech-grid">
-      {/* Rieles Laterales Fijos Corporativos SupplyChain México */}
-      <div
-        aria-hidden="true"
-        className="fixed top-0 bottom-0 left-0 w-1.5 z-40 bg-gradient-to-b from-[#233762] via-[#233762] to-[#CE3A39] shadow-sm"
-      />
-      <div
-        aria-hidden="true"
-        className="fixed top-0 bottom-0 right-0 w-1.5 z-40 bg-gradient-to-b from-[#CE3A39] via-[#CE3A39] to-[#233762] shadow-sm"
-      />
-
-      {/* Acentos suaves de fondo en esquinas superiores */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed -top-28 -left-28 w-96 h-96 rounded-full bg-[#233762]/5 blur-3xl z-0"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed -top-28 -right-28 w-96 h-96 rounded-full bg-[#CE3A39]/5 blur-3xl z-0"
-      />
-
       {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
       <div className="h-1.5 w-full flex relative z-50">
         <div className="w-1/2 bg-[#233762]" />
@@ -461,27 +431,6 @@ export default function DashboardPage() {
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
                 KST / Kyndryl
               </span>
-            </div>
-          </div>
-
-          {/* Lado Derecho del Header: Indicador de Estado en Vivo */}
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-200/80 shadow-2xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-xs font-semibold text-slate-700">
-                Motor SEPOMEX (144k CPs) &amp; Techship API v3: <span className="text-emerald-700 font-bold">Conectado</span>
-              </span>
-              {currentDateStr && (
-                <>
-                  <span className="text-slate-300">|</span>
-                  <span className="text-xs font-mono font-medium text-slate-500 capitalize">
-                    {currentDateStr}
-                  </span>
-                </>
-              )}
             </div>
           </div>
         </div>
