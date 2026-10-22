@@ -490,20 +490,20 @@ export default function DashboardPage() {
           {/* COLUMNA IZQUIERDA: Formulario Minimalista Extensiv Style     */}
           {/* ============================================================ */}
           <div className="w-full lg:w-[460px] xl:w-[520px] min-h-[calc(100vh-6px)] bg-white flex flex-col justify-between p-8 sm:p-10 lg:p-14 shrink-0 z-10 shadow-xl">
-            {/* 1. Esquina Superior Izquierda: Logotipo Oficial */}
-            <div>
+            {/* 1. Logotipo Oficial Centrado y Más Grande */}
+            <div className="flex justify-center items-center pt-2 select-none">
               {!logoError ? (
                 <img
                   src="/logo-supplychain.png"
                   alt="SupplyChain México"
-                  className="h-14 sm:h-16 w-auto object-contain select-none"
+                  className="h-20 sm:h-24 md:h-28 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
                   onError={() => setLogoError(true)}
                 />
               ) : (
                 <div className="flex items-center gap-3 select-none">
                   <svg
                     viewBox="383 -66 380 380"
-                    className="w-10 h-10 overflow-visible"
+                    className="w-14 h-14 overflow-visible"
                     role="img"
                     aria-label="SupplyChain México"
                   >
@@ -529,7 +529,7 @@ export default function DashboardPage() {
                       </g>
                     </g>
                   </svg>
-                  <div className="flex items-baseline font-extrabold italic text-2xl tracking-tight">
+                  <div className="flex items-baseline font-extrabold italic text-3xl tracking-tight">
                     <span className="text-[#233762]">Supply</span>
                     <span className="text-[#CE3A39]">Chain</span>
                   </div>
