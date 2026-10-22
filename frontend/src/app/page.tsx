@@ -27,6 +27,10 @@ import {
   HelpCircle,
   AlertCircle,
   Archive,
+  ArrowLeft,
+  Boxes,
+  Warehouse,
+  Headphones,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -100,6 +104,9 @@ export default function DashboardPage() {
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  // Control de módulo activo: 'hub' (Portal Principal) | 'asset_management' (Automatizador KST)
+  const [activeModule, setActiveModule] = useState<"hub" | "asset_management">("hub");
+  const [logoError, setLogoError] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -387,7 +394,7 @@ export default function DashboardPage() {
   }, [batchData, searchTerm, activeTab]);
 
   return (
-    <div className="min-h-screen bg-white text-slate-800 flex flex-col font-sans relative overflow-x-hidden">
+    <div className={`min-h-screen ${activeModule === "hub" ? "bg-slate-50" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
       {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
       <div className="h-1.5 w-full flex relative z-50">
         <div className="w-1/2 bg-[#233762]" />
@@ -420,27 +427,167 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* HEADER OFICIAL: SUPPLYCHAIN MÉXICO */}
-      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
-        <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Logo Oficial Animado SupplyChain México */}
-            <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
+      {/* RENDER CONDICIONAL: PORTAL HUB (ESTILO EXTENSIV MINIMALISTA) O DASHBOARD DE ASSET MANAGEMENT */}
+      {activeModule === "hub" ? (
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col items-center justify-center py-12 px-6">
+          {/* LOGOTIPO OFICIAL CENTRADO ARRIBA */}
+          <div className="flex flex-col items-center mb-12 sm:mb-16">
+            {!logoError ? (
+              <img
+                src="/logo-supplychain.png"
+                alt="SupplyChain México"
+                className="h-14 sm:h-16 w-auto object-contain select-none transition-transform hover:scale-105 duration-300"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <div className="flex flex-col items-center select-none">
+                <div className="flex items-center gap-3.5">
+                  <svg
+                    viewBox="383 -66 380 380"
+                    className="w-12 h-12 overflow-visible"
+                    role="img"
+                    aria-label="SupplyChain México"
+                  >
+                    <defs>
+                      <clipPath id="sc-vector-clip">
+                        <circle cx="584.5" cy="186.1" r="75" />
+                      </clipPath>
+                    </defs>
+                    <g>
+                      <path
+                        fill="#233762"
+                        d="M490.0 242.0C452.2 238.5 418.8 212.8 406.9 178.0C403.2 167.0 401.9 167.5 432.9 167.2L459.1 167.0L465.4 173.4C476.7 184.8 485.9 189.1 500.0 189.2C517.5 189.4 524.7 186.2 539.9 171.5C573.9 138.7 582.7 126.5 583.6 111.2C583.9 107.0 584.3 102.6 584.5 101.4C585.1 98.4 614.7 69.4 620.8 65.8C627.5 62.0 628.0 62.2 631.3 71.6C644.1 108.7 635.4 146.2 607.2 174.9C595.0 187.3 562.5 218.7 556.5 223.7C541.6 236.3 513.2 244.1 490.0 242.0ZM403.2 137.4L401.0 135.9L401.0 88.2C401.0 62.0 401.4 40.0 401.8 39.4C403.7 36.6 407.4 36.0 424.3 36.0C446.5 36.0 447.0 36.3 447.0 47.6C447.0 51.7 447.3 55.0 447.6 55.0C447.9 55.0 454.7 48.7 462.6 41.1C477.8 26.4 483.6 22.1 496.0 15.8C522.8 2.4 559.0 3.3 586.1 18.2C593.1 22.1 593.1 21.7 587.4 25.9C584.9 27.8 575.7 36.4 567.0 45.1L551.1 60.8L543.6 59.7C525.8 57.1 514.3 61.8 496.8 78.8C482.7 92.5 482.5 93.0 492.3 93.0C503.2 93.0 503.0 92.5 503.0 116.3C503.0 135.4 502.9 135.9 500.8 137.4C498.8 138.8 492.5 139.0 452.0 139.0C411.5 139.0 405.2 138.8 403.2 137.4Z"
+                      />
+                      <path
+                        fill="#CE3A39"
+                        d="M595.5 242.0C588.3 241.2 580.1 239.5 574.5 237.5C569.8 235.8 554.0 227.7 554.0 227.0C554.0 226.5 555.5 225.1 557.2 223.9C559.0 222.7 568.4 213.8 578.1 204.3C595.0 187.7 595.8 187.0 598.4 188.0C603.5 189.9 616.9 189.2 624.2 186.7C633.9 183.2 639.3 179.4 651.0 167.3L661.5 156.5L653.9 156.2C642.3 155.8 642.5 156.1 642.5 132.5C642.5 114.9 642.7 113.0 644.4 111.1C646.3 109.0 646.8 109.0 694.0 109.0L741.7 109.0L743.8 111.3C747.0 114.7 747.3 206.2 744.1 210.1C742.2 212.4 741.8 212.5 723.3 212.8C699.4 213.2 699.0 213.0 699.0 201.4C699.0 197.3 698.7 194.0 698.2 194.0C697.8 194.0 691.9 199.7 685.0 206.6C656.1 235.6 631.1 245.5 595.5 242.0ZM517.0 183.9C510.0 170.9 506.8 142.0 510.5 125.3C515.8 101.4 524.7 86.0 542.8 69.0C547.8 64.3 558.1 54.4 565.7 46.9C573.3 39.5 582.2 31.2 585.5 28.6C588.8 26.0 592.0 23.3 592.5 22.6C594.0 20.9 602.8 15.7 608.0 13.6C610.5 12.6 613.4 11.4 614.5 10.9C629.0 4.9 672.6 5.0 679.5 11.1C680.0 11.6 681.0 12.0 681.8 12.0C682.6 12.0 686.8 13.8 691.2 16.0C714.4 27.7 732.5 48.5 740.4 72.4C743.4 81.4 744.8 81.0 713.0 81.0L685.1 81.0L681.4 76.5C671.5 64.3 653.9 57.5 639.0 60.0C620.4 63.1 620.9 62.8 600.5 83.4C566.6 117.7 562.0 124.9 562.0 143.4L562.0 148.6L545.8 164.6C526.1 184.0 519.4 188.5 517.0 183.9Z"
+                      />
+                      <g clipPath="url(#sc-vector-clip)">
+                        <path
+                          fill="#233762"
+                          d="M490.0 242.0C452.2 238.5 418.8 212.8 406.9 178.0C403.2 167.0 401.9 167.5 432.9 167.2L459.1 167.0L465.4 173.4C476.7 184.8 485.9 189.1 500.0 189.2C517.5 189.4 524.7 186.2 539.9 171.5C573.9 138.7 582.7 126.5 583.6 111.2C583.9 107.0 584.3 102.6 584.5 101.4C585.1 98.4 614.7 69.4 620.8 65.8C627.5 62.0 628.0 62.2 631.3 71.6C644.1 108.7 635.4 146.2 607.2 174.9C595.0 187.3 562.5 218.7 556.5 223.7C541.6 236.3 513.2 244.1 490.0 242.0ZM403.2 137.4L401.0 135.9L401.0 88.2C401.0 62.0 401.4 40.0 401.8 39.4C403.7 36.6 407.4 36.0 424.3 36.0C446.5 36.0 447.0 36.3 447.0 47.6C447.0 51.7 447.3 55.0 447.6 55.0C447.9 55.0 454.7 48.7 462.6 41.1C477.8 26.4 483.6 22.1 496.0 15.8C522.8 2.4 559.0 3.3 586.1 18.2C593.1 22.1 593.1 21.7 587.4 25.9C584.9 27.8 575.7 36.4 567.0 45.1L551.1 60.8L543.6 59.7C525.8 57.1 514.3 61.8 496.8 78.8C482.7 92.5 482.5 93.0 492.3 93.0C503.2 93.0 503.0 92.5 503.0 116.3C503.0 135.4 502.9 135.9 500.8 137.4C498.8 138.8 492.5 139.0 452.0 139.0C411.5 139.0 405.2 138.8 403.2 137.4Z"
+                        />
+                      </g>
+                    </g>
+                  </svg>
+                  <div className="flex items-baseline font-extrabold italic text-3xl tracking-tight">
+                    <span className="text-[#233762]">Supply</span>
+                    <span className="text-[#CE3A39]">Chain</span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-slate-500 tracking-[0.3em] mt-1">M É X I C O</span>
+              </div>
+            )}
+          </div>
 
-            <div className="h-9 w-px bg-slate-200 hidden md:block" />
+          {/* LAS 3 TARJETAS DE MÓDULOS (ESTILO TARJETA ELEVADA MINIMALISTA) */}
+          <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
+            {/* Tarjeta 1: Asset Management (Activo) */}
+            <div
+              onClick={() => setActiveModule("asset_management")}
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 flex flex-col items-center text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+            >
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Activo
+              </span>
+              <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
+                <Boxes className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Automatización de órdenes, validación SEPOMEX y guías Techship.
+              </p>
+              <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                <span>Ingresar</span>
+                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+              </span>
+            </div>
 
-            {/* Título de la Aplicación */}
-            <div className="hidden sm:flex items-center gap-2.5">
-              <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                Automatizador de tareas
-              </h1>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
-                KST / Kyndryl
+            {/* Tarjeta 2: CSM (En desarrollo) */}
+            <div
+              onClick={() => triggerToast("Módulo CSM en construcción", "info")}
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 flex flex-col items-center text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+            >
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#233762]/30 transition-colors duration-300" />
+              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                Próximamente
+              </span>
+              <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                <Headphones className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Gestión de atención a clientes, tickets de soporte y seguimiento.
+              </p>
+              <span className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+                En desarrollo
+              </span>
+            </div>
+
+            {/* Tarjeta 3: Almacén (En desarrollo) */}
+            <div
+              onClick={() => triggerToast("Módulo Almacén en construcción", "info")}
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 flex flex-col items-center text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+            >
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#CE3A39]/30 transition-colors duration-300" />
+              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                Próximamente
+              </span>
+              <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                <Warehouse className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Control de inventario físico, cross-docking, picking y empaque.
+              </p>
+              <span className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+                En desarrollo
               </span>
             </div>
           </div>
+
+          {/* Pie de página sutil del Hub */}
+          <p className="text-xs text-slate-400 mt-14 font-medium tracking-wide">
+            SupplyChain México &bull; Plataforma Logística Integral
+          </p>
         </div>
-      </header>
+      ) : (
+        /* VISTA DASHBOARD DE ASSET MANAGEMENT */
+        <>
+          {/* HEADER OFICIAL: SUPPLYCHAIN MÉXICO */}
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
+            <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {/* Botón para regresar al Portal Hub */}
+                <button
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-[#233762] text-xs font-bold transition shadow-2xs group"
+                  title="Regresar al Portal Principal (Hub)"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="hidden sm:inline">Portal Hub</span>
+                </button>
+
+                <div className="h-6 w-px bg-slate-200" />
+
+                {/* Logo Oficial Animado SupplyChain México */}
+                <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
+
+                <div className="h-9 w-px bg-slate-200 hidden md:block" />
+
+                {/* Título de la Aplicación */}
+                <div className="hidden sm:flex items-center gap-2.5">
+                  <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                    Automatizador de tareas
+                  </h1>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                    KST / Kyndryl
+                  </span>
+                </div>
+              </div>
+            </div>
+          </header>
 
       {/* CONTENIDO PRINCIPAL (FULL-WIDTH HASTA 1850px) */}
       <main className="flex-1 w-full max-w-[1850px] mx-auto px-6 lg:px-10 py-5 space-y-6 relative z-10">
@@ -1174,6 +1321,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
