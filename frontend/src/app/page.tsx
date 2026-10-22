@@ -247,14 +247,14 @@ export default function DashboardPage() {
     }
   };
 
-  // Ejecutar simulación o timbrado en Techship
-  const handleTechshipProcess = async (dryRun: boolean) => {
+  // Ejecutar timbrado oficial en Techship
+  const handleTechshipProcess = async () => {
     try {
-      setActionLoading(dryRun ? "sim" : "live");
+      setActionLoading("live");
       const res = await fetch(`${API_BASE}/api/techship/process`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dry_run: dryRun }),
+        body: JSON.stringify({ dry_run: false }),
       });
 
       if (!res.ok) {
@@ -265,13 +265,8 @@ export default function DashboardPage() {
       const data = await res.json();
       setSimResults(data);
       setShowLiveModal(false);
-
-      if (dryRun) {
-        triggerToast("Simulación completada con éxito.", "info");
-      } else {
-        triggerToast("Timbrado oficial completado en Techship.", "success");
-        fetchHealthAndBatch();
-      }
+      triggerToast("Timbrado oficial completado en Techship.", "success");
+      fetchHealthAndBatch();
     } catch (err: any) {
       triggerToast(err.message || "Fallo en operación de Techship", "error");
     } finally {
@@ -706,34 +701,24 @@ export default function DashboardPage() {
         {/* ZONA 2: Barra Maestra de Acciones Techship y Descargas */}
         <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            {/* Botón 1: Simulación Segura */}
-            <button
-              onClick={() => handleTechshipProcess(true)}
-              disabled={!batchData || actionLoading === "sim"}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-sm font-semibold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>{actionLoading === "sim" ? "Simulando..." : "1. Simular en Techship (Dry-Run)"}</span>
-            </button>
-
-            {/* Botón 2: Timbrado Real en Estafeta */}
+            {/* Botón 1: Timbrado Oficial en Estafeta / Techship */}
             <button
               onClick={() => setShowLiveModal(true)}
               disabled={!batchData || actionLoading === "live"}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Zap className="w-4 h-4 fill-white" />
-              <span>{actionLoading === "live" ? "Timbrando..." : "2. Timbrar Guías Reales (--live)"}</span>
+              <span>{actionLoading === "live" ? "Timbrando..." : "1. Timbrar Guías en Techship"}</span>
             </button>
 
-            {/* Botón 3: Cierre y PDF de Etiquetas */}
+            {/* Botón 2: Cierre y PDF de Etiquetas */}
             <button
               onClick={handleSyncClosing}
               disabled={!batchData || actionLoading === "sync"}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Truck className="w-4 h-4" />
-              <span>{actionLoading === "sync" ? "Sincronizando..." : "3. Sincronizar Cierre y Etiquetas"}</span>
+              <span>{actionLoading === "sync" ? "Sincronizando..." : "2. Sincronizar Cierre y Etiquetas"}</span>
             </button>
           </div>
 
@@ -747,7 +732,7 @@ export default function DashboardPage() {
                 disabled={batchData.files_available?.cierre_excel === false}
                 title={
                   batchData.files_available?.cierre_excel === false
-                    ? "Disponible tras ejecutar '3. Sincronizar Cierre y Etiquetas'"
+                    ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
                     : "Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
                 }
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1213,7 +1198,7 @@ export default function DashboardPage() {
                 Cancelar
               </button>
               <button
-                onClick={() => handleTechshipProcess(false)}
+                onClick={handleTechshipProcess}
                 className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 transition"
               >
                 Sí, Timbrar Guías Reales
@@ -1223,7 +1208,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* MODAL DE RESULTADOS DE SIMULACIÓN TECHSHIP */}
+      {/* MODAL DE RESULTADOS DE TIMBRADO TECHSHIP */}
       {simResults && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -1231,7 +1216,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-[#233762]" />
                 <h3 className="text-base font-bold text-[#233762]">
-                  Resultado de Evaluación en Techship ({simResults.dry_run ? "Simulación Segura" : "Timbrado Real"})
+                  Resultado de Timbrado en Techship
                 </h3>
               </div>
               <button

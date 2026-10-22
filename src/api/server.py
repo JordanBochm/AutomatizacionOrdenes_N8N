@@ -115,7 +115,7 @@ class OrderPatchRequest(BaseModel):
 
 
 class TechshipProcessRequest(BaseModel):
-    dry_run: bool = Field(default=True, description="True para simulación segura, False para timbrado real en Estafeta")
+    dry_run: bool = Field(default=False, description="True para simulación segura, False para timbrado real en Estafeta")
 
 
 class TechshipSyncRequest(BaseModel):
