@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import SplashScreen from "@/components/layout/SplashScreen";
 import {
   UploadCloud,
   CheckCircle2,
@@ -318,6 +319,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
+      {/* Pantalla de Bienvenida (Splash Screen) */}
+      <SplashScreen ready={!loading} />
+
       {/* Toast Notification */}
       {toast && (
         <div
