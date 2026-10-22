@@ -295,12 +295,12 @@ export default function DashboardPage() {
     window.open(url, "_blank");
   };
 
-  // Archivar días anteriores: llamada genérica (dryRun = solo vista previa)
-  const callArchive = async (dryRun: boolean) => {
+  // Archivar lote / limpiar tabla: llamada genérica (dryRun = solo vista previa)
+  const callArchive = async (dryRun: boolean, cleanAll: boolean = true) => {
     const res = await fetch(`${API_BASE}/api/batches/archive-previous`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dry_run: dryRun }),
+      body: JSON.stringify({ dry_run: dryRun, clean_all: cleanAll }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -309,13 +309,13 @@ export default function DashboardPage() {
     return res.json();
   };
 
-  // Paso 1: vista previa de lo que se va a archivar
+  // Paso 1: vista previa de lo que se va a archivar y limpiar
   const handleArchivePreview = async () => {
     try {
       setActionLoading("archive");
-      const data = await callArchive(true);
+      const data = await callArchive(true, true);
       if (data.moved_count === 0) {
-        triggerToast("No hay archivos de días anteriores. Todo está enfocado en hoy.", "info");
+        triggerToast("No hay archivos cargados. La tabla ya está vacía y lista.", "info");
         return;
       }
       setArchivePreview(data);
@@ -326,24 +326,29 @@ export default function DashboardPage() {
     }
   };
 
-  // Paso 2: confirmar y mover los archivos a data/archive/
+  // Paso 2: confirmar y mover los archivos a data/archive/ dejando la tabla limpia
   const handleArchiveConfirm = async () => {
     try {
       setActionLoading("archive");
-      const data = await callArchive(false);
+      const data = await callArchive(false, true);
       setArchivePreview(null);
+      setBatchData(null);
+      setSearchTerm("");
+      setActiveTab("ALL");
+      setEditingOrder(null);
+
       if (data.skipped?.length) {
         triggerToast(
           `${data.moved_count} archivados. ${data.skipped.length} no se movieron (¿abiertos en Excel?).`,
           "error"
         );
       } else {
-        triggerToast(`${data.moved_count} archivos de días anteriores archivados.`, "success");
+        triggerToast(`Tabla despejada. ${data.moved_count} archivo(s) resguardados en data/archive/`, "success");
       }
-      setBatchData(null);
+
       await fetchHealthAndBatch();
     } catch (err: any) {
-      triggerToast(err.message || "Error al archivar", "error");
+      triggerToast(err.message || "Error al limpiar la tabla", "error");
     } finally {
       setActionLoading(null);
     }
@@ -436,12 +441,12 @@ export default function DashboardPage() {
             <button
               onClick={handleArchivePreview}
               disabled={actionLoading === "archive"}
-              title="Mover los archivos de días anteriores a data/archive (no se borran)"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50"
+              title="Archivar el lote actual y limpiar la tabla (no borra nada, se resguarda en data/archive)"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50 shadow-2xs"
             >
               <Archive className="w-4 h-4" />
               <span className="hidden md:inline">
-                {actionLoading === "archive" ? "Revisando..." : "Limpiar días anteriores"}
+                {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
               </span>
             </button>
 
@@ -971,7 +976,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMACIÓN: LIMPIAR DÍAS ANTERIORES */}
+      {/* MODAL DE CONFIRMACIÓN: LIMPIAR TABLA Y ARCHIVAR LOTE */}
       {archivePreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -980,19 +985,19 @@ export default function DashboardPage() {
                 <Archive className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-[#233762]">Limpiar días anteriores</h3>
+                <h3 className="text-base font-extrabold text-[#233762]">Limpiar tabla y archivar lote</h3>
                 <p className="text-xs text-slate-500">
-                  Se moverán <span className="font-bold font-mono">{archivePreview.moved_count}</span> archivos
-                  anteriores a hoy (<span className="font-mono">{archivePreview.today}</span>).
+                  Se resguardarán <span className="font-bold font-mono">{archivePreview.moved_count}</span> archivos
+                  activos en el archivo histórico y la tabla quedará en blanco.
                 </p>
               </div>
             </div>
 
             <div className="p-6 space-y-3 overflow-y-auto">
               <div className="rounded-xl bg-[#EFF3F9] border border-[#233762]/20 p-3 text-xs text-[#233762]">
-                <strong>No se borra nada.</strong> Los archivos se guardan en{" "}
-                <span className="font-mono">data/archive/AAAA-MM-DD/</span> por si necesitas un Cierre o PDF
-                anterior.
+                <strong>Cero pérdida de datos:</strong> Ningún archivo se borra. Todo se organiza por fecha en{" "}
+                <span className="font-mono font-bold">data/archive/AAAA-MM-DD/</span>. Tu tabla quedará en blanco lista
+                para recibir el nuevo reporte de ServiceNow de hoy.
               </div>
 
               <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto">
@@ -1019,7 +1024,7 @@ export default function DashboardPage() {
                 disabled={actionLoading === "archive"}
                 className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
               >
-                {actionLoading === "archive" ? "Archivando..." : "Sí, archivar y enfocar en hoy"}
+                {actionLoading === "archive" ? "Limpiando tabla..." : "Sí, limpiar tabla y archivar"}
               </button>
             </div>
           </div>

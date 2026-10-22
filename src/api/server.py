@@ -601,6 +601,10 @@ _MESES_ES = {
 
 class ArchiveRequest(BaseModel):
     dry_run: bool = Field(default=False, description="True = solo vista previa, no mueve nada")
+    clean_all: bool = Field(
+        default=True,
+        description="True = limpia y archiva también el lote activo en pantalla para dejar la tabla en 0 órdenes"
+    )
 
 
 def _fecha_de_archivo(path: Path) -> datetime.date:
@@ -629,8 +633,9 @@ def _fecha_de_archivo(path: Path) -> datetime.date:
 @app.post("/api/batches/archive-previous")
 def archive_previous(req: ArchiveRequest = Body(default_factory=ArchiveRequest)):
     """
-    Mueve (NO borra) los archivos de días anteriores de data/input y data/output
-    a data/archive/AAAA-MM-DD/{input|output}/ para que el dashboard solo muestre el día de hoy.
+    Mueve (NO borra) los archivos de data/input y data/output a data/archive/AAAA-MM-DD/{input|output}/.
+    Si clean_all=True (por defecto), archiva también el lote activo actual para que la tabla quede 100% vacía
+    y lista para ingestar un nuevo reporte de ServiceNow.
     """
     hoy = datetime.date.today()
     movidos, omitidos = [], []
@@ -640,7 +645,9 @@ def archive_previous(req: ArchiveRequest = Body(default_factory=ArchiveRequest))
             if not f.is_file() or f.name.startswith(".") or f.name.startswith("~$"):
                 continue
             fecha = _fecha_de_archivo(f)
-            if fecha >= hoy:
+            
+            # Si NO es clean_all, solo mover los de días anteriores
+            if not req.clean_all and fecha >= hoy:
                 continue
 
             destino_dir = DATA_ARCHIVE / fecha.isoformat() / etiqueta
@@ -663,6 +670,7 @@ def archive_previous(req: ArchiveRequest = Body(default_factory=ArchiveRequest))
 
     return {
         "dry_run": req.dry_run,
+        "clean_all": req.clean_all,
         "today": hoy.isoformat(),
         "archive_path": str(DATA_ARCHIVE),
         "moved_count": len(movidos),
