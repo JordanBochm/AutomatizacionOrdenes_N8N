@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import SplashScreen from "@/components/layout/SplashScreen";
 import AnimatedLogo from "@/components/layout/AnimatedLogo";
+import SupplyChainLoader from "@/components/layout/SupplyChainLoader";
 import {
   UploadCloud,
   CheckCircle2,
@@ -26,6 +27,7 @@ import {
   HelpCircle,
   AlertCircle,
   Archive,
+  Sparkles,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -99,6 +101,7 @@ export default function DashboardPage() {
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  const [testLoading, setTestLoading] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -396,6 +399,41 @@ export default function DashboardPage() {
       {/* Pantalla de Bienvenida (Splash Screen) */}
       <SplashScreen ready={!loading} />
 
+      {/* Cargador Universal con Logo Animado SupplyChain México */}
+      <SupplyChainLoader
+        active={Boolean(uploading || actionLoading || testLoading)}
+        message={
+          testLoading
+            ? "Demostración de cargador SupplyChain México"
+            : uploading
+            ? "Ingestando y procesando reporte ServiceNow..."
+            : actionLoading === "sim"
+            ? "Simulando órdenes en Techship API v3..."
+            : actionLoading === "live"
+            ? "Timbrando guías oficiales de paquetería..."
+            : actionLoading === "sync"
+            ? "Sincronizando Cierre y generando PDF de etiquetas..."
+            : actionLoading === "archive"
+            ? "Archivando lote y limpiando tabla..."
+            : "Procesando operación..."
+        }
+        subMessage={
+          testLoading
+            ? "Animación rápida del logotipo institucional sin textos"
+            : uploading
+            ? "Validando direcciones postales con SEPOMEX"
+            : actionLoading === "sim"
+            ? "Comprobando cuentas y reglas de transportadora"
+            : actionLoading === "live"
+            ? "Generando números de rastreo (Tracking IDs)"
+            : actionLoading === "sync"
+            ? "Construyendo reporte de 12 columnas y etiquetas oficiales"
+            : actionLoading === "archive"
+            ? "Organizando archivos en data/archive/ por fecha"
+            : "Por favor espera un momento"
+        }
+      />
+
       {/* Toast Notification */}
       {toast && (
         <div
@@ -447,17 +485,33 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <button
-            onClick={handleArchivePreview}
-            disabled={actionLoading === "archive"}
-            title="Archivar el lote actual y limpiar la tabla (no borra nada, se resguarda en data/archive)"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50 shadow-2xs"
-          >
-            <Archive className="w-4 h-4" />
-            <span>
-              {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
-            </span>
-          </button>
+          <div className="flex items-center gap-2.5">
+            {/* Botón de Prueba del Cargador */}
+            <button
+              onClick={() => {
+                setTestLoading(true);
+                setTimeout(() => setTestLoading(false), 3500);
+              }}
+              title="Probar cómo se ve la animación del cargador en pantalla completa"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-[#EFF3F9] text-[#233762] border border-slate-200 text-xs font-bold transition shadow-2xs hover:border-[#233762]/30"
+            >
+              <Sparkles className="w-4 h-4 text-[#233762]" />
+              <span>Probar cargador</span>
+            </button>
+
+            {/* Botón de Limpiar / Archivar */}
+            <button
+              onClick={handleArchivePreview}
+              disabled={actionLoading === "archive"}
+              title="Archivar el lote actual y limpiar la tabla (no borra nada, se resguarda en data/archive)"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50 shadow-2xs"
+            >
+              <Archive className="w-4 h-4" />
+              <span>
+                {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) -> 12 Columnas en Pantalla Ancha */}
