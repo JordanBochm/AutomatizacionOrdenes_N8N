@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import SplashScreen from "@/components/layout/SplashScreen";
+import AnimatedLogo from "@/components/layout/AnimatedLogo";
 import {
   UploadCloud,
   CheckCircle2,
@@ -344,35 +345,8 @@ export default function DashboardPage() {
       <header className="border-b border-slate-200 bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Logo Oficial SupplyChain México con Fallback Vectorial */}
-            <div className="flex items-center gap-3">
-              <img
-                src="/logo-supplychain.png"
-                alt="SupplyChain México"
-                className="h-12 w-auto object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  const fallback = document.getElementById("svg-logo-fallback");
-                  if (fallback) fallback.style.display = "flex";
-                }}
-              />
-
-              <div id="svg-logo-fallback" className="hidden items-center gap-3">
-                <svg viewBox="0 0 48 48" className="w-10 h-10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 12L18 24L6 36L12 36L24 24L12 12H6Z" fill="#233762" />
-                  <path d="M20 12L32 24L20 36L26 36L38 24L26 12H20Z" fill="#CE3A39" />
-                </svg>
-                <div className="flex flex-col">
-                  <div className="flex items-baseline">
-                    <span className="text-2xl font-black italic tracking-tighter text-[#233762]">Supply</span>
-                    <span className="text-2xl font-black italic tracking-tighter text-[#CE3A39]">Chain</span>
-                  </div>
-                  <span className="text-[10px] font-extrabold tracking-[0.35em] text-[#233762] uppercase -mt-1">
-                    M É X I C O
-                  </span>
-                </div>
-              </div>
-            </div>
+            {/* Logo Oficial Animado SupplyChain México */}
+            <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
 
             <div className="h-9 w-px bg-slate-200 hidden md:block" />
 
