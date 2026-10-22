@@ -99,6 +99,7 @@ export default function DashboardPage() {
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  const [currentDateStr, setCurrentDateStr] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,6 +144,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchHealthAndBatch();
+    const d = new Date();
+    setCurrentDateStr(
+      d.toLocaleDateString("es-MX", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    );
   }, []);
 
   // Subir reporte Excel (SCTASK_*.xlsx)
@@ -386,7 +396,33 @@ export default function DashboardPage() {
   }, [batchData, searchTerm, activeTab]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden bg-tech-grid">
+      {/* Rieles Laterales Fijos Corporativos SupplyChain México */}
+      <div
+        aria-hidden="true"
+        className="fixed top-0 bottom-0 left-0 w-1.5 z-40 bg-gradient-to-b from-[#233762] via-[#233762] to-[#CE3A39] shadow-sm"
+      />
+      <div
+        aria-hidden="true"
+        className="fixed top-0 bottom-0 right-0 w-1.5 z-40 bg-gradient-to-b from-[#CE3A39] via-[#CE3A39] to-[#233762] shadow-sm"
+      />
+
+      {/* Acentos suaves de fondo en esquinas superiores */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed -top-28 -left-28 w-96 h-96 rounded-full bg-[#233762]/5 blur-3xl z-0"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed -top-28 -right-28 w-96 h-96 rounded-full bg-[#CE3A39]/5 blur-3xl z-0"
+      />
+
+      {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
+      <div className="h-1.5 w-full flex relative z-50">
+        <div className="w-1/2 bg-[#233762]" />
+        <div className="w-1/2 bg-[#CE3A39]" />
+      </div>
+
       {/* Pantalla de Bienvenida (Splash Screen) */}
       <SplashScreen ready={!loading} />
 
@@ -409,8 +445,8 @@ export default function DashboardPage() {
       )}
 
       {/* HEADER OFICIAL: SUPPLYCHAIN MÉXICO */}
-      <header className="border-b border-slate-200 bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
+        <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Logo Oficial Animado SupplyChain México */}
             <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
@@ -427,11 +463,32 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
+
+          {/* Lado Derecho del Header: Indicador de Estado en Vivo */}
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-200/80 shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-slate-700">
+                Motor SEPOMEX (144k CPs) &amp; Techship API v3: <span className="text-emerald-700 font-bold">Conectado</span>
+              </span>
+              {currentDateStr && (
+                <>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-xs font-mono font-medium text-slate-500 capitalize">
+                    {currentDateStr}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-6">
+      {/* CONTENIDO PRINCIPAL (FULL-WIDTH HASTA 1850px) */}
+      <main className="flex-1 w-full max-w-[1850px] mx-auto px-6 lg:px-10 py-5 space-y-6 relative z-10">
         {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
         <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
           <div className="flex items-center gap-2">
@@ -453,10 +510,11 @@ export default function DashboardPage() {
             </span>
           </button>
         </div>
-        {/* ZONA 1: Ingesta y 4 Tarjetas KPI */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Dropzone de Ingesta */}
-          <div className="lg:col-span-4 bg-white border-2 border-dashed border-slate-300 hover:border-[#233762] rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group">
+
+        {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) -> 12 Columnas en Pantalla Ancha */}
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5">
+          {/* Dropzone de Ingesta (xl:col-span-4) */}
+          <div className="md:col-span-2 xl:col-span-4 bg-white border-2 border-dashed border-slate-300 hover:border-[#233762] rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group">
             <input
               type="file"
               ref={fileInputRef}
@@ -488,66 +546,63 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Tarjetas KPI */}
-          <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {/* Total Órdenes */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-[#233762]" />
-              <div className="flex items-center justify-between text-slate-500">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#233762]">Total Órdenes</span>
-                <Package className="w-4 h-4 text-[#233762]" />
-              </div>
-              <div className="mt-2">
-                <span className="text-3xl font-extrabold text-[#233762] font-mono">
-                  {batchData?.metrics.total_orders || 0}
-                </span>
-                <p className="text-[11px] text-slate-400 mt-0.5">Ida y Retorno (-1)</p>
-              </div>
+          {/* Tarjeta KPI 1: Total Órdenes (xl:col-span-2) */}
+          <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-[#233762]" />
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#233762]">Total Órdenes</span>
+              <Package className="w-4 h-4 text-[#233762]" />
             </div>
-
-            {/* Confirmadas 100% */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
-              <div className="flex items-center justify-between text-slate-500">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmadas</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div className="mt-2">
-                <span className="text-3xl font-extrabold text-emerald-600 font-mono">
-                  {batchData?.metrics.confirmed_100 || 0}
-                </span>
-                <p className="text-[11px] text-emerald-600/80 mt-0.5">Semáforo Verde</p>
-              </div>
+            <div className="mt-2">
+              <span className="text-3xl font-extrabold text-[#233762] font-mono">
+                {batchData?.metrics.total_orders || 0}
+              </span>
+              <p className="text-[11px] text-slate-400 mt-0.5">Ida y Retorno (-1)</p>
             </div>
+          </div>
 
-            {/* Por Revisar */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
-              <div className="flex items-center justify-between text-slate-500">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Por Revisar</span>
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-              </div>
-              <div className="mt-2">
-                <span className="text-3xl font-extrabold text-amber-600 font-mono">
-                  {batchData?.metrics.review || 0}
-                </span>
-                <p className="text-[11px] text-amber-700/80 mt-0.5">Semáforo Amarillo</p>
-              </div>
+          {/* Tarjeta KPI 2: Confirmadas 100% (xl:col-span-2) */}
+          <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmadas</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
+            <div className="mt-2">
+              <span className="text-3xl font-extrabold text-emerald-600 font-mono">
+                {batchData?.metrics.confirmed_100 || 0}
+              </span>
+              <p className="text-[11px] text-emerald-600/80 mt-0.5">Semáforo Verde</p>
+            </div>
+          </div>
 
-            {/* Bloqueadas por Error */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-[#CE3A39]" />
-              <div className="flex items-center justify-between text-slate-500">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#CE3A39]">Bloqueadas</span>
-                <XCircle className="w-4 h-4 text-[#CE3A39]" />
-              </div>
-              <div className="mt-2">
-                <span className="text-3xl font-extrabold text-[#CE3A39] font-mono">
-                  {batchData?.metrics.error_blocked || 0}
-                </span>
-                <p className="text-[11px] text-[#CE3A39]/80 mt-0.5">Teléfono / CP Inválido</p>
-              </div>
+          {/* Tarjeta KPI 3: Por Revisar (xl:col-span-2) */}
+          <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Por Revisar</span>
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="mt-2">
+              <span className="text-3xl font-extrabold text-amber-600 font-mono">
+                {batchData?.metrics.review || 0}
+              </span>
+              <p className="text-[11px] text-amber-700/80 mt-0.5">Semáforo Amarillo</p>
+            </div>
+          </div>
+
+          {/* Tarjeta KPI 4: Bloqueadas por Error (xl:col-span-2) */}
+          <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-[#CE3A39]" />
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#CE3A39]">Bloqueadas</span>
+              <XCircle className="w-4 h-4 text-[#CE3A39]" />
+            </div>
+            <div className="mt-2">
+              <span className="text-3xl font-extrabold text-[#CE3A39] font-mono">
+                {batchData?.metrics.error_blocked || 0}
+              </span>
+              <p className="text-[11px] text-[#CE3A39]/80 mt-0.5">Teléfono / CP Inválido</p>
             </div>
           </div>
         </section>
