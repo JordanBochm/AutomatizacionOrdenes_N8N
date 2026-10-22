@@ -418,49 +418,41 @@ export default function DashboardPage() {
             <div className="h-9 w-px bg-slate-200 hidden md:block" />
 
             {/* Título de la Aplicación */}
-            <div className="hidden sm:flex flex-col">
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-extrabold text-[#233762] tracking-wide">
-                  Automatizador de tareas
-                </h1>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
-                  KST / Kyndryl
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 font-medium">
-                Validación Postal · Generación de Envíos · Cierres Oficiales
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-
-            <button
-              onClick={handleArchivePreview}
-              disabled={actionLoading === "archive"}
-              title="Archivar el lote actual y limpiar la tabla (no borra nada, se resguarda en data/archive)"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50 shadow-2xs"
-            >
-              <Archive className="w-4 h-4" />
-              <span className="hidden md:inline">
-                {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
+            <div className="hidden sm:flex items-center gap-2.5">
+              <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                Automatizador de tareas
+              </h1>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                KST / Kyndryl
               </span>
-            </button>
-
-            <button
-              onClick={fetchHealthAndBatch}
-              disabled={loading}
-              title="Recargar estado del lote activo"
-              className="p-2 rounded-lg bg-slate-100 hover:bg-[#EFF3F9] text-[#233762] border border-slate-200 transition"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#233762]" : ""}`} />
-            </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-6">
+        {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
+        <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Lote en proceso:</span>
+            <span className="text-xs font-mono font-bold text-[#233762] px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
+              {batchData?.batch_filename || "Sin lote activo"}
+            </span>
+          </div>
+
+          <button
+            onClick={handleArchivePreview}
+            disabled={actionLoading === "archive"}
+            title="Archivar el lote actual y limpiar la tabla (no borra nada, se resguarda en data/archive)"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50 shadow-2xs"
+          >
+            <Archive className="w-4 h-4" />
+            <span>
+              {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
+            </span>
+          </button>
+        </div>
         {/* ZONA 1: Ingesta y 4 Tarjetas KPI */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Dropzone de Ingesta */}
