@@ -417,32 +417,23 @@ export default function DashboardPage() {
 
             <div className="h-9 w-px bg-slate-200 hidden md:block" />
 
-            {/* Badge Operativo */}
+            {/* Título de la Aplicación */}
             <div className="hidden sm:flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#233762] tracking-wide">
-                  Operación KST / Kyndryl — Estafeta TMS
-                </span>
+                <h1 className="text-sm font-extrabold text-[#233762] tracking-wide">
+                  Automatizador de tareas
+                </h1>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
-                  Client #11
+                  KST / Kyndryl
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                Validación Postal SEPOMEX · Timbrado Techship v3 · Cierres Oficiales
+                Validación Postal · Generación de Envíos · Cierres Oficiales
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Indicador de conexión API */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  apiConnected ? "bg-emerald-500 shadow-sm shadow-emerald-500" : "bg-rose-500"
-                }`}
-              />
-              <span className="text-slate-700 font-medium">{apiConnected ? "API FastAPI Online" : "API Offline"}</span>
-            </div>
 
             <button
               onClick={handleArchivePreview}
@@ -1064,9 +1055,9 @@ export default function DashboardPage() {
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-lg font-extrabold text-slate-900">¿Confirmar Timbrado Oficial en Estafeta?</h3>
+              <h3 className="text-lg font-extrabold text-slate-900">¿Confirmar Generación Oficial de Guías?</h3>
               <p className="text-xs text-slate-600 mt-2">
-                Esta acción creará las guías reales con cargo en la cuenta de Estafeta REST en Techship. Las órdenes
+                Esta acción creará las guías reales oficiales de envío. Las órdenes
                 bloqueadas con <span className="text-[#CE3A39] font-bold">ROJO</span> serán omitidas automáticamente para
                 proteger la operación.
               </p>
