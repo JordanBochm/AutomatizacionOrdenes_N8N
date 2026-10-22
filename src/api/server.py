@@ -235,9 +235,20 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             "incidents": incidents,
         })
         
+    cierre_cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
+    etiquetas_cand = sorted(DATA_OUTPUT.glob("Etiquetas_*.pdf"), key=os.path.getmtime, reverse=True)
+
+    files_available = {
+        "techship_excel": guias_path.is_file(),
+        "auditoria_excel": bool(audit_path and audit_path.is_file()),
+        "cierre_excel": len(cierre_cand) > 0,
+        "etiquetas_pdf": len(etiquetas_cand) > 0,
+    }
+
     return {
         "batch_filename": guias_path.name,
         "batch_date": datetime.datetime.fromtimestamp(guias_path.stat().st_mtime).strftime("%d/%m/%Y %H:%M:%S"),
+        "files_available": files_available,
         "metrics": {
             "total_orders": total_orders,
             "confirmed_100": confirmadas_100,

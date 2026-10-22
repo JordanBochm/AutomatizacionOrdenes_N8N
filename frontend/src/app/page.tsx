@@ -60,6 +60,12 @@ interface BatchData {
     review: number;
     error_blocked: number;
   };
+  files_available?: {
+    cierre_excel?: boolean;
+    etiquetas_pdf?: boolean;
+    techship_excel?: boolean;
+    auditoria_excel?: boolean;
+  };
   orders: OrderItem[];
 }
 
@@ -598,45 +604,64 @@ export default function DashboardPage() {
           </div>
 
           {/* Grupo de Descarga Directa de Archivos */}
-          <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
-            <span className="text-xs text-slate-500 font-bold mr-1 hidden md:inline">Descargar:</span>
+          {batchData ? (
+            <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
+              <span className="text-xs text-slate-500 font-bold mr-1 hidden md:inline">Descargar:</span>
 
-            <button
-              onClick={() => handleDownload("cierre_excel")}
-              title="Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Cierre.xlsx</span>
-            </button>
+              <button
+                onClick={() => handleDownload("cierre_excel")}
+                disabled={batchData.files_available?.cierre_excel === false}
+                title={
+                  batchData.files_available?.cierre_excel === false
+                    ? "Disponible tras ejecutar '3. Sincronizar Cierre y Etiquetas'"
+                    : "Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
+                }
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Cierre.xlsx</span>
+              </button>
 
-            <button
-              onClick={() => handleDownload("etiquetas_pdf")}
-              title="Descargar o imprimir PDF consolidado de etiquetas"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Etiquetas.pdf</span>
-            </button>
+              <button
+                onClick={() => handleDownload("etiquetas_pdf")}
+                disabled={batchData.files_available?.etiquetas_pdf === false}
+                title={
+                  batchData.files_available?.etiquetas_pdf === false
+                    ? "Disponible tras ejecutar '3. Sincronizar Cierre y Etiquetas'"
+                    : "Descargar o imprimir PDF consolidado de etiquetas"
+                }
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Etiquetas.pdf</span>
+              </button>
 
-            <button
-              onClick={() => handleDownload("techship_excel")}
-              title="Descargar Guias_Techship_Importada_*.xlsx (61 columnas)"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Techship.xlsx</span>
-            </button>
+              <button
+                onClick={() => handleDownload("techship_excel")}
+                disabled={batchData.files_available?.techship_excel === false}
+                title="Descargar Guias_Techship_Importada_*.xlsx (61 columnas)"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Techship.xlsx</span>
+              </button>
 
-            <button
-              onClick={() => handleDownload("auditoria_excel")}
-              title="Descargar Auditoria_Direcciones_*.xlsx con bitácora"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Auditoría.xlsx</span>
-            </button>
-          </div>
+              <button
+                onClick={() => handleDownload("auditoria_excel")}
+                disabled={batchData.files_available?.auditoria_excel === false}
+                title="Descargar Auditoria_Direcciones_*.xlsx con bitácora"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Auditoría.xlsx</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4 text-xs text-slate-400 italic">
+              <FileSpreadsheet className="w-3.5 h-3.5 opacity-50" />
+              <span>Sin archivos para descargar</span>
+            </div>
+          )}
         </section>
 
         {/* ZONA 3: Tabla de Órdenes y Auditoría */}
