@@ -399,39 +399,9 @@ export default function DashboardPage() {
       {/* Pantalla de Bienvenida (Splash Screen) */}
       <SplashScreen ready={!loading} />
 
-      {/* Cargador Universal con Logo Animado SupplyChain México */}
+      {/* Cargador Universal con Logo Animado SupplyChain México (Sólo logo animado, sin textos) */}
       <SupplyChainLoader
         active={Boolean(uploading || actionLoading || testLoading)}
-        message={
-          testLoading
-            ? "Demostración de cargador SupplyChain México"
-            : uploading
-            ? "Ingestando y procesando reporte ServiceNow..."
-            : actionLoading === "sim"
-            ? "Simulando órdenes en Techship API v3..."
-            : actionLoading === "live"
-            ? "Timbrando guías oficiales de paquetería..."
-            : actionLoading === "sync"
-            ? "Sincronizando Cierre y generando PDF de etiquetas..."
-            : actionLoading === "archive"
-            ? "Archivando lote y limpiando tabla..."
-            : "Procesando operación..."
-        }
-        subMessage={
-          testLoading
-            ? "Animación rápida del logotipo institucional sin textos"
-            : uploading
-            ? "Validando direcciones postales con SEPOMEX"
-            : actionLoading === "sim"
-            ? "Comprobando cuentas y reglas de transportadora"
-            : actionLoading === "live"
-            ? "Generando números de rastreo (Tracking IDs)"
-            : actionLoading === "sync"
-            ? "Construyendo reporte de 12 columnas y etiquetas oficiales"
-            : actionLoading === "archive"
-            ? "Organizando archivos en data/archive/ por fecha"
-            : "Por favor espera un momento"
-        }
       />
 
       {/* Toast Notification */}

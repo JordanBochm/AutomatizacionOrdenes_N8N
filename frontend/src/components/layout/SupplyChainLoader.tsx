@@ -4,14 +4,10 @@ import React from "react";
 
 interface SupplyChainLoaderProps {
   active: boolean;
-  message?: string;
-  subMessage?: string;
 }
 
 export default function SupplyChainLoader({
   active,
-  message = "Procesando operación...",
-  subMessage = "Por favor espera un momento",
 }: SupplyChainLoaderProps) {
   if (!active) return null;
 
@@ -22,38 +18,56 @@ export default function SupplyChainLoader({
       className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300"
     >
       <style>{`
-        /* Rotación dinámica continua y rápida para estado de carga */
+        /* Rotación dinámica continua, rápida y con movimiento de escala para estado de carga */
         .sc-spinner-rotate {
           transform-origin: 573px 124px;
-          animation: sc-spin-fast 1.35s cubic-bezier(0.5, 0.1, 0.4, 0.95) infinite;
+          animation: sc-spin-fast 0.85s cubic-bezier(0.42, 0.08, 0.32, 0.95) infinite;
         }
 
         @keyframes sc-spin-fast {
           0% {
-            transform: rotate(0deg);
+            transform: rotate(0deg) scale(0.94);
+          }
+          50% {
+            transform: rotate(-180deg) scale(1.06);
           }
           100% {
-            transform: rotate(-360deg);
+            transform: rotate(-360deg) scale(0.94);
+          }
+        }
+
+        .sc-glow-pulse {
+          animation: sc-pulse 1.7s ease-in-out infinite;
+        }
+
+        @keyframes sc-pulse {
+          0%, 100% {
+            transform: scale(0.96);
+            opacity: 0.5;
+          }
+          50% {
+            transform: scale(1.06);
+            opacity: 0.9;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .sc-spinner-rotate {
+          .sc-spinner-rotate, .sc-glow-pulse {
             animation: none !important;
           }
         }
       `}</style>
 
-      {/* Tarjeta Flotante Translúcida que Enmarca el Logo */}
-      <div className="relative p-7 sm:p-9 rounded-3xl bg-white/95 border border-white/70 shadow-2xl flex flex-col items-center gap-5 max-w-sm w-full text-center backdrop-blur-xl ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-200">
+      {/* Tarjeta Flotante Circular Translúcida que Enmarca el Logo (Sin letras) */}
+      <div className="relative p-7 sm:p-8 rounded-full bg-white/95 border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.35)] flex items-center justify-center backdrop-blur-xl ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-200">
         {/* Glow de acento suave en el fondo de la tarjeta */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-tr from-[#233762]/8 via-transparent to-[#CE3A39]/8"
+          className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-tr from-[#233762]/10 via-transparent to-[#CE3A39]/10 sc-glow-pulse"
         />
 
-        {/* LOGO ANIMADO (SÓLO ASPAS, SIN TEXTO INFERIOR) */}
-        <div className="w-24 h-24 sm:w-28 sm:h-28 relative flex items-center justify-center">
+        {/* LOGO ANIMADO (SÓLO ASPAS, SIN TEXTO INFERIOR NI LETRAS) */}
+        <div className="w-28 h-28 sm:w-32 sm:h-32 relative flex items-center justify-center">
           <svg
             viewBox="383 -66 380 380"
             role="img"
@@ -93,16 +107,6 @@ export default function SupplyChainLoader({
               </g>
             </g>
           </svg>
-        </div>
-
-        {/* Textos descriptivos de la operación */}
-        <div className="flex flex-col items-center gap-1 z-10">
-          <span className="text-sm font-bold text-[#233762] tracking-wide">
-            {message}
-          </span>
-          <span className="text-xs font-medium text-slate-500">
-            {subMessage}
-          </span>
         </div>
       </div>
     </div>
