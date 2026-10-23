@@ -120,8 +120,8 @@ export default function DashboardPage() {
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   
-  // Vista activa: 'login' | 'hub' (portal de 3 modulos) | 'home' (bienvenida) | 'asset_management' (Automatizador KST) | 'csm' | 'almacen' | 'profile'
-  const [activeModule, setActiveModule] = useState<"login" | "hub" | "home" | "asset_management" | "csm" | "almacen" | "profile">("login");
+  // Vista activa: 'login' | 'hub' (cuadricula de modulos) | 'asset_management' (Automatizador KST)
+  const [activeModule, setActiveModule] = useState<"login" | "hub" | "asset_management">("login");
   const [userEmail, setUserEmail] = useState<string>("Jordi.Bochm@sekologistics.com");
   const [loginPassword, setLoginPassword] = useState<string>("••••••••••••");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -495,17 +495,27 @@ export default function DashboardPage() {
   const userFirstName = nameParts[0] || "";
   const userFullName = nameParts.join(" ");
 
-  // Opciones del menú lateral
-  const sidebarItems = [
-    { key: "home", label: "Home", Icon: Home },
-    { key: "asset_management", label: "Asset Management", Icon: Laptop },
-    { key: "csm", label: "CSM", Icon: Headset },
-    { key: "almacen", label: "Almacén", Icon: Warehouse },
-    { key: "profile", label: "Profile", Icon: User },
-  ] as const;
+  // Catalogo de modulos del Hub (cuadricula de 3 por fila). Los que tienen `target` estan activos.
+  const hubModules: {
+    name: string;
+    description: string;
+    Icon: React.ElementType;
+    target?: "asset_management";
+    tone: "navy" | "red";
+  }[] = [
+    { name: "Asset Management", description: "Automatización de órdenes, validación SEPOMEX y guías Techship.", Icon: Laptop, target: "asset_management", tone: "navy" },
+    { name: "CSM", description: "Gestión de servicio al cliente y seguimiento de casos.", Icon: Headset, tone: "navy" },
+    { name: "Almacén", description: "Control de recepción, resguardo y salida de mercancía.", Icon: Warehouse, tone: "red" },
+    { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "navy" },
+    { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "red" },
+    { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "navy" },
+    { name: "Inventario", description: "Existencias, movimientos y conteos cíclicos.", Icon: Package, tone: "red" },
+    { name: "Proveedores", description: "Catálogo de proveedores y evaluación de desempeño.", Icon: Building2, tone: "navy" },
+    { name: "Auditoría", description: "Bitácora de cambios y control de cumplimiento.", Icon: ShieldAlert, tone: "red" },
+  ];
 
   return (
-    <div className={`min-h-screen ${activeModule === "hub" ? "bg-slate-50" : activeModule === "home" ? "bg-[#F4F5F7]" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
+    <div className={`min-h-screen ${activeModule === "hub" ? "bg-slate-50" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
       {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
       <div className="h-1.5 w-full flex relative z-50">
         <div className="w-1/2 bg-[#233762]" />
@@ -723,9 +733,9 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : activeModule === "hub" ? (
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-6 px-6">
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
           {/* Barra superior de usuario y logout */}
-          <div className="w-full max-w-5xl mx-auto flex items-center justify-end gap-3 text-xs mb-2">
+          <div className="w-full max-w-6xl mx-auto flex items-center justify-end gap-3 text-xs">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="font-medium text-slate-600">{userEmail}</span>
@@ -740,255 +750,94 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center">
-            {/* LOGOTIPO OFICIAL CENTRADO ARRIBA */}
-            <div className="flex flex-col items-center mb-10 sm:mb-14">
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-4 pb-10">
+            {/* Logotipo oficial */}
+            <div className="flex flex-col items-center select-none">
               {!logoError ? (
                 <img
                   src="/logo-supplychain.png"
                   alt="SupplyChain México"
-                  className="h-28 sm:h-36 md:h-40 w-auto object-contain select-none transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  className="h-24 sm:h-28 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
                   onError={() => setLogoError(true)}
                 />
               ) : (
-                <AnimatedLogo className="h-28 sm:h-36 md:h-40 w-auto" cycleDuration={8} />
+                <AnimatedLogo className="h-24 sm:h-28 w-auto" cycleDuration={8} />
               )}
             </div>
 
-            {/* LAS 3 TARJETAS DE MÓDULOS */}
-            <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
-              {/* Tarjeta 1: Asset Management (Activo) */}
-              <div
-                onClick={() => setActiveModule("asset_management")}
-                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
-              >
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
-                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Activo
-                </span>
-                <div className="flex flex-col items-center w-full">
-                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
-                    <Laptop className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Automatización de órdenes, validación SEPOMEX y guías Techship.
-                  </p>
-                </div>
-                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
-                  <span>Ingresar</span>
-                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                </span>
-              </div>
+            {/* Saludo dinámico + fecha operativa */}
+            <div className="text-center flex flex-col items-center mt-6 mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                ¡{greeting}
+                {userFullName && <span className="text-[#CE3A39]">, {userFullName}</span>}!
+              </h2>
+              <p className="text-sm text-slate-500 mt-2 max-w-md">
+                Selecciona un módulo para comenzar tus operaciones del día.
+              </p>
+              <p className="text-xs font-mono uppercase tracking-widest text-[#CE3A39] mt-3 min-h-4">
+                {todayLabel}
+              </p>
+            </div>
 
-              {/* Tarjeta 2: CSM (En desarrollo) */}
-              <div
-                onClick={() => triggerToast("Módulo CSM en construcción", "info")}
-                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
-              >
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#233762]/30 transition-colors duration-300" />
-                <div className="flex flex-col items-center w-full">
-                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
-                    <Headset className="w-8 h-8" />
+            {/* CUADRICULA DE MODULOS: 3 cajas por fila, creciendo hacia abajo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+              {hubModules.map(({ name, description, Icon, target, tone }) => {
+                const isActive = Boolean(target);
+                const iconTone =
+                  tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
+                return (
+                  <div
+                    key={name}
+                    onClick={() =>
+                      target ? setActiveModule(target) : triggerToast(`Módulo ${name} en construcción`, "info")
+                    }
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[200px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                  >
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
+                        isActive
+                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                          : "bg-transparent group-hover:bg-[#233762]/30"
+                      }`}
+                    />
+                    {isActive && (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Activo
+                      </span>
+                    )}
+                    <div className="flex flex-col items-center w-full">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                      >
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#233762] mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+                    </div>
+                    <span
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
+                        isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                      }`}
+                    >
+                      {isActive ? (
+                        <>
+                          <span>Ingresar</span>
+                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                        </>
+                      ) : (
+                        <span>En desarrollo</span>
+                      )}
+                    </span>
                   </div>
-                  <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
-                </div>
-                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
-                  En desarrollo
-                </span>
-              </div>
-
-              {/* Tarjeta 3: Almacén (En desarrollo) */}
-              <div
-                onClick={() => triggerToast("Módulo Almacén en construcción", "info")}
-                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
-              >
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#CE3A39]/30 transition-colors duration-300" />
-                <div className="flex flex-col items-center w-full">
-                  <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
-                    <Warehouse className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
-                </div>
-                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
-                  En desarrollo
-                </span>
-              </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Pie de página sutil del Hub */}
-          <p className="text-xs text-slate-400 mt-14 font-medium tracking-wide text-center">
+          <p className="text-xs text-slate-400 font-medium tracking-wide text-center">
             SupplyChain México &bull; Plataforma Logística Integral
           </p>
-        </div>
-      ) : (
-        <div className="flex-1 flex min-h-[calc(100vh-6px)] w-full">
-          {/* ============================================================ */}
-          {/* SIDEBAR IZQUIERDO FIJO (Estilo Extensiv)                      */}
-          {/* ============================================================ */}
-          <aside className="w-60 h-screen sticky top-0 self-start bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 select-none z-20 overflow-y-auto">
-            <div>
-              {/* Cabecera sólida con ícono Home */}
-              <button
-                type="button"
-                onClick={() => setActiveModule("home")}
-                className="h-12 w-full bg-[#CE3A39] hover:bg-[#B02E2D] flex items-center justify-center text-white cursor-pointer transition-colors"
-                title="Ir a Home"
-              >
-                <Home className="w-5 h-5" />
-              </button>
-
-              <nav>
-                {sidebarItems.map(({ key, label, Icon }) => {
-                  const isActive = activeModule === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setActiveModule(key)}
-                      className={`w-full h-14 px-5 flex items-center gap-3.5 text-sm border-b border-slate-200 cursor-pointer transition-colors text-left ${
-                        isActive
-                          ? "bg-[#EAECEF] text-[#233762] font-semibold"
-                          : "bg-white text-slate-700 font-medium hover:bg-slate-50"
-                      }`}
-                    >
-                      <Icon className="w-5 h-5 shrink-0" />
-                      <span>{label}</span>
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full h-14 px-5 flex items-center gap-3.5 text-sm font-medium border-b border-slate-200 cursor-pointer transition-colors text-left bg-white text-slate-700 hover:bg-red-50 hover:text-[#CE3A39]"
-                >
-                  <LogOut className="w-5 h-5 shrink-0" />
-                  <span>Cerrar Sesión</span>
-                </button>
-              </nav>
-            </div>
-
-            {/* Pie del sidebar: logo + copyright */}
-            <div className="p-5 border-t border-slate-200 flex flex-col items-center text-center bg-white">
-              <button
-                type="button"
-                onClick={() => setActiveModule("hub")}
-                className="cursor-pointer transition-transform hover:scale-105"
-                title="Regresar al Portal Hub"
-              >
-                {!logoError ? (
-                  <img
-                    src="/logo-supplychain.png"
-                    alt="SupplyChain México"
-                    className="h-14 w-auto object-contain"
-                    onError={() => setLogoError(true)}
-                  />
-                ) : (
-                  <AnimatedLogo className="h-14 w-auto" cycleDuration={8} />
-                )}
-              </button>
-              <p className="text-[11px] text-slate-400 mt-2">© 2026 SupplyChain México, All rights reserved</p>
-            </div>
-          </aside>
-
-          {/* ============================================================ */}
-          {/* ÁREA PRINCIPAL DERECHA                                        */}
-          {/* ============================================================ */}
-          <div className="flex-1 min-w-0 flex flex-col">
-          {activeModule === "home" ? (
-        <div className="flex-1 min-h-[calc(100vh-6px)] bg-[#F4F5F7] flex flex-col items-center justify-center p-10 relative">
-          <div className="flex flex-col items-center justify-center">
-            {/* LOGOTIPO OFICIAL CENTRADO ARRIBA */}
-            <div className="flex flex-col items-center mb-10 sm:mb-14">
-              {!logoError ? (
-                <img
-                  src="/logo-supplychain.png"
-                  alt="SupplyChain México"
-                  className="h-28 sm:h-36 md:h-40 w-auto object-contain select-none transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <div className="flex flex-col items-center select-none">
-                  <div className="flex items-center gap-4">
-                    <svg
-                      viewBox="383 -66 380 380"
-                      className="w-16 h-16 sm:w-20 sm:h-20 overflow-visible"
-                      role="img"
-                      aria-label="SupplyChain México"
-                    >
-                      <defs>
-                        <clipPath id="sc-vector-clip">
-                          <circle cx="584.5" cy="186.1" r="75" />
-                        </clipPath>
-                      </defs>
-                      <g>
-                        <path
-                          fill="#233762"
-                          d="M490.0 242.0C452.2 238.5 418.8 212.8 406.9 178.0C403.2 167.0 401.9 167.5 432.9 167.2L459.1 167.0L465.4 173.4C476.7 184.8 485.9 189.1 500.0 189.2C517.5 189.4 524.7 186.2 539.9 171.5C573.9 138.7 582.7 126.5 583.6 111.2C583.9 107.0 584.3 102.6 584.5 101.4C585.1 98.4 614.7 69.4 620.8 65.8C627.5 62.0 628.0 62.2 631.3 71.6C644.1 108.7 635.4 146.2 607.2 174.9C595.0 187.3 562.5 218.7 556.5 223.7C541.6 236.3 513.2 244.1 490.0 242.0ZM403.2 137.4L401.0 135.9L401.0 88.2C401.0 62.0 401.4 40.0 401.8 39.4C403.7 36.6 407.4 36.0 424.3 36.0C446.5 36.0 447.0 36.3 447.0 47.6C447.0 51.7 447.3 55.0 447.6 55.0C447.9 55.0 454.7 48.7 462.6 41.1C477.8 26.4 483.6 22.1 496.0 15.8C522.8 2.4 559.0 3.3 586.1 18.2C593.1 22.1 593.1 21.7 587.4 25.9C584.9 27.8 575.7 36.4 567.0 45.1L551.1 60.8L543.6 59.7C525.8 57.1 514.3 61.8 496.8 78.8C482.7 92.5 482.5 93.0 492.3 93.0C503.2 93.0 503.0 92.5 503.0 116.3C503.0 135.4 502.9 135.9 500.8 137.4C498.8 138.8 492.5 139.0 452.0 139.0C411.5 139.0 405.2 138.8 403.2 137.4Z"
-                        />
-                        <path
-                          fill="#CE3A39"
-                          d="M595.5 242.0C588.3 241.2 580.1 239.5 574.5 237.5C569.8 235.8 554.0 227.7 554.0 227.0C554.0 226.5 555.5 225.1 557.2 223.9C559.0 222.7 568.4 213.8 578.1 204.3C595.0 187.7 595.8 187.0 598.4 188.0C603.5 189.9 616.9 189.2 624.2 186.7C633.9 183.2 639.3 179.4 651.0 167.3L661.5 156.5L653.9 156.2C642.3 155.8 642.5 156.1 642.5 132.5C642.5 114.9 642.7 113.0 644.4 111.1C646.3 109.0 646.8 109.0 694.0 109.0L741.7 109.0L743.8 111.3C747.0 114.7 747.3 206.2 744.1 210.1C742.2 212.4 741.8 212.5 723.3 212.8C699.4 213.2 699.0 213.0 699.0 201.4C699.0 197.3 698.7 194.0 698.2 194.0C697.8 194.0 691.9 199.7 685.0 206.6C656.1 235.6 631.1 245.5 595.5 242.0ZM517.0 183.9C510.0 170.9 506.8 142.0 510.5 125.3C515.8 101.4 524.7 86.0 542.8 69.0C547.8 64.3 558.1 54.4 565.7 46.9C573.3 39.5 582.2 31.2 585.5 28.6C588.8 26.0 592.0 23.3 592.5 22.6C594.0 20.9 602.8 15.7 608.0 13.6C610.5 12.6 613.4 11.4 614.5 10.9C629.0 4.9 672.6 5.0 679.5 11.1C680.0 11.6 681.0 12.0 681.8 12.0C682.6 12.0 686.8 13.8 691.2 16.0C714.4 27.7 732.5 48.5 740.4 72.4C743.4 81.4 744.8 81.0 713.0 81.0L685.1 81.0L681.4 76.5C671.5 64.3 653.9 57.5 639.0 60.0C620.4 63.1 620.9 62.8 600.5 83.4C566.6 117.7 562.0 124.9 562.0 143.4L562.0 148.6L545.8 164.6C526.1 184.0 519.4 188.5 517.0 183.9Z"
-                        />
-                        <g clipPath="url(#sc-vector-clip)">
-                          <path
-                            fill="#233762"
-                            d="M490.0 242.0C452.2 238.5 418.8 212.8 406.9 178.0C403.2 167.0 401.9 167.5 432.9 167.2L459.1 167.0L465.4 173.4C476.7 184.8 485.9 189.1 500.0 189.2C517.5 189.4 524.7 186.2 539.9 171.5C573.9 138.7 582.7 126.5 583.6 111.2C583.9 107.0 584.3 102.6 584.5 101.4C585.1 98.4 614.7 69.4 620.8 65.8C627.5 62.0 628.0 62.2 631.3 71.6C644.1 108.7 635.4 146.2 607.2 174.9C595.0 187.3 562.5 218.7 556.5 223.7C541.6 236.3 513.2 244.1 490.0 242.0ZM403.2 137.4L401.0 135.9L401.0 88.2C401.0 62.0 401.4 40.0 401.8 39.4C403.7 36.6 407.4 36.0 424.3 36.0C446.5 36.0 447.0 36.3 447.0 47.6C447.0 51.7 447.3 55.0 447.6 55.0C447.9 55.0 454.7 48.7 462.6 41.1C477.8 26.4 483.6 22.1 496.0 15.8C522.8 2.4 559.0 3.3 586.1 18.2C593.1 22.1 593.1 21.7 587.4 25.9C584.9 27.8 575.7 36.4 567.0 45.1L551.1 60.8L543.6 59.7C525.8 57.1 514.3 61.8 496.8 78.8C482.7 92.5 482.5 93.0 492.3 93.0C503.2 93.0 503.0 92.5 503.0 116.3C503.0 135.4 502.9 135.9 500.8 137.4C498.8 138.8 492.5 139.0 452.0 139.0C411.5 139.0 405.2 138.8 403.2 137.4Z"
-                          />
-                        </g>
-                      </g>
-                    </svg>
-                    <div className="flex items-baseline font-extrabold italic text-4xl sm:text-5xl tracking-tight">
-                      <span className="text-[#233762]">Supply</span>
-                      <span className="text-[#CE3A39]">Chain</span>
-                    </div>
-                  </div>
-                  <span className="text-xs sm:text-sm font-bold text-slate-500 tracking-[0.35em] mt-2">M É X I C O</span>
-                </div>
-              )}
-            </div>
-
-            {/* Saludo dinámico según la hora del día */}
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#233762] tracking-tight">
-                ¡{greeting}
-                {userFullName && <span className="text-[#CE3A39]">, {userFullName}</span>}!
-              </h2>
-              <p className="text-base text-slate-500 mt-3 max-w-md text-center">
-                Bienvenido a tu ventana de inicio para las operaciones del día. Selecciona un módulo en el menú izquierdo para comenzar.
-              </p>
-              <p className="text-xs font-mono uppercase tracking-widest text-[#CE3A39] mt-4 min-h-4">
-                {todayLabel}
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : activeModule === "csm" || activeModule === "almacen" ? (
-        <div className="flex-1 min-h-[calc(100vh-6px)] bg-[#F4F5F7] flex flex-col items-center justify-center p-10 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 text-[#233762] flex items-center justify-center shadow-2xs">
-            {activeModule === "csm" ? <Headset className="w-8 h-8" /> : <Warehouse className="w-8 h-8" />}
-          </div>
-          <h2 className="text-2xl font-bold text-[#233762] mt-4">{activeModule === "csm" ? "CSM" : "Almacén"}</h2>
-          <p className="text-sm text-slate-400 mt-1">Módulo en desarrollo</p>
-        </div>
-      ) : activeModule === "profile" ? (
-        <div className="flex-1 min-h-[calc(100vh-6px)] bg-[#F4F5F7] flex flex-col items-center justify-center p-10">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 w-full max-w-md text-center">
-            <div className="w-20 h-20 mx-auto rounded-full bg-[#233762] text-white flex items-center justify-center text-3xl font-bold">
-              {(userFirstName || "U").charAt(0)}
-            </div>
-            <h2 className="text-xl font-bold text-[#233762] mt-4">{userFullName || "Usuario"}</h2>
-            <p className="text-sm font-mono text-slate-500 mt-1">{userEmail}</p>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-sm font-semibold transition cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Cerrar sesión</span>
-            </button>
-          </div>
         </div>
       ) : (
         /* VISTA DASHBOARD DE ASSET MANAGEMENT */
@@ -1796,9 +1645,6 @@ export default function DashboardPage() {
         </div>
       )}
         </>
-      )}
-          </div>
-        </div>
       )}
     </div>
   );
