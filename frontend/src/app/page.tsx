@@ -120,8 +120,8 @@ export default function DashboardPage() {
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   
-  // Vista activa: 'login' | 'home' (bienvenida) | 'asset_management' (Automatizador KST) | 'csm' | 'almacen' | 'profile'
-  const [activeModule, setActiveModule] = useState<"login" | "home" | "asset_management" | "csm" | "almacen" | "profile">("login");
+  // Vista activa: 'login' | 'hub' (portal de 3 modulos) | 'home' (bienvenida) | 'asset_management' (Automatizador KST) | 'csm' | 'almacen' | 'profile'
+  const [activeModule, setActiveModule] = useState<"login" | "hub" | "home" | "asset_management" | "csm" | "almacen" | "profile">("login");
   const [userEmail, setUserEmail] = useState<string>("Jordi.Bochm@sekologistics.com");
   const [loginPassword, setLoginPassword] = useState<string>("••••••••••••");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -195,7 +195,7 @@ export default function DashboardPage() {
       const savedEmail = sessionStorage.getItem("sc_user_email");
       if (savedEmail) {
         setUserEmail(savedEmail);
-        setActiveModule("home");
+        setActiveModule("hub");
       } else {
         setActiveModule("login");
       }
@@ -222,7 +222,7 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("sc_user_email", userEmail.trim());
     }
-    setActiveModule("home");
+    setActiveModule("hub");
     triggerToast(`Sesión iniciada como ${userEmail.trim()}`, "success");
   };
 
@@ -505,7 +505,7 @@ export default function DashboardPage() {
   ] as const;
 
   return (
-    <div className={`min-h-screen ${activeModule === "home" ? "bg-[#F4F5F7]" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
+    <div className={`min-h-screen ${activeModule === "hub" ? "bg-slate-50" : activeModule === "home" ? "bg-[#F4F5F7]" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
       {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
       <div className="h-1.5 w-full flex relative z-50">
         <div className="w-1/2 bg-[#233762]" />
@@ -722,6 +722,106 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      ) : activeModule === "hub" ? (
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-6 px-6">
+          {/* Barra superior de usuario y logout */}
+          <div className="w-full max-w-5xl mx-auto flex items-center justify-end gap-3 text-xs mb-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-medium text-slate-600">{userEmail}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center">
+            {/* LOGOTIPO OFICIAL CENTRADO ARRIBA */}
+            <div className="flex flex-col items-center mb-10 sm:mb-14">
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-28 sm:h-36 md:h-40 w-auto object-contain select-none transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <AnimatedLogo className="h-28 sm:h-36 md:h-40 w-auto" cycleDuration={8} />
+              )}
+            </div>
+
+            {/* LAS 3 TARJETAS DE MÓDULOS */}
+            <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
+              {/* Tarjeta 1: Asset Management (Activo) */}
+              <div
+                onClick={() => setActiveModule("asset_management")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Activo
+                </span>
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
+                    <Laptop className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Automatización de órdenes, validación SEPOMEX y guías Techship.
+                  </p>
+                </div>
+                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                  <span>Ingresar</span>
+                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                </span>
+              </div>
+
+              {/* Tarjeta 2: CSM (En desarrollo) */}
+              <div
+                onClick={() => triggerToast("Módulo CSM en construcción", "info")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#233762]/30 transition-colors duration-300" />
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                    <Headset className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
+                </div>
+                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
+                  En desarrollo
+                </span>
+              </div>
+
+              {/* Tarjeta 3: Almacén (En desarrollo) */}
+              <div
+                onClick={() => triggerToast("Módulo Almacén en construcción", "info")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#CE3A39]/30 transition-colors duration-300" />
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                    <Warehouse className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
+                </div>
+                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
+                  En desarrollo
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pie de página sutil del Hub */}
+          <p className="text-xs text-slate-400 mt-14 font-medium tracking-wide text-center">
+            SupplyChain México &bull; Plataforma Logística Integral
+          </p>
+        </div>
       ) : (
         <div className="flex-1 flex min-h-[calc(100vh-6px)] w-full">
           {/* ============================================================ */}
@@ -771,16 +871,23 @@ export default function DashboardPage() {
 
             {/* Pie del sidebar: logo + copyright */}
             <div className="p-5 border-t border-slate-200 flex flex-col items-center text-center bg-white">
-              {!logoError ? (
-                <img
-                  src="/logo-supplychain.png"
-                  alt="SupplyChain México"
-                  className="h-14 w-auto object-contain"
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <AnimatedLogo className="h-14 w-auto" cycleDuration={8} />
-              )}
+              <button
+                type="button"
+                onClick={() => setActiveModule("hub")}
+                className="cursor-pointer transition-transform hover:scale-105"
+                title="Regresar al Portal Hub"
+              >
+                {!logoError ? (
+                  <img
+                    src="/logo-supplychain.png"
+                    alt="SupplyChain México"
+                    className="h-14 w-auto object-contain"
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <AnimatedLogo className="h-14 w-auto" cycleDuration={8} />
+                )}
+              </button>
               <p className="text-[11px] text-slate-400 mt-2">© 2026 SupplyChain México, All rights reserved</p>
             </div>
           </aside>
@@ -890,12 +997,12 @@ export default function DashboardPage() {
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
             <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Logo Oficial Animado SupplyChain México (Al hacer clic regresa a Home) */}
+                {/* Logo Oficial Animado SupplyChain México (Al hacer clic regresa al Portal Hub) */}
                 <button
                   type="button"
-                  onClick={() => setActiveModule("home")}
+                  onClick={() => setActiveModule("hub")}
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03] active:scale-[0.98]"
-                  title="Ir a Home"
+                  title="Regresar al Portal Hub"
                 >
                   <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
                 </button>
