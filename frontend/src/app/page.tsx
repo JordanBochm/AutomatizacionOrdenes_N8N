@@ -449,6 +449,16 @@ export default function DashboardPage() {
     });
   }, [batchData, searchTerm, activeTab]);
 
+  const hasOrders = Boolean(batchData?.orders && batchData.orders.length > 0);
+  const outboundCount = useMemo(
+    () => (batchData?.orders ? batchData.orders.filter((o) => o.type === "OUTBOUND").length : 0),
+    [batchData?.orders]
+  );
+  const returnCount = useMemo(
+    () => (batchData?.orders ? batchData.orders.filter((o) => o.type === "RETURN").length : 0),
+    [batchData?.orders]
+  );
+
   return (
     <div className={`min-h-screen ${activeModule === "hub" ? "bg-slate-50" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
       {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
@@ -869,9 +879,9 @@ export default function DashboardPage() {
 
           <button
             onClick={handleArchivePreview}
-            disabled={actionLoading === "archive"}
+            disabled={actionLoading === "archive" || !hasOrders}
             title="Archivar el lote actual y limpiar la tabla (no borra nada, se resguarda en data/archive)"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-50 shadow-2xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
           >
             <Archive className="w-4 h-4" />
             <span>
@@ -982,8 +992,8 @@ export default function DashboardPage() {
             {/* Botón 1: Timbrado Oficial en Estafeta / Techship */}
             <button
               onClick={() => setShowLiveModal(true)}
-              disabled={!batchData || actionLoading === "live"}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!hasOrders || actionLoading === "live"}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Zap className="w-4 h-4 fill-white" />
               <span>{actionLoading === "live" ? "Timbrando..." : "1. Timbrar Guías en Techship"}</span>
@@ -992,8 +1002,8 @@ export default function DashboardPage() {
             {/* Botón 2: Cierre y PDF de Etiquetas */}
             <button
               onClick={handleSyncClosing}
-              disabled={!batchData || actionLoading === "sync"}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!hasOrders || actionLoading === "sync"}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Truck className="w-4 h-4" />
               <span>{actionLoading === "sync" ? "Sincronizando..." : "2. Sincronizar Cierre y Etiquetas"}</span>
@@ -1066,59 +1076,93 @@ export default function DashboardPage() {
           {/* Barra de Filtros y Búsqueda */}
           <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80">
             {/* Pestañas de Filtro */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold">
+            <div
+              className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${
+                !hasOrders ? "opacity-50" : ""
+              }`}
+            >
               <button
+                disabled={!hasOrders}
                 onClick={() => setActiveTab("ALL")}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  activeTab === "ALL" ? "bg-[#233762] text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  !hasOrders
+                    ? "text-slate-400 cursor-not-allowed"
+                    : activeTab === "ALL"
+                    ? "bg-[#233762] text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900 cursor-pointer"
                 }`}
               >
                 Todas ({batchData?.orders.length || 0})
               </button>
               <button
+                disabled={!hasOrders}
                 onClick={() => setActiveTab("ISSUES")}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  activeTab === "ISSUES" ? "bg-[#CE3A39] text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  !hasOrders
+                    ? "text-slate-400 cursor-not-allowed"
+                    : activeTab === "ISSUES"
+                    ? "bg-[#CE3A39] text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900 cursor-pointer"
                 }`}
               >
                 Solo Errores / Revisar (
                 {(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
               </button>
               <button
+                disabled={!hasOrders}
                 onClick={() => setActiveTab("CONFIRMED")}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  activeTab === "CONFIRMED" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  !hasOrders
+                    ? "text-slate-400 cursor-not-allowed"
+                    : activeTab === "CONFIRMED"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900 cursor-pointer"
                 }`}
               >
                 Confirmadas ({batchData?.metrics.confirmed_100 || 0})
               </button>
               <button
+                disabled={!hasOrders}
                 onClick={() => setActiveTab("OUTBOUND")}
                 className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                  activeTab === "OUTBOUND" ? "bg-slate-700 text-white" : "text-slate-600 hover:text-slate-900"
+                  !hasOrders
+                    ? "text-slate-400 cursor-not-allowed"
+                    : activeTab === "OUTBOUND"
+                    ? "bg-slate-700 text-white"
+                    : "text-slate-600 hover:text-slate-900 cursor-pointer"
                 }`}
               >
-                Solo Ida
+                Solo Ida ({outboundCount})
               </button>
               <button
+                disabled={!hasOrders}
                 onClick={() => setActiveTab("RETURN")}
                 className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                  activeTab === "RETURN" ? "bg-slate-700 text-white" : "text-slate-600 hover:text-slate-900"
+                  !hasOrders
+                    ? "text-slate-400 cursor-not-allowed"
+                    : activeTab === "RETURN"
+                    ? "bg-slate-700 text-white"
+                    : "text-slate-600 hover:text-slate-900 cursor-pointer"
                 }`}
               >
-                Solo Retorno (-1)
+                Solo Retorno ({returnCount})
               </button>
             </div>
 
             {/* Input de Búsqueda Rápida */}
             <div className="relative flex-1 max-w-xs">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search
+                className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                  !hasOrders ? "text-slate-300" : "text-slate-400"
+                }`}
+              />
               <input
                 type="text"
-                placeholder="Buscar RITM, empleado, CP, teléfono..."
+                disabled={!hasOrders}
+                placeholder={hasOrders ? "Buscar RITM, empleado, CP, teléfono..." : "Sin órdenes para buscar..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition shadow-2xs"
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition shadow-2xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
               />
             </div>
           </div>
