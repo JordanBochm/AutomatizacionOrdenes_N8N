@@ -128,12 +128,23 @@ export default function DashboardPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [logoError, setLogoError] = useState<boolean>(false);
   const [currentHour, setCurrentHour] = useState<number>(12);
+  const [todayLabel, setTodayLabel] = useState<string>("");
 
-  // Hora local del navegador para el saludo (se actualiza cada minuto)
+  // Hora y fecha local del navegador para el saludo (se actualiza cada minuto)
   useEffect(() => {
-    const updateHour = () => setCurrentHour(new Date().getHours());
-    updateHour();
-    const timer = setInterval(updateHour, 60000);
+    const updateNow = () => {
+      const now = new Date();
+      setCurrentHour(now.getHours());
+      const label = now.toLocaleDateString("es-MX", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      setTodayLabel(label.charAt(0).toUpperCase() + label.slice(1));
+    };
+    updateNow();
+    const timer = setInterval(updateNow, 60000);
     return () => clearInterval(timer);
   }, []);
 
@@ -476,8 +487,13 @@ export default function DashboardPage() {
       : currentHour >= 12 && currentHour < 19
       ? "Buenas tardes"
       : "Buenas noches";
-  const rawFirstName = (userEmail.split("@")[0] || "").split(/[._-]/)[0] || "";
-  const userFirstName = rawFirstName ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase() : "";
+  // Nombre y apellido desde el correo (Jordi.Bochm@... -> Jordi Bochm)
+  const nameParts = (userEmail.split("@")[0] || "")
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+  const userFirstName = nameParts[0] || "";
+  const userFullName = nameParts.join(" ");
 
   // Opciones del menú lateral
   const sidebarItems = [
@@ -827,13 +843,16 @@ export default function DashboardPage() {
             </div>
 
             {/* Saludo dinámico según la hora del día */}
-            <div className="text-center">
+            <div className="text-center flex flex-col items-center">
               <h2 className="text-3xl sm:text-4xl font-bold text-[#233762] tracking-tight">
-                {greeting}
-                {userFirstName && <span className="text-[#CE3A39]">, {userFirstName}</span>}
+                ¡{greeting}
+                {userFullName && <span className="text-[#CE3A39]">, {userFullName}</span>}!
               </h2>
-              <p className="mt-3 text-sm text-slate-500">
-                Bienvenido a la plataforma logística integral de SupplyChain México.
+              <p className="text-base text-slate-500 mt-3 max-w-md text-center">
+                Bienvenido a tu ventana de inicio para las operaciones del día. Selecciona un módulo en el menú izquierdo para comenzar.
+              </p>
+              <p className="text-xs font-mono uppercase tracking-widest text-[#CE3A39] mt-4 min-h-4">
+                {todayLabel}
               </p>
             </div>
           </div>
@@ -852,7 +871,7 @@ export default function DashboardPage() {
             <div className="w-20 h-20 mx-auto rounded-full bg-[#233762] text-white flex items-center justify-center text-3xl font-bold">
               {(userFirstName || "U").charAt(0)}
             </div>
-            <h2 className="text-xl font-bold text-[#233762] mt-4">{userFirstName || "Usuario"}</h2>
+            <h2 className="text-xl font-bold text-[#233762] mt-4">{userFullName || "Usuario"}</h2>
             <p className="text-sm font-mono text-slate-500 mt-1">{userEmail}</p>
             <button
               type="button"
