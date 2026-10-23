@@ -27,6 +27,7 @@ import {
   HelpCircle,
   AlertCircle,
   Archive,
+  ArrowLeft,
   Warehouse,
   Eye,
   EyeOff,
@@ -120,8 +121,8 @@ export default function DashboardPage() {
   const [simResults, setSimResults] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   
-  // Vista activa: 'login' | 'hub' (cuadricula de modulos) | 'asset_management' (Automatizador KST)
-  const [activeModule, setActiveModule] = useState<"login" | "hub" | "asset_management">("login");
+  // Vista activa: 'login' | 'hub' (3 areas: Asset/CSM/Almacen) | 'modules' (cuadricula de modulos) | 'asset_management' (Automatizador KST)
+  const [activeModule, setActiveModule] = useState<"login" | "hub" | "modules" | "asset_management">("login");
   const [userEmail, setUserEmail] = useState<string>("Jordi.Bochm@sekologistics.com");
   const [loginPassword, setLoginPassword] = useState<string>("••••••••••••");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -495,7 +496,7 @@ export default function DashboardPage() {
   const userFirstName = nameParts[0] || "";
   const userFullName = nameParts.join(" ");
 
-  // Catalogo de modulos del Hub (cuadricula de 3 por fila). Los que tienen `target` estan activos.
+  // Catalogo de modulos de Asset Management (cuadricula de 3 por fila). Los que tienen `target` estan activos.
   const hubModules: {
     name: string;
     description: string;
@@ -503,19 +504,19 @@ export default function DashboardPage() {
     target?: "asset_management";
     tone: "navy" | "red";
   }[] = [
-    { name: "Asset Management", description: "Automatización de órdenes, validación SEPOMEX y guías Techship.", Icon: Laptop, target: "asset_management", tone: "navy" },
-    { name: "CSM", description: "Gestión de servicio al cliente y seguimiento de casos.", Icon: Headset, tone: "navy" },
-    { name: "Almacén", description: "Control de recepción, resguardo y salida de mercancía.", Icon: Warehouse, tone: "red" },
-    { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "navy" },
-    { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "red" },
-    { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "navy" },
-    { name: "Inventario", description: "Existencias, movimientos y conteos cíclicos.", Icon: Package, tone: "red" },
-    { name: "Proveedores", description: "Catálogo de proveedores y evaluación de desempeño.", Icon: Building2, tone: "navy" },
-    { name: "Auditoría", description: "Bitácora de cambios y control de cumplimiento.", Icon: ShieldAlert, tone: "red" },
+    { name: "Automatizador de tareas", description: "Órdenes KST / Kyndryl, validación SEPOMEX y guías Techship.", Icon: Zap, target: "asset_management", tone: "navy" },
+    { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "red" },
+    { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "navy" },
+    { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "red" },
+    { name: "Inventario", description: "Existencias, movimientos y conteos cíclicos.", Icon: Package, tone: "navy" },
+    { name: "Proveedores", description: "Catálogo de proveedores y evaluación de desempeño.", Icon: Building2, tone: "red" },
+    { name: "Auditoría", description: "Bitácora de cambios y control de cumplimiento.", Icon: ShieldAlert, tone: "navy" },
+    { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "red" },
+    { name: "Mesa de ayuda", description: "Incidencias, soporte y preguntas frecuentes.", Icon: HelpCircle, tone: "navy" },
   ];
 
   return (
-    <div className={`min-h-screen ${activeModule === "hub" ? "bg-slate-50" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
+    <div className={`min-h-screen ${activeModule === "hub" || activeModule === "modules" ? "bg-slate-50" : "bg-white"} text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white`}>
       {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
       <div className="h-1.5 w-full flex relative z-50">
         <div className="w-1/2 bg-[#233762]" />
@@ -733,9 +734,9 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : activeModule === "hub" ? (
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-6 px-6">
           {/* Barra superior de usuario y logout */}
-          <div className="w-full max-w-6xl mx-auto flex items-center justify-end gap-3 text-xs">
+          <div className="w-full max-w-5xl mx-auto flex items-center justify-end gap-3 text-xs mb-2">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="font-medium text-slate-600">{userEmail}</span>
@@ -750,18 +751,18 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-4 pb-10">
+          <div className="flex-1 flex flex-col items-center justify-center">
             {/* Logotipo oficial */}
             <div className="flex flex-col items-center select-none">
               {!logoError ? (
                 <img
                   src="/logo-supplychain.png"
                   alt="SupplyChain México"
-                  className="h-24 sm:h-28 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  className="h-28 sm:h-36 md:h-40 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
                   onError={() => setLogoError(true)}
                 />
               ) : (
-                <AnimatedLogo className="h-24 sm:h-28 w-auto" cycleDuration={8} />
+                <AnimatedLogo className="h-28 sm:h-36 md:h-40 w-auto" cycleDuration={8} />
               )}
             </div>
 
@@ -771,15 +772,131 @@ export default function DashboardPage() {
                 ¡{greeting}
                 {userFullName && <span className="text-[#CE3A39]">, {userFullName}</span>}!
               </h2>
-              <p className="text-sm text-slate-500 mt-2 max-w-md">
-                Selecciona un módulo para comenzar tus operaciones del día.
-              </p>
               <p className="text-xs font-mono uppercase tracking-widest text-[#CE3A39] mt-3 min-h-4">
                 {todayLabel}
               </p>
             </div>
 
-            {/* CUADRICULA DE MODULOS: 3 cajas por fila, creciendo hacia abajo */}
+            {/* LAS 3 AREAS: Asset Management, CSM y Almacén */}
+            <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
+              {/* Tarjeta 1: Asset Management (Activo) -> abre la cuadricula de modulos */}
+              <div
+                onClick={() => setActiveModule("modules")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Activo
+                </span>
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white transition-all duration-300 shadow-2xs">
+                    <Laptop className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Automatización de órdenes, validación SEPOMEX y guías Techship.
+                  </p>
+                </div>
+                <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                  <span>Ingresar</span>
+                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                </span>
+              </div>
+
+              {/* Tarjeta 2: CSM (En desarrollo) */}
+              <div
+                onClick={() => triggerToast("Módulo CSM en construcción", "info")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#233762]/30 transition-colors duration-300" />
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                    <Headset className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
+                </div>
+                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
+                  En desarrollo
+                </span>
+              </div>
+
+              {/* Tarjeta 3: Almacén (En desarrollo) */}
+              <div
+                onClick={() => triggerToast("Módulo Almacén en construcción", "info")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-8 w-72 min-h-[270px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-0.5"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-transparent group-hover:bg-[#CE3A39]/30 transition-colors duration-300" />
+                <div className="flex flex-col items-center w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shadow-2xs">
+                    <Warehouse className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
+                </div>
+                <span className="mt-5 inline-flex items-center text-xs font-medium text-slate-400">
+                  En desarrollo
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pie de página sutil del Hub */}
+          <p className="text-xs text-slate-400 mt-14 font-medium tracking-wide text-center">
+            SupplyChain México &bull; Plataforma Logística Integral
+          </p>
+        </div>
+      ) : activeModule === "modules" ? (
+        /* VISTA DE MODULOS DE ASSET MANAGEMENT: cuadricula de 3 por fila hacia abajo */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
+          <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+              title="Regresar al Hub"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Hub</span>
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-slate-600">{userEmail}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-6 pb-10">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="cursor-pointer select-none"
+              title="Regresar al Hub"
+            >
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
+              )}
+            </button>
+
+            <div className="text-center mt-5 mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">Asset Management</h2>
+              <p className="text-sm text-slate-500 mt-2">Selecciona un módulo para continuar.</p>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
               {hubModules.map(({ name, description, Icon, target, tone }) => {
                 const isActive = Boolean(target);
@@ -833,11 +950,6 @@ export default function DashboardPage() {
               })}
             </div>
           </div>
-
-          {/* Pie de página sutil del Hub */}
-          <p className="text-xs text-slate-400 font-medium tracking-wide text-center">
-            SupplyChain México &bull; Plataforma Logística Integral
-          </p>
         </div>
       ) : (
         /* VISTA DASHBOARD DE ASSET MANAGEMENT */
@@ -846,12 +958,12 @@ export default function DashboardPage() {
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
             <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Logo Oficial Animado SupplyChain México (Al hacer clic regresa al Portal Hub) */}
+                {/* Logo Oficial Animado SupplyChain México (Al hacer clic regresa a la cuadricula de modulos) */}
                 <button
                   type="button"
-                  onClick={() => setActiveModule("hub")}
+                  onClick={() => setActiveModule("modules")}
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03] active:scale-[0.98]"
-                  title="Regresar al Portal Hub"
+                  title="Regresar a los módulos"
                 >
                   <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
                 </button>
