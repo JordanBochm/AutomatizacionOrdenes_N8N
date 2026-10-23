@@ -27,7 +27,6 @@ import {
   HelpCircle,
   AlertCircle,
   Archive,
-  ArrowLeft,
   Boxes,
   Warehouse,
   Headphones,
@@ -820,20 +819,15 @@ export default function DashboardPage() {
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
             <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Botón para regresar al Portal Hub */}
+                {/* Logo Oficial Animado SupplyChain México (Al hacer clic regresa al Portal Hub) */}
                 <button
+                  type="button"
                   onClick={() => setActiveModule("hub")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-[#233762] text-xs font-bold transition shadow-2xs group"
-                  title="Regresar al Portal Principal (Hub)"
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03] active:scale-[0.98]"
+                  title="Regresar al Portal Hub"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                  <span className="hidden sm:inline">Portal Hub</span>
+                  <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
                 </button>
-
-                <div className="h-6 w-px bg-slate-200" />
-
-                {/* Logo Oficial Animado SupplyChain México */}
-                <AnimatedLogo className="h-14 sm:h-16 w-auto" cycleDuration={8} />
 
                 <div className="h-9 w-px bg-slate-200 hidden md:block" />
 
