@@ -41,7 +41,6 @@ import {
   Users,
   Plus,
   Trash2,
-  Menu,
 } from "lucide-react";
 
 // ==============================================================================
@@ -96,7 +95,6 @@ export interface RoleConfig {
   roleBadge: string;
   subtitle: string;
   description: string;
-  sidebarModules: string[];
   permissions: RolePermissions;
 }
 
@@ -105,9 +103,8 @@ export const ROLES_CONFIG: Record<UserRole, RoleConfig> = {
     code: "ADMIN",
     label: "Administrador General",
     roleBadge: "ADMINISTRADOR GENERAL",
-    subtitle: "Control Total y Administración de Usuarios",
-    description: "Control total de la plataforma (subida, edición de filas, simulación, timbrado --live, sincronización, archivo y descargas globales).",
-    sidebarModules: ["home", "asset_management", "csm", "almacen", "profile", "users", "roles"],
+    subtitle: "Control Total y Administración",
+    description: "Acceso total a las tres áreas operativas (Asset Management, CSM y Almacén), gestión de usuarios y matriz de roles.",
     permissions: {
       canUpload: true,
       canEditRows: true,
@@ -126,9 +123,8 @@ export const ROLES_CONFIG: Record<UserRole, RoleConfig> = {
     code: "ASSET_MANAGER",
     label: "Ejecutivo Asset Management KST",
     roleBadge: "EJECUTIVO ASSET MANAGEMENT KST",
-    subtitle: "Operación Completa de Órdenes y Timbrado",
-    description: "Control operativo completo sobre órdenes, corrección SEPOMEX y timbrado Techship. Sin acceso a gestión de usuarios ni matriz de roles.",
-    sidebarModules: ["home", "asset_management", "profile"],
+    subtitle: "Operación de Órdenes y Timbrado",
+    description: "Acceso operativo exclusivo a Asset Management. Las áreas de CSM y Almacén permanecen restringidas.",
     permissions: {
       canUpload: true,
       canEditRows: true,
@@ -147,9 +143,8 @@ export const ROLES_CONFIG: Record<UserRole, RoleConfig> = {
     code: "CSM",
     label: "Customer Service (CSM)",
     roleBadge: "CUSTOMER SERVICE (CSM)",
-    subtitle: "Modo Consulta y Auditoría de Cierre",
-    description: "Solo lectura de tabla/KPIs y descarga de reportes Cierre.xlsx y Auditoría.xlsx. Bloqueo de subida, edición, timbrado y limpieza.",
-    sidebarModules: ["home", "csm", "asset_management", "profile"],
+    subtitle: "Atención a Clientes y Auditoría",
+    description: "Acceso exclusivo a la opción de CSM. Las áreas de Asset Management y Almacén están bloqueadas para este perfil.",
     permissions: {
       canUpload: false,
       canEditRows: false,
@@ -168,9 +163,8 @@ export const ROLES_CONFIG: Record<UserRole, RoleConfig> = {
     code: "ALMACEN",
     label: "Operador Almacén Lerma",
     roleBadge: "OPERADOR ALMACÉN LERMA",
-    subtitle: "Modo Impresión de Etiquetas y Despacho",
-    description: "Solo lectura de tabla/KPIs y descarga exclusiva de Etiquetas.pdf para preparación física y embarque. Bloqueo de subida, edición, timbrado y limpieza.",
-    sidebarModules: ["home", "almacen", "asset_management", "profile"],
+    subtitle: "Operación de Piso y Embarques",
+    description: "Acceso exclusivo a la opción de Almacén. Las áreas de Asset Management y CSM están bloqueadas para este perfil.",
     permissions: {
       canUpload: false,
       canEditRows: false,
@@ -278,6 +272,14 @@ function loadCurrentUserFromSession(): CurrentUser | null {
   return null;
 }
 
+// Cuentas Demo para el Selector Rápido del Login
+const DEMO_ACCOUNTS = [
+  { label: "Admin", email: "Jordi.Bochm@sekologistics.com", role: "ADMIN" as UserRole },
+  { label: "Asset Mgr", email: "kst.asset@sekologistics.com", role: "ASSET_MANAGER" as UserRole },
+  { label: "CSM", email: "csm.mx@sekologistics.com", role: "CSM" as UserRole },
+  { label: "Almacén", email: "almacen.lerma@sekologistics.com", role: "ALMACEN" as UserRole },
+];
+
 // ==============================================================================
 // 2. MODELOS DE DATOS DE ÓRDENES Y LOTES
 // ==============================================================================
@@ -320,14 +322,6 @@ interface BatchData {
   orders: OrderItem[];
 }
 
-// Cuentas Demo para el Selector Rápido del Login
-const DEMO_ACCOUNTS = [
-  { label: "Admin", email: "Jordi.Bochm@sekologistics.com", role: "ADMIN" as UserRole },
-  { label: "Asset Mgr", email: "kst.asset@sekologistics.com", role: "ASSET_MANAGER" as UserRole },
-  { label: "CSM", email: "csm.mx@sekologistics.com", role: "CSM" as UserRole },
-  { label: "Almacén", email: "almacen.lerma@sekologistics.com", role: "ALMACEN" as UserRole },
-];
-
 export default function DashboardPage() {
   const [batchData, setBatchData] = useState<BatchData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -360,9 +354,9 @@ export default function DashboardPage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Vista activa:
-  // 'login' | 'home' | 'asset_management' | 'csm' | 'almacen' | 'profile' | 'users' | 'roles'
+  // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
   const [activeModule, setActiveModule] = useState<
-    "login" | "home" | "asset_management" | "csm" | "almacen" | "profile" | "users" | "roles"
+    "login" | "hub" | "modules" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
   >("login");
 
   // Estado de Autenticación y RBAC
@@ -373,7 +367,6 @@ export default function DashboardPage() {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [logoError, setLogoError] = useState<boolean>(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   // Modal para Crear Nuevo Usuario (ADMIN)
   const [showNewUserModal, setShowNewUserModal] = useState<boolean>(false);
@@ -461,7 +454,6 @@ export default function DashboardPage() {
 
       const savedSession = loadCurrentUserFromSession();
       if (savedSession) {
-        // Sincronizar currentUser con la lista por si hubo cambios de rol o estado
         const matched = loadedUsers.find(
           (u) => u.email.toLowerCase() === savedSession.email.toLowerCase()
         );
@@ -474,7 +466,7 @@ export default function DashboardPage() {
           setCurrentUser(syncedUser);
           setUserEmail(matched.email);
           sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(syncedUser));
-          setActiveModule("home");
+          setActiveModule("hub");
         } else if (matched && !matched.isActive) {
           sessionStorage.removeItem(CURRENT_USER_STORAGE_KEY);
           sessionStorage.removeItem("sc_user_email");
@@ -483,7 +475,7 @@ export default function DashboardPage() {
         } else {
           setCurrentUser(savedSession);
           setUserEmail(savedSession.email);
-          setActiveModule("home");
+          setActiveModule("hub");
         }
       } else {
         setActiveModule("login");
@@ -517,7 +509,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Buscar si el usuario existe en el catálogo de localStorage
     const foundUser = usersList.find(
       (u) => u.email.toLowerCase() === cleanEmail.toLowerCase()
     );
@@ -537,12 +528,11 @@ export default function DashboardPage() {
         sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userSession));
         sessionStorage.setItem("sc_user_email", userSession.email);
       }
-      setActiveModule("home");
+      setActiveModule("hub");
       triggerToast(`¡Bienvenido, ${userSession.name}!`, "success");
       return;
     }
 
-    // Si no está registrado en el catálogo pero es correo de Seko Logistics
     if (cleanEmail.toLowerCase().endsWith("@sekologistics.com")) {
       const nameParts = (cleanEmail.split("@")[0] || "")
         .split(/[._-]+/)
@@ -574,7 +564,7 @@ export default function DashboardPage() {
         sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userSession));
         sessionStorage.setItem("sc_user_email", userSession.email);
       }
-      setActiveModule("home");
+      setActiveModule("hub");
       triggerToast(`Cuenta corporativa creada e iniciada como ${autoUser.name} (Asset Management)`, "success");
       return;
     }
@@ -590,8 +580,44 @@ export default function DashboardPage() {
     }
     setCurrentUser(null);
     setActiveModule("login");
-    setMobileMenuOpen(false);
     triggerToast("Sesión cerrada correctamente.", "info");
+  };
+
+  // ==============================================================================
+  // REGLAS DE ACCESO AL HUB POR ROL:
+  // - ADMIN: puede entrar a las 3 opciones (Asset Management, CSM y Almacén)
+  // - ASSET_MANAGER: solo entra a Asset Management
+  // - CSM: solo entra a CSM
+  // - ALMACEN: solo entra a Almacén
+  // ==============================================================================
+  const activeRole: UserRole = currentUser?.role || "ASSET_MANAGER";
+  const roleConfig = ROLES_CONFIG[activeRole] || ROLES_CONFIG.ASSET_MANAGER;
+  const permissions = roleConfig.permissions;
+
+  const canEnterAsset = activeRole === "ADMIN" || activeRole === "ASSET_MANAGER";
+  const canEnterCSM = activeRole === "ADMIN" || activeRole === "CSM";
+  const canEnterAlmacen = activeRole === "ADMIN" || activeRole === "ALMACEN";
+
+  const handleHubNavigation = (target: "asset" | "csm" | "almacen") => {
+    if (target === "asset") {
+      if (canEnterAsset) {
+        setActiveModule("modules");
+      } else {
+        triggerToast(`Acceso restringido: El rol ${roleConfig.label} no tiene autorización para ingresar a Asset Management.`, "error");
+      }
+    } else if (target === "csm") {
+      if (canEnterCSM) {
+        setActiveModule("csm");
+      } else {
+        triggerToast(`Acceso restringido: El rol ${roleConfig.label} solo tiene permitido el acceso a su área asignada.`, "error");
+      }
+    } else if (target === "almacen") {
+      if (canEnterAlmacen) {
+        setActiveModule("almacen");
+      } else {
+        triggerToast(`Acceso restringido: El rol ${roleConfig.label} solo tiene permitido el acceso a su área asignada.`, "error");
+      }
+    }
   };
 
   // ==============================================================================
@@ -607,7 +633,6 @@ export default function DashboardPage() {
     setUsersList(updated);
     saveUsersToStorage(updated);
 
-    // Si el usuario modificado es el actual en sesión, actualizar sesión
     if (currentUser) {
       const self = updated.find((u) => u.id === userId);
       if (self && self.email.toLowerCase() === currentUser.email.toLowerCase()) {
@@ -713,7 +738,6 @@ export default function DashboardPage() {
   // ==============================================================================
   // OPERACIONES DE ASSET MANAGEMENT (LOTE, TIMBRADO, ARCHIVO, DESCARGAS)
   // ==============================================================================
-  // Subir reporte Excel (SCTASK_*.xlsx)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -751,7 +775,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Abrir modal de edición para una orden
   const handleOpenEdit = (order: OrderItem) => {
     setEditingOrder(order);
     setEditFormData({
@@ -767,7 +790,6 @@ export default function DashboardPage() {
     });
   };
 
-  // Guardar edición vía PATCH /api/batches/order/{pick_order}
   const handleSavePatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingOrder) return;
@@ -807,7 +829,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Ejecutar timbrado oficial en Techship
   const handleTechshipProcess = async () => {
     try {
       setActionLoading("live");
@@ -834,7 +855,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Sincronizar trackings y generar Cierre + PDF
   const handleSyncClosing = async () => {
     try {
       setActionLoading("sync");
@@ -858,13 +878,11 @@ export default function DashboardPage() {
     }
   };
 
-  // Descarga directa de archivos operativos
   const handleDownload = (fileType: string) => {
     const url = `${API_BASE}/api/files/download/${fileType}`;
     window.open(url, "_blank");
   };
 
-  // Archivar lote / limpiar tabla: llamada genérica
   const callArchive = async (dryRun: boolean, cleanAll: boolean = true) => {
     const res = await fetch(`${API_BASE}/api/batches/archive-previous`, {
       method: "POST",
@@ -878,7 +896,6 @@ export default function DashboardPage() {
     return res.json();
   };
 
-  // Paso 1: vista previa de lo que se va a archivar y limpiar
   const handleArchivePreview = async () => {
     try {
       setActionLoading("archive");
@@ -895,7 +912,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Paso 2: confirmar y mover los archivos a data/archive/
   const handleArchiveConfirm = async () => {
     try {
       setActionLoading("archive");
@@ -923,7 +939,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Filtrado reactivo de órdenes
   const filteredOrders = useMemo(() => {
     if (!batchData?.orders) return [];
 
@@ -956,7 +971,6 @@ export default function DashboardPage() {
     [batchData?.orders]
   );
 
-  // Saludo dinámico según la hora local y nombre completo
   const greeting =
     currentHour >= 5 && currentHour < 12
       ? "Buenos días"
@@ -964,12 +978,6 @@ export default function DashboardPage() {
       ? "Buenas tardes"
       : "Buenas noches";
 
-  const activeRole: UserRole = currentUser?.role || "ASSET_MANAGER";
-  const roleConfig = ROLES_CONFIG[activeRole] || ROLES_CONFIG.ASSET_MANAGER;
-  const permissions = roleConfig.permissions;
-  const isRestrictedRole = activeRole === "CSM" || activeRole === "ALMACEN";
-
-  // Iniciales para el avatar del usuario
   const userInitials = useMemo(() => {
     const name = currentUser?.name || "Seko User";
     const parts = name.split(" ").filter(Boolean);
@@ -979,48 +987,24 @@ export default function DashboardPage() {
     return (name[0] || "U").toUpperCase();
   }, [currentUser?.name]);
 
-  // Items visibles en el Sidebar según el Rol del usuario
-  const sidebarItems = useMemo(() => {
-    const list: {
-      id: "home" | "asset_management" | "csm" | "almacen" | "profile" | "users" | "roles";
-      label: string;
-      subLabel?: string;
-      icon: React.ElementType;
-    }[] = [];
-
-    // 1. Home (Todos)
-    list.push({ id: "home", label: "Home", icon: Home });
-
-    // 2. Asset Management (Etiqueta adaptada según perfil)
-    if (activeRole === "CSM") {
-      list.push({ id: "asset_management", label: "Asset Management", subLabel: "Consulta", icon: Zap });
-    } else if (activeRole === "ALMACEN") {
-      list.push({ id: "asset_management", label: "Asset Management", subLabel: "Impresión", icon: Zap });
-    } else {
-      list.push({ id: "asset_management", label: "Asset Management", icon: Zap });
-    }
-
-    // 3. CSM (Visible para ADMIN y CSM)
-    if (roleConfig.sidebarModules.includes("csm")) {
-      list.push({ id: "csm", label: "CSM", icon: Headset });
-    }
-
-    // 4. Almacén (Visible para ADMIN y ALMACEN)
-    if (roleConfig.sidebarModules.includes("almacen")) {
-      list.push({ id: "almacen", label: "Almacén", icon: Warehouse });
-    }
-
-    // 5. Perfil (Todos)
-    list.push({ id: "profile", label: "Perfil", icon: User });
-
-    // 6. Users y Roles (Exclusivos para ADMIN)
-    if (activeRole === "ADMIN") {
-      list.push({ id: "users", label: "Usuarios", icon: Users });
-      list.push({ id: "roles", label: "Roles y Permisos", icon: ShieldCheck });
-    }
-
-    return list;
-  }, [activeRole, roleConfig.sidebarModules]);
+  // Catálogo de módulos de Asset Management (cuadrícula de 3x3)
+  const hubModules: {
+    name: string;
+    description: string;
+    Icon: React.ElementType;
+    target?: "asset_management";
+    tone: "navy" | "red";
+  }[] = [
+    { name: "Automatizador de tareas", description: "Órdenes KST / Kyndryl, validación SEPOMEX y guías Techship.", Icon: Zap, target: "asset_management", tone: "navy" },
+    { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "red" },
+    { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "navy" },
+    { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "red" },
+    { name: "Inventario", description: "Existencias, movimientos y conteos cíclicos.", Icon: Package, tone: "navy" },
+    { name: "Proveedores", description: "Catálogo de proveedores y evaluación de desempeño.", Icon: Building2, tone: "red" },
+    { name: "Auditoría", description: "Bitácora de cambios y control de cumplimiento.", Icon: ShieldAlert, tone: "navy" },
+    { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "red" },
+    { name: "Mesa de ayuda", description: "Incidencias, soporte y preguntas frecuentes.", Icon: HelpCircle, tone: "navy" },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
@@ -1055,7 +1039,7 @@ export default function DashboardPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* RENDER CONDICIONAL: VISTA DE LOGIN O APLICACIÓN PRINCIPAL AUTENTICADA */}
+      {/* RENDER CONDICIONAL: LOGIN O VISTAS AUTENTICADAS                     */}
       {/* ==================================================================== */}
       {activeModule === "login" ? (
         <div className="flex-1 min-h-[calc(100vh-6px)] w-full flex flex-col lg:flex-row bg-white">
@@ -1166,7 +1150,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() =>
                       triggerToast(
-                        "Comunícate con TI (Jordi.Bochm@sekologistics.com) para restablecer credenciales.",
+                        "Comunícate con soporte TI (Jordi.Bochm@sekologistics.com) para restablecer credenciales.",
                         "info"
                       )
                     }
@@ -1228,1842 +1212,1935 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : activeModule === "hub" ? (
         /* ==================================================================== */
-        /* APLICACIÓN PRINCIPAL CON SIDEBAR ESTILO EXTENSIV                     */
+        /* EL HUB PRINCIPAL: LAS 3 OPCIONES (Asset Management, CSM, Almacén)   */
+        /* CON PERMISOS POR ROL:                                               */
+        /* - ADMIN: entra a las 3 opciones                                     */
+        /* - ASSET_MANAGER: solo entra a Asset Management                      */
+        /* - CSM: solo entra a CSM                                             */
+        /* - ALMACEN: solo entra a Almacén                                     */
         /* ==================================================================== */
-        <div className="flex-1 flex w-full min-h-[calc(100vh-6px)] bg-slate-50">
-          {/* SIDEBAR IZQUIERDO ESTILO EXTENSIV (Desktop fijo, móvil colapsable) */}
-          <aside
-            className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#1B2A4A] text-white flex flex-col justify-between shrink-0 shadow-2xl transition-transform duration-300 lg:static lg:translate-x-0 ${
-              mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
-          >
-            <div className="flex flex-col">
-              {/* BLOQUE ROJO SUPERIOR EXTENSIV (#CE3A39) con botón Home */}
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-6 px-6 sm:px-10 max-w-7xl mx-auto w-full">
+          {/* Barra superior de usuario, roles de admin y logout */}
+          <div className="w-full flex items-center justify-between gap-3 text-xs mb-4 pb-3 border-b border-slate-200/60">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#233762] tracking-wide uppercase">SupplyChain Portal</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-bold border border-[#233762]/20">
+                México
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+              {/* Accesos rápidos de Administración (Exclusivos para ADMIN) */}
+              {activeRole === "ADMIN" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModule("users")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-[#FDF2F2] border border-slate-200 hover:border-[#CE3A39]/40 text-slate-700 hover:text-[#CE3A39] text-xs font-bold transition shadow-2xs cursor-pointer"
+                    title="Gestión de Usuarios"
+                  >
+                    <Users className="w-3.5 h-3.5 text-[#CE3A39]" />
+                    <span className="hidden sm:inline">Usuarios ({usersList.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveModule("roles")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-[#EFF3F9] border border-slate-200 hover:border-[#233762]/40 text-slate-700 hover:text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer"
+                    title="Matriz de Roles y Permisos"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#233762]" />
+                    <span className="hidden sm:inline">Roles RBAC</span>
+                  </button>
+                </>
+              )}
+
+              {/* Badge de Usuario Activo */}
               <button
                 type="button"
-                onClick={() => {
-                  setActiveModule("home");
-                  setMobileMenuOpen(false);
-                }}
-                className="h-16 w-full bg-[#CE3A39] hover:bg-[#B02E2D] px-4 flex items-center justify-between text-white font-bold transition-colors cursor-pointer select-none group border-b border-red-700/40"
-                title="Ir a Home"
+                onClick={() => setActiveModule("profile")}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700 hover:border-[#233762] transition cursor-pointer"
+                title="Ver Perfil"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-white/15 group-hover:bg-white/25 transition">
-                    <Home className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-sm font-extrabold tracking-wide uppercase">SupplyChain</span>
-                    <span className="text-[10px] text-red-100 font-medium">Portal México</span>
-                  </div>
+                <div className="w-5 h-5 rounded-full bg-[#233762] text-white flex items-center justify-center font-bold font-mono text-[10px]">
+                  {userInitials}
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded bg-white/20 text-white font-mono uppercase text-[10px]">
-                  {activeRole === "ADMIN" ? "ADM" : activeRole === "ASSET_MANAGER" ? "KST" : activeRole}
+                <span className="font-medium text-slate-700 hidden md:inline truncate max-w-[180px]">
+                  {currentUser?.name || userEmail}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold uppercase bg-slate-100 text-[#CE3A39]">
+                  {roleConfig.code}
                 </span>
               </button>
 
-              {/* LISTA DE MÓDULOS DEL MENÚ LATERAL (Filtrado por Rol) */}
-              <nav className="p-3 space-y-1.5 overflow-y-auto max-h-[calc(100vh-230px)]">
-                <div className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase font-mono">
-                  Módulos Operativos
-                </div>
+              {/* Botón Cerrar Sesión */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
 
-                {sidebarItems.map((item) => {
-                  const isActive = activeModule === item.id;
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveModule(item.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
-                        isActive
-                          ? "bg-[#CE3A39] text-white shadow-md font-bold"
-                          : "text-slate-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 truncate">
-                        <Icon
-                          className={`w-4 h-4 shrink-0 transition-transform ${
-                            isActive ? "text-white scale-110" : "text-slate-400 group-hover:text-white"
-                          }`}
-                        />
-                        <span className="truncate">{item.label}</span>
-                      </div>
-                      {item.subLabel && (
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase shrink-0 ${
-                            isActive ? "bg-white/20 text-white" : "bg-white/10 text-slate-300"
-                          }`}
-                        >
-                          {item.subLabel}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
+          {/* Bloque Central del Hub */}
+          <div className="flex-1 flex flex-col items-center justify-center my-auto py-6">
+            {/* Logotipo Oficial SupplyChain México */}
+            <div className="flex flex-col items-center select-none">
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-28 sm:h-36 md:h-40 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <AnimatedLogo className="h-28 sm:h-36 md:h-40 w-auto" cycleDuration={8} />
+              )}
             </div>
 
-            {/* SECCIÓN INFERIOR: Perfil de Usuario, Logout y Créditos */}
-            <div className="p-3 border-t border-slate-800 bg-[#15223C]/60 flex flex-col gap-2.5">
-              {/* Tarjeta de Usuario Activo */}
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#233762] border border-white/20 text-white flex items-center justify-center font-bold font-mono text-xs shadow-2xs shrink-0">
-                  {userInitials}
-                </div>
-                <div className="flex flex-col truncate flex-1 min-w-0">
-                  <span className="text-xs font-bold text-white truncate" title={currentUser?.name || userEmail}>
-                    {currentUser?.name || userEmail}
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                    <span className="text-[10px] text-slate-300 font-mono truncate" title={roleConfig.label}>
-                      {roleConfig.code}
-                    </span>
-                  </div>
-                </div>
+            {/* Saludo dinámico + Nombre completo + Rol + Fecha operativa */}
+            <div className="text-center flex flex-col items-center mt-6 mb-8 max-w-xl">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#233762] tracking-tight">
+                ¡{greeting}
+                {currentUser?.name && <span className="text-[#CE3A39]">, {currentUser.name}</span>}!
+              </h1>
+
+              {/* Badge del Rol Activo */}
+              <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-[#CE3A39]/30 text-xs font-mono font-bold text-[#CE3A39] shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>ROL: {roleConfig.roleBadge}</span>
               </div>
 
-              {/* Botón Logout */}
+              {/* Subtítulo de bienvenida */}
+              <p className="text-sm text-slate-500 mt-3 max-w-md text-center leading-relaxed">
+                Bienvenido a tu ventana de inicio para las operaciones del día. Selecciona un módulo para comenzar.
+              </p>
+
+              {/* Fecha operativa actual */}
+              <p className="text-xs font-mono uppercase tracking-widest text-[#CE3A39] mt-3 min-h-4 font-bold">
+                {todayLabel}
+              </p>
+            </div>
+
+            {/* ================================================================ */}
+            {/* LAS TRES ÁREAS DEL HUB (Asset Management, CSM y Almacén)        */}
+            {/* Con animación homologada y candados basados en el rol           */}
+            {/* ================================================================ */}
+            <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
+              {/* TARJETA 1: ASSET MANAGEMENT (Activo para ADMIN y ASSET_MANAGER) */}
+              <div
+                onClick={() => handleHubNavigation("asset")}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
+                  canEnterAsset
+                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                }`}
+              >
+                <div
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
+                    canEnterAsset
+                      ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                      : "bg-slate-300"
+                  }`}
+                />
+
+                {/* Badge de Estado / Candado */}
+                {canEnterAsset ? (
+                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Activo
+                  </span>
+                ) : (
+                  <span className="absolute top-3.5 right-3.5 inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>Restringido</span>
+                  </span>
+                )}
+
+                <div className="flex flex-col items-center w-full">
+                  <div
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
+                      canEnterAsset
+                        ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                        : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    {canEnterAsset ? <Laptop className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {canEnterAsset
+                      ? "Automatización de órdenes, validación SEPOMEX y guías Techship."
+                      : "Área exclusiva para Asset Management y Administrador."}
+                  </p>
+                </div>
+
+                <span
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
+                    canEnterAsset
+                      ? "text-[#233762] group-hover:text-[#CE3A39]"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {canEnterAsset ? (
+                    <>
+                      <span>Ingresar</span>
+                      <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                    </>
+                  ) : (
+                    <span>Bloqueado</span>
+                  )}
+                </span>
+              </div>
+
+              {/* TARJETA 2: CSM (Activo para ADMIN y CSM) */}
+              <div
+                onClick={() => handleHubNavigation("csm")}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
+                  canEnterCSM
+                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                }`}
+              >
+                <div
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
+                    canEnterCSM
+                      ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                      : "bg-slate-300"
+                  }`}
+                />
+
+                {/* Badge de Estado / Candado */}
+                {canEnterCSM ? (
+                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Activo
+                  </span>
+                ) : (
+                  <span className="absolute top-3.5 right-3.5 inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>Restringido</span>
+                  </span>
+                )}
+
+                <div className="flex flex-col items-center w-full">
+                  <div
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
+                      canEnterCSM
+                        ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                        : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    {canEnterCSM ? <Headset className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {canEnterCSM
+                      ? "Customer Service, auditoría de incidencias y conciliación de entregas."
+                      : "Área exclusiva para CSM y Administrador."}
+                  </p>
+                </div>
+
+                <span
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
+                    canEnterCSM
+                      ? "text-[#233762] group-hover:text-[#CE3A39]"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {canEnterCSM ? (
+                    <>
+                      <span>Ingresar</span>
+                      <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                    </>
+                  ) : (
+                    <span>Bloqueado</span>
+                  )}
+                </span>
+              </div>
+
+              {/* TARJETA 3: ALMACÉN (Activo para ADMIN y ALMACEN) */}
+              <div
+                onClick={() => handleHubNavigation("almacen")}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
+                  canEnterAlmacen
+                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                }`}
+              >
+                <div
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
+                    canEnterAlmacen
+                      ? "bg-[#CE3A39] group-hover:bg-[#233762]"
+                      : "bg-slate-300"
+                  }`}
+                />
+
+                {/* Badge de Estado / Candado */}
+                {canEnterAlmacen ? (
+                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Activo
+                  </span>
+                ) : (
+                  <span className="absolute top-3.5 right-3.5 inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>Restringido</span>
+                  </span>
+                )}
+
+                <div className="flex flex-col items-center w-full">
+                  <div
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
+                      canEnterAlmacen
+                        ? "bg-[#FDF2F2] text-[#CE3A39] group-hover:scale-110 group-hover:bg-[#CE3A39] group-hover:text-white"
+                        : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    {canEnterAlmacen ? <Warehouse className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {canEnterAlmacen
+                      ? "Operación Lerma, preparación de pedidos, empaque e impresión de guías."
+                      : "Área exclusiva para Almacén y Administrador."}
+                  </p>
+                </div>
+
+                <span
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
+                    canEnterAlmacen
+                      ? "text-[#CE3A39] group-hover:text-[#233762]"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {canEnterAlmacen ? (
+                    <>
+                      <span>Ingresar</span>
+                      <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                    </>
+                  ) : (
+                    <span>Bloqueado</span>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pie de página sutil del Hub */}
+          <p className="text-xs text-slate-400 mt-8 font-medium tracking-wide text-center">
+            SupplyChain México &bull; Plataforma Logística Integral
+          </p>
+        </div>
+      ) : activeModule === "modules" ? (
+        /* ==================================================================== */
+        /* VISTA DE CUADRÍCULA DE MÓDULOS (3 por fila hacia abajo)             */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
+          <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+              title="Regresar al Hub Principal"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Regresar al Hub</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-slate-600">{currentUser?.email}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                  {roleConfig.code}
+                </span>
+              </div>
               <button
-                type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-300 hover:text-[#CE3A39] border border-white/10 hover:border-red-500/30 text-xs font-semibold transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
                 title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-2 pb-10">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="cursor-pointer select-none"
+              title="Regresar al Hub"
+            >
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
+              )}
+            </button>
+
+            <div className="text-center mt-4 mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">Asset Management</h2>
+              <p className="text-sm text-slate-500 mt-1">Selecciona un módulo operativo para continuar.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+              {hubModules.map(({ name, description, Icon, target, tone }) => {
+                const isActive = Boolean(target);
+                const iconTone =
+                  tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
+                return (
+                  <div
+                    key={name}
+                    onClick={() =>
+                      target ? setActiveModule(target) : triggerToast(`Módulo ${name} en construcción`, "info")
+                    }
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[200px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                  >
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
+                        isActive
+                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                          : "bg-transparent group-hover:bg-[#233762]/30"
+                      }`}
+                    />
+                    {isActive && (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Activo
+                      </span>
+                    )}
+                    <div className="flex flex-col items-center w-full">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                      >
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#233762] mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+                    </div>
+                    <span
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
+                        isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                      }`}
+                    >
+                      {isActive ? (
+                        <>
+                          <span>Ingresar</span>
+                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                        </>
+                      ) : (
+                        <span>En desarrollo</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : activeModule === "csm" ? (
+        /* ==================================================================== */
+        /* VISTA CSM (ACCESIBLE PARA ADMIN Y CSM)                              */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-6xl mx-auto w-full">
+          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Regresar al Hub</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-slate-600">{currentUser?.email}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  {roleConfig.code}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Cerrar sesión</span>
               </button>
-
-              {/* Branding y Copyright inferior */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveModule("home");
-                  setMobileMenuOpen(false);
-                }}
-                className="text-center pt-1 group cursor-pointer"
-                title="Ir al inicio"
-              >
-                <div className="text-[10px] text-slate-400 group-hover:text-white transition">
-                  © 2026 SupplyChain México
-                </div>
-                <div className="text-[9px] text-slate-500">All rights reserved</div>
-              </button>
             </div>
-          </aside>
+          </div>
 
-          {/* OVERLAY PARA MÓVILES */}
-          {mobileMenuOpen && (
-            <div
-              onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-30 lg:hidden"
-            />
-          )}
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-extrabold text-[#233762]">Customer Service (CSM)</h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Mesa de atención para incidencias de entrega, conciliación de reportes y auditoría de servicio.
+                </p>
+              </div>
 
-          {/* CONTENEDOR PRINCIPAL DERECHO */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-            {/* BARRA SUPERIOR PARA MÓVILES */}
-            <div className="lg:hidden h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between sticky top-0 z-20">
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#233762]">SupplyChain México</span>
+              {canEnterAsset && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("asset_management")}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-sm cursor-pointer self-start sm:self-auto"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>Ver Asset Management</span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
+                  <Headset className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Validación de Incidencias</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Revisión de órdenes con semáforo amarillo (colonia ambigua) o rojo (bloqueo por código postal o teléfono).
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4">
+                  <FileSpreadsheet className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Cierres Diarios ServiceNow</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Descarga y auditoría de Cierre.xlsx para conciliar los números de guía con las tareas de ServiceNow.
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-red-50 text-[#CE3A39] flex items-center justify-center mb-4">
+                  <Truck className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Trazabilidad de Envíos</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Monitoreo de estatus de guías sincronizadas y reportes de discrepancia para clientes KST.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeModule === "almacen" ? (
+        /* ==================================================================== */
+        /* VISTA ALMACÉN (ACCESIBLE PARA ADMIN Y ALMACEN)                       */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-6xl mx-auto w-full">
+          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Regresar al Hub</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-slate-600">{currentUser?.email}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-red-50 text-[#CE3A39] border border-[#CE3A39]/30">
+                  {roleConfig.code}
+                </span>
               </div>
               <button
-                type="button"
                 onClick={handleLogout}
-                className="p-2 rounded-lg text-slate-500 hover:text-[#CE3A39]"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-extrabold text-[#233762]">Almacén Lerma</h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Operación física de empaque, picking, verificación de hardware e impresión de etiquetas de paquetería.
+                </p>
+              </div>
+
+              {canEnterAsset && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("asset_management")}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 cursor-pointer self-start sm:self-auto"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Ver Asset Management</span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center mb-4">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Impresión de Etiquetas PDF</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Descarga directa del consolidado de etiquetas térmicas Techship para adherir a los paquetes.
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
+                  <Package className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Picking y Preparación Física</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Revisión física del equipo de computación según número de RITM y par de Retorno (-1).
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4">
+                  <Truck className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-sm">Despacho y Salida a Ruta</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Manifiesto de recolección y entrega a la unidad de transporte o paquetería local.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeModule === "users" ? (
+        /* ==================================================================== */
+        /* VISTA GESTIÓN DE USUARIOS (ACCESIBLE PARA ADMIN)                     */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-7xl mx-auto w-full">
+          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Regresar al Hub</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono font-bold text-[#CE3A39] bg-red-50 border border-[#CE3A39]/30 px-3 py-1 rounded-full">
+                ADMINISTRADOR GENERAL
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-extrabold text-[#233762]">Gestión de Usuarios y Accesos</h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Catálogo local de usuarios corporativos y asignación de roles RBAC en tiempo real.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewUserModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Nuevo Usuario</span>
               </button>
             </div>
 
-            {/* ================================================================ */}
-            {/* VISTA 1: HOME (SALUDO COMPLETO, ROL, BIENVENIDA Y FECHA)        */}
-            {/* ================================================================ */}
-            {activeModule === "home" && (
-              <div className="flex-1 flex flex-col justify-between py-10 px-6 sm:px-10 max-w-6xl mx-auto w-full">
-                <div className="flex flex-col items-center justify-center my-auto text-center">
-                  {/* Logotipo Oficial SupplyChain México */}
-                  <div className="flex flex-col items-center select-none mb-6">
-                    {!logoError ? (
-                      <img
-                        src="/logo-supplychain.png"
-                        alt="SupplyChain México"
-                        className="h-28 sm:h-36 md:h-40 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                        onError={() => setLogoError(true)}
-                      />
-                    ) : (
-                      <AnimatedLogo className="h-28 sm:h-36 md:h-40 w-auto" cycleDuration={8} />
-                    )}
-                  </div>
-
-                  {/* Saludo Dinámico con Nombre Completo */}
-                  <h1 className="text-2xl sm:text-4xl font-extrabold text-[#233762] tracking-tight">
-                    ¡{greeting}
-                    {currentUser?.name && <span className="text-[#CE3A39]">, {currentUser.name}</span>}!
-                  </h1>
-
-                  {/* Badge de Rol Actual */}
-                  <div className="mt-3.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50 border border-[#CE3A39]/30 text-xs font-mono font-bold text-[#CE3A39] shadow-2xs">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>ROL: {roleConfig.roleBadge}</span>
-                  </div>
-
-                  {/* Mensaje de Bienvenida */}
-                  <p className="text-base sm:text-lg text-slate-600 mt-4 max-w-xl leading-relaxed">
-                    Bienvenido a tu ventana de inicio para las operaciones del día. Selecciona un módulo en el menú
-                    izquierdo para comenzar.
-                  </p>
-
-                  {/* Fecha Operativa Actual */}
-                  <p className="text-xs font-mono uppercase tracking-widest text-[#CE3A39] mt-4 font-bold min-h-4">
-                    {todayLabel}
-                  </p>
-
-                  {/* ACCESO RÁPIDO A LOS MÓDULOS DE SU PERFIL */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-10 w-full max-w-4xl text-left">
-                    {/* Tarjeta Asset Management */}
-                    <div
-                      onClick={() => setActiveModule("asset_management")}
-                      className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer group hover:-translate-y-1 relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 left-0 w-full h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors" />
-                      <div>
-                        <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] group-hover:bg-[#233762] group-hover:text-white flex items-center justify-center transition shadow-2xs mb-4">
-                          <Zap className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-base font-bold text-[#233762]">
-                          Asset Management
-                          {isRestrictedRole && (
-                            <span className="ml-2 text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                              {activeRole === "CSM" ? "Consulta" : "Impresión"}
-                            </span>
-                          )}
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                          {isRestrictedRole
-                            ? activeRole === "CSM"
-                              ? "Revisión de órdenes validadas y descarga de Cierre.xlsx."
-                              : "Visualización e impresión directa de etiquetas de envío."
-                            : "Orquestación de órdenes KST, validación SEPOMEX y timbrado Techship."}
-                        </p>
-                      </div>
-                      <span className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
-                        <span>Ingresar</span>
-                        <span className="group-hover:translate-x-1 transition-transform">→</span>
-                      </span>
-                    </div>
-
-                    {/* Tarjeta CSM */}
-                    {roleConfig.sidebarModules.includes("csm") && (
-                      <div
-                        onClick={() => setActiveModule("csm")}
-                        className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer group hover:-translate-y-1 relative overflow-hidden"
-                      >
-                        <div className="absolute top-0 left-0 w-full h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors" />
-                        <div>
-                          <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] group-hover:bg-[#233762] group-hover:text-white flex items-center justify-center transition shadow-2xs mb-4">
-                            <Headset className="w-6 h-6" />
-                          </div>
-                          <h3 className="text-base font-bold text-[#233762]">Customer Service (CSM)</h3>
-                          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                            Mesa de atención para incidencias operativas y soporte al cliente.
-                          </p>
-                        </div>
-                        <span className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
-                          <span>Ver módulo</span>
-                          <span className="group-hover:translate-x-1 transition-transform">→</span>
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Tarjeta Almacén */}
-                    {roleConfig.sidebarModules.includes("almacen") && (
-                      <div
-                        onClick={() => setActiveModule("almacen")}
-                        className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer group hover:-translate-y-1 relative overflow-hidden"
-                      >
-                        <div className="absolute top-0 left-0 w-full h-1 bg-[#CE3A39] transition-colors" />
-                        <div>
-                          <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] group-hover:bg-[#CE3A39] group-hover:text-white flex items-center justify-center transition shadow-2xs mb-4">
-                            <Warehouse className="w-6 h-6" />
-                          </div>
-                          <h3 className="text-base font-bold text-[#233762]">Almacén Lerma</h3>
-                          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                            Supervisión de paquetes en preparación física, cross-dock y embarque.
-                          </p>
-                        </div>
-                        <span className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-[#CE3A39] transition-colors">
-                          <span>Ver almacén</span>
-                          <span className="group-hover:translate-x-1 transition-transform">→</span>
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Tarjetas de Administración (Solo ADMIN) */}
-                    {activeRole === "ADMIN" && (
-                      <>
-                        <div
-                          onClick={() => setActiveModule("users")}
-                          className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer group hover:-translate-y-1 relative overflow-hidden"
-                        >
-                          <div className="absolute top-0 left-0 w-full h-1 bg-[#CE3A39]" />
-                          <div>
-                            <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] group-hover:bg-[#CE3A39] group-hover:text-white flex items-center justify-center transition shadow-2xs mb-4">
-                              <Users className="w-6 h-6" />
-                            </div>
-                            <h3 className="text-base font-bold text-[#233762]">Gestión de Usuarios</h3>
-                            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                              Altas, bajas, control de estados y reasignación de roles en tiempo real.
-                            </p>
-                          </div>
-                          <span className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-[#CE3A39] transition-colors">
-                            <span>Administrar ({usersList.length})</span>
-                            <span className="group-hover:translate-x-1 transition-transform">→</span>
-                          </span>
-                        </div>
-
-                        <div
-                          onClick={() => setActiveModule("roles")}
-                          className="bg-white rounded-2xl border border-slate-200/80 shadow-md hover:shadow-xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer group hover:-translate-y-1 relative overflow-hidden"
-                        >
-                          <div className="absolute top-0 left-0 w-full h-1 bg-[#233762]" />
-                          <div>
-                            <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] group-hover:bg-[#233762] group-hover:text-white flex items-center justify-center transition shadow-2xs mb-4">
-                              <ShieldCheck className="w-6 h-6" />
-                            </div>
-                            <h3 className="text-base font-bold text-[#233762]">Matriz de Roles (RBAC)</h3>
-                            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                              Consulta de permisos, candados y accesos definidos por rol.
-                            </p>
-                          </div>
-                          <span className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-[#233762] transition-colors">
-                            <span>Ver matriz (4 roles)</span>
-                            <span className="group-hover:translate-x-1 transition-transform">→</span>
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-xs text-slate-400 font-medium text-center pt-8">
-                  SupplyChain México &bull; Plataforma Logística Integral
+            {/* Tarjetas Métricas */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-xs font-bold text-slate-400 uppercase font-mono">Total Cuentas</span>
+                <div className="text-2xl font-extrabold text-[#233762] mt-1 font-mono">{usersList.length}</div>
+              </div>
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-xs font-bold text-emerald-600 uppercase font-mono">Activos</span>
+                <div className="text-2xl font-extrabold text-emerald-600 mt-1 font-mono">
+                  {usersList.filter((u) => u.isActive).length}
                 </div>
               </div>
-            )}
-
-            {/* ================================================================ */}
-            {/* VISTA 2: GESTIÓN DE USUARIOS (VISTA USERS - SOLO ADMIN)          */}
-            {/* ================================================================ */}
-            {activeModule === "users" && (
-              <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full space-y-6">
-                {/* Cabecera con Botón Nuevo Usuario en Rojo #CE3A39 */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-                  <div>
-                    <h1 className="text-2xl font-extrabold text-[#233762] tracking-tight">
-                      Gestión de Usuarios y Accesos
-                    </h1>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Catálogo local sincronizado en el navegador con control de roles (RBAC) en tiempo real.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowNewUserModal(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 transition cursor-pointer self-start sm:self-auto"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Nuevo Usuario</span>
-                  </button>
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-xs font-bold text-[#CE3A39] uppercase font-mono">Administradores</span>
+                <div className="text-2xl font-extrabold text-[#CE3A39] mt-1 font-mono">
+                  {usersList.filter((u) => u.role === "ADMIN").length}
                 </div>
-
-                {/* Resumen Métrico de Usuarios */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                    <span className="text-xs font-bold text-slate-400 uppercase font-mono">Total Cuentas</span>
-                    <div className="text-2xl font-extrabold text-[#233762] mt-1 font-mono">{usersList.length}</div>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                    <span className="text-xs font-bold text-emerald-600 uppercase font-mono">Activos</span>
-                    <div className="text-2xl font-extrabold text-emerald-600 mt-1 font-mono">
-                      {usersList.filter((u) => u.isActive).length}
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                    <span className="text-xs font-bold text-[#CE3A39] uppercase font-mono">Administradores</span>
-                    <div className="text-2xl font-extrabold text-[#CE3A39] mt-1 font-mono">
-                      {usersList.filter((u) => u.role === "ADMIN").length}
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                    <span className="text-xs font-bold text-blue-600 uppercase font-mono">Operativos</span>
-                    <div className="text-2xl font-extrabold text-[#233762] mt-1 font-mono">
-                      {usersList.filter((u) => u.role !== "ADMIN").length}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tabla de Usuarios */}
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
-                          <th className="py-3 px-4">Usuario</th>
-                          <th className="py-3 px-4">Correo Corporativo</th>
-                          <th className="py-3 px-4">Rol Asignado</th>
-                          <th className="py-3 px-4">Cambio Rápido de Rol</th>
-                          <th className="py-3 px-4">Estado</th>
-                          <th className="py-3 px-4 text-center">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {usersList.map((usr) => {
-                          const initials = usr.name
-                            .split(" ")
-                            .filter(Boolean)
-                            .map((p) => p[0])
-                            .slice(0, 2)
-                            .join("")
-                            .toUpperCase();
-                          const isSelf = currentUser?.email.toLowerCase() === usr.email.toLowerCase();
-
-                          return (
-                            <tr key={usr.id} className="hover:bg-slate-50 transition-colors">
-                              {/* Nombre y Avatar */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-xl bg-[#EFF3F9] text-[#233762] border border-[#233762]/20 font-bold font-mono flex items-center justify-center text-xs shadow-2xs">
-                                    {initials}
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                                      <span>{usr.name}</span>
-                                      {isSelf && (
-                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-mono font-bold">
-                                          TÚ
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 font-mono">Alta: {usr.createdAt}</div>
-                                  </div>
-                                </div>
-                              </td>
-
-                              {/* Correo */}
-                              <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-600">{usr.email}</td>
-
-                              {/* Badge de Rol */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
-                                    usr.role === "ADMIN"
-                                      ? "bg-red-50 text-[#CE3A39] border-[#CE3A39]/30"
-                                      : usr.role === "ASSET_MANAGER"
-                                      ? "bg-blue-50 text-[#233762] border-[#233762]/30"
-                                      : usr.role === "CSM"
-                                      ? "bg-amber-50 text-amber-800 border-amber-300"
-                                      : "bg-slate-100 text-slate-700 border-slate-300"
-                                  }`}
-                                >
-                                  {ROLES_CONFIG[usr.role]?.label || usr.role}
-                                </span>
-                              </td>
-
-                              {/* Dropdown de Cambio Rápido de Rol */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <select
-                                  value={usr.role}
-                                  onChange={(e) => handleChangeUserRole(usr.id, e.target.value as UserRole)}
-                                  className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#233762] cursor-pointer"
-                                >
-                                  <option value="ADMIN">ADMIN</option>
-                                  <option value="ASSET_MANAGER">ASSET_MANAGER</option>
-                                  <option value="CSM">CSM</option>
-                                  <option value="ALMACEN">ALMACEN</option>
-                                </select>
-                              </td>
-
-                              {/* Estado (Activo / Inactivo) */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleUserActive(usr.id)}
-                                  disabled={isSelf}
-                                  title={isSelf ? "No puedes desactivar tu cuenta en sesión" : "Clic para alternar estado"}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${
-                                    usr.isActive
-                                      ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                                      : "bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200"
-                                  } ${isSelf ? "opacity-70 cursor-not-allowed" : ""}`}
-                                >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                      usr.isActive ? "bg-emerald-500" : "bg-slate-400"
-                                    }`}
-                                  />
-                                  <span>{usr.isActive ? "Activo" : "Inactivo"}</span>
-                                </button>
-                              </td>
-
-                              {/* Acciones */}
-                              <td className="py-3 px-4 whitespace-nowrap text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteUser(usr.id)}
-                                  disabled={isSelf}
-                                  title={isSelf ? "No puedes eliminarte a ti mismo" : "Eliminar usuario"}
-                                  className={`p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer ${
-                                    isSelf ? "opacity-30 cursor-not-allowed" : ""
-                                  }`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* MODAL PARA CREAR NUEVO USUARIO */}
-                {showNewUserModal && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                    <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
-                      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-lg bg-red-100 text-[#CE3A39]">
-                            <Plus className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h3 className="text-base font-bold text-[#233762]">Registrar Nuevo Usuario</h3>
-                            <p className="text-xs text-slate-500">Se agregará al catálogo local de acceso RBAC.</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowNewUserModal(false)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <form onSubmit={handleCreateNewUser} className="p-6 space-y-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#233762] mb-1">Nombre Completo</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Ej. Laura Martínez"
-                            value={newUserForm.name}
-                            onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#233762] mb-1">
-                            Correo Corporativo (@sekologistics.com)
-                          </label>
-                          <input
-                            type="email"
-                            required
-                            placeholder="nombre.apellido@sekologistics.com"
-                            value={newUserForm.email}
-                            onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#233762] mb-1">Rol Operativo</label>
-                          <select
-                            value={newUserForm.role}
-                            onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value as UserRole })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
-                          >
-                            <option value="ADMIN">ADMIN (Administrador General)</option>
-                            <option value="ASSET_MANAGER">ASSET_MANAGER (Ejecutivo Asset KST)</option>
-                            <option value="CSM">CSM (Customer Service)</option>
-                            <option value="ALMACEN">ALMACEN (Operador Almacén Lerma)</option>
-                          </select>
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-1">
-                          <input
-                            type="checkbox"
-                            id="newUserActive"
-                            checked={newUserForm.isActive}
-                            onChange={(e) => setNewUserForm({ ...newUserForm, isActive: e.target.checked })}
-                            className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300"
-                          />
-                          <label htmlFor="newUserActive" className="text-xs text-slate-700 font-medium cursor-pointer">
-                            Cuenta activa de inmediato
-                          </label>
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setShowNewUserModal(false)}
-                            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200"
-                          >
-                            Guardar Usuario
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                )}
               </div>
-            )}
-
-            {/* ================================================================ */}
-            {/* VISTA 3: MATRIZ DE ROLES Y PERMISOS (VISTA ROLES - SOLO ADMIN)  */}
-            {/* ================================================================ */}
-            {activeModule === "roles" && (
-              <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full space-y-8">
-                <div>
-                  <h1 className="text-2xl font-extrabold text-[#233762] tracking-tight">
-                    Matriz de Roles y Permisos Operativos (RBAC)
-                  </h1>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Control de visibilidad de módulos en el menú lateral y permisos de ejecución dentro del automatizador.
-                  </p>
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-xs font-bold text-blue-600 uppercase font-mono">Operativos</span>
+                <div className="text-2xl font-extrabold text-[#233762] mt-1 font-mono">
+                  {usersList.filter((u) => u.role !== "ADMIN").length}
                 </div>
+              </div>
+            </div>
 
-                {/* 4 Tarjetas Ejecutivas de Roles */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {(Object.keys(ROLES_CONFIG) as UserRole[]).map((roleKey) => {
-                    const cfg = ROLES_CONFIG[roleKey];
-                    const perms = cfg.permissions;
-                    const usersInRole = usersList.filter((u) => u.role === roleKey).length;
-                    const isRed = roleKey === "ADMIN" || roleKey === "ALMACEN";
+            {/* Tabla de Usuarios */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-4">Usuario</th>
+                      <th className="py-3 px-4">Correo Corporativo</th>
+                      <th className="py-3 px-4">Rol Asignado</th>
+                      <th className="py-3 px-4">Cambio de Rol Rápido</th>
+                      <th className="py-3 px-4">Estado</th>
+                      <th className="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {usersList.map((usr) => {
+                      const initials = usr.name
+                        .split(" ")
+                        .filter(Boolean)
+                        .map((p) => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase();
+                      const isSelf = currentUser?.email.toLowerCase() === usr.email.toLowerCase();
 
-                    return (
-                      <div
-                        key={roleKey}
-                        className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition p-6 flex flex-col justify-between relative overflow-hidden"
-                      >
-                        <div
-                          className={`absolute top-0 left-0 w-full h-1.5 ${
-                            isRed ? "bg-[#CE3A39]" : "bg-[#233762]"
-                          }`}
-                        />
-
-                        <div>
-                          {/* Encabezado del Rol */}
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="text-lg font-bold text-[#233762]">{cfg.label}</h3>
-                                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold border border-slate-200">
-                                  {cfg.code}
-                                </span>
+                      return (
+                        <tr key={usr.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-[#EFF3F9] text-[#233762] border border-[#233762]/20 font-bold font-mono flex items-center justify-center text-xs shadow-2xs">
+                                {initials}
                               </div>
-                              <p className="text-xs text-slate-500 mt-1">{cfg.subtitle}</p>
-                            </div>
-                            <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 shrink-0">
-                              {usersInRole} usuario(s)
-                            </span>
-                          </div>
-
-                          <p className="text-xs text-slate-600 mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 leading-relaxed">
-                            {cfg.description}
-                          </p>
-
-                          {/* Sección: Módulos Visibles en Sidebar */}
-                          <div className="mt-5">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                              Módulos Visibles en Menú Lateral
-                            </span>
-                            <div className="grid grid-cols-2 gap-2 mt-2">
-                              {[
-                                { id: "home", label: "Home" },
-                                { id: "asset_management", label: "Asset Management" },
-                                { id: "csm", label: "CSM" },
-                                { id: "almacen", label: "Almacén" },
-                                { id: "profile", label: "Perfil" },
-                                { id: "users", label: "Usuarios (Admin)" },
-                                { id: "roles", label: "Roles (Admin)" },
-                              ].map((mod) => {
-                                const visible = cfg.sidebarModules.includes(mod.id);
-                                return (
-                                  <div
-                                    key={mod.id}
-                                    className="flex items-center gap-2 text-xs py-1 px-2 rounded-lg bg-slate-50/70"
-                                  >
-                                    {visible ? (
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                    ) : (
-                                      <Lock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-                                    )}
-                                    <span
-                                      className={`truncate ${
-                                        visible ? "text-slate-700 font-medium" : "text-slate-400 line-through"
-                                      }`}
-                                    >
-                                      {mod.label}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Sección: Permisos en Asset Management */}
-                          <div className="mt-5">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                              Permisos en Asset Management
-                            </span>
-                            <div className="space-y-1.5 mt-2">
-                              {[
-                                { ok: perms.canUpload, label: "Ingesta y subida de Excel (SCTASK)" },
-                                { ok: perms.canEditRows, label: "Edición y corrección de direcciones en caliente" },
-                                { ok: perms.canProcessLive, label: "Timbrado oficial en Techship (--live)" },
-                                { ok: perms.canSyncClosing, label: "Sincronización de Cierre y Guías" },
-                                { ok: perms.canArchive, label: "Limpiar tabla y resguardar en archivo histórico" },
-                                { ok: perms.allowedDownloads.cierre_excel, label: "Descarga de Cierre_*.xlsx" },
-                                { ok: perms.allowedDownloads.etiquetas_pdf, label: "Descarga de Etiquetas_*.pdf" },
-                                { ok: perms.allowedDownloads.techship_excel, label: "Descarga de Techship_*.xlsx" },
-                                { ok: perms.allowedDownloads.auditoria_excel, label: "Descarga de Auditoría_*.xlsx" },
-                              ].map((item, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50/70"
-                                >
-                                  <span className={item.ok ? "text-slate-700 font-medium" : "text-slate-400"}>
-                                    {item.label}
-                                  </span>
-                                  {item.ok ? (
-                                    <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700">
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                      <span>Permitido</span>
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-red-600">
-                                      <Lock className="w-3.5 h-3.5 text-red-500" />
-                                      <span>Bloqueado</span>
+                              <div>
+                                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                  <span>{usr.name}</span>
+                                  {isSelf && (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-mono font-bold">
+                                      TÚ
                                     </span>
                                   )}
                                 </div>
-                              ))}
+                                <div className="text-[10px] text-slate-400 font-mono">Alta: {usr.createdAt}</div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-600">{usr.email}</td>
+
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
+                                usr.role === "ADMIN"
+                                  ? "bg-red-50 text-[#CE3A39] border-[#CE3A39]/30"
+                                  : usr.role === "ASSET_MANAGER"
+                                  ? "bg-blue-50 text-[#233762] border-[#233762]/30"
+                                  : usr.role === "CSM"
+                                  ? "bg-amber-50 text-amber-800 border-amber-300"
+                                  : "bg-slate-100 text-slate-700 border-slate-300"
+                              }`}
+                            >
+                              {ROLES_CONFIG[usr.role]?.label || usr.role}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <select
+                              value={usr.role}
+                              onChange={(e) => handleChangeUserRole(usr.id, e.target.value as UserRole)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#233762] cursor-pointer"
+                            >
+                              <option value="ADMIN">ADMIN</option>
+                              <option value="ASSET_MANAGER">ASSET_MANAGER</option>
+                              <option value="CSM">CSM</option>
+                              <option value="ALMACEN">ALMACEN</option>
+                            </select>
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUserActive(usr.id)}
+                              disabled={isSelf}
+                              title={isSelf ? "No puedes desactivar tu cuenta" : "Alternar estado"}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${
+                                usr.isActive
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                  : "bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200"
+                              } ${isSelf ? "opacity-70 cursor-not-allowed" : ""}`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  usr.isActive ? "bg-emerald-500" : "bg-slate-400"
+                                }`}
+                              />
+                              <span>{usr.isActive ? "Activo" : "Inactivo"}</span>
+                            </button>
+                          </td>
+
+                          <td className="py-3 px-4 whitespace-nowrap text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUser(usr.id)}
+                              disabled={isSelf}
+                              title={isSelf ? "No puedes eliminarte a ti mismo" : "Eliminar usuario"}
+                              className={`p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer ${
+                                isSelf ? "opacity-30 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* ================================================================ */}
-            {/* VISTA 4: CSM (MÓDULO CUSTOMER SERVICE)                          */}
-            {/* ================================================================ */}
-            {activeModule === "csm" && (
-              <div className="p-6 sm:p-10 max-w-5xl mx-auto w-full space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-                  <div>
-                    <h1 className="text-2xl font-extrabold text-[#233762]">Customer Service (CSM)</h1>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Mesa de atención para auditoría de entregas, incidencias y estados de clientes.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModule("asset_management")}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-sm"
-                  >
-                    <Zap className="w-4 h-4" />
-                    <span>Ir a Asset Management (Consulta)</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                    <Headset className="w-8 h-8 text-[#233762] mb-3" />
-                    <h3 className="font-bold text-slate-800 text-sm">Validación de Incidencias</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Revisión de órdenes marcadas en amarillo (colonia ambigua) o rojo (código postal erróneo).
-                    </p>
-                  </div>
-                  <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                    <FileSpreadsheet className="w-8 h-8 text-emerald-600 mb-3" />
-                    <h3 className="font-bold text-slate-800 text-sm">Descarga de Cierres Diarios</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Acceso al archivo consolidado Cierre.xlsx para conciliación con ServiceNow.
-                    </p>
-                  </div>
-                  <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                    <Truck className="w-8 h-8 text-[#CE3A39] mb-3" />
-                    <h3 className="font-bold text-slate-800 text-sm">Rastreo de Guías</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Consulta de waybills generados y sincronización de trackings oficiales.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ================================================================ */}
-            {/* VISTA 5: ALMACÉN (MÓDULO ALMACÉN LERMA)                         */}
-            {/* ================================================================ */}
-            {activeModule === "almacen" && (
-              <div className="p-6 sm:p-10 max-w-5xl mx-auto w-full space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-                  <div>
-                    <h1 className="text-2xl font-extrabold text-[#233762]">Almacén Lerma</h1>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Operación física de empaque, etiquetado y despacho en piso de almacén.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModule("asset_management")}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200"
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span>Ir a Asset Management (Impresión)</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                    <FileText className="w-8 h-8 text-[#CE3A39] mb-3" />
-                    <h3 className="font-bold text-slate-800 text-sm">Impresión de Etiquetas PDF</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Descarga e impresión térmica directa del consolidado de guías Techship.
-                    </p>
-                  </div>
-                  <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                    <Package className="w-8 h-8 text-[#233762] mb-3" />
-                    <h3 className="font-bold text-slate-800 text-sm">Preparación Física de Órdenes</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Picking y packing de equipo de computación según número de RITM.
-                    </p>
-                  </div>
-                  <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                    <Truck className="w-8 h-8 text-emerald-600 mb-3" />
-                    <h3 className="font-bold text-slate-800 text-sm">Embarque y Manifiesto</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Entrega a transportista y validación de bultos listos para ruta.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ================================================================ */}
-            {/* VISTA 6: PERFIL DE USUARIO                                       */}
-            {/* ================================================================ */}
-            {activeModule === "profile" && (
-              <div className="p-6 sm:p-10 max-w-4xl mx-auto w-full space-y-6">
-                <div className="pb-4 border-b border-slate-200">
-                  <h1 className="text-2xl font-extrabold text-[#233762]">Perfil de Usuario</h1>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Información de tu cuenta corporativa y permisos asignados en el sistema.
-                  </p>
-                </div>
-
-                <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                  <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 rounded-2xl bg-[#233762] text-white flex items-center justify-center font-bold font-mono text-2xl shadow-md">
-                      {userInitials}
+          {/* Modal Crear Nuevo Usuario */}
+          {showNewUserModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-red-100 text-[#CE3A39]">
+                      <Plus className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-slate-900">{currentUser?.name}</h2>
-                      <p className="text-xs font-mono text-slate-500 mt-0.5">{currentUser?.email}</p>
-                      <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>{roleConfig.label}</span>
-                      </div>
+                      <h3 className="text-base font-bold text-[#233762]">Registrar Nuevo Usuario</h3>
+                      <p className="text-xs text-slate-500">Se agregará al catálogo local de acceso RBAC.</p>
                     </div>
                   </div>
-
                   <button
                     type="button"
-                    onClick={handleLogout}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-[#CE3A39] text-slate-700 text-xs font-bold transition border border-slate-200"
+                    onClick={() => setShowNewUserModal(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Cerrar sesión</span>
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                  <h3 className="text-sm font-bold text-[#233762] mb-3">Detalle de Permisos para tu Rol</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed mb-4">{roleConfig.description}</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
-                      <span>Subida de Archivos Excel:</span>
-                      <span className="font-bold">{permissions.canUpload ? "Habilitado" : "Restringido"}</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
-                      <span>Edición de Direcciones SEPOMEX:</span>
-                      <span className="font-bold">{permissions.canEditRows ? "Habilitado" : "Restringido"}</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
-                      <span>Timbrado de Guías Reales:</span>
-                      <span className="font-bold">{permissions.canProcessLive ? "Habilitado" : "Restringido"}</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
-                      <span>Limpieza y Archivo Histórico:</span>
-                      <span className="font-bold">{permissions.canArchive ? "Habilitado" : "Restringido"}</span>
-                    </div>
+                <form onSubmit={handleCreateNewUser} className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#233762] mb-1">Nombre Completo</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Laura Martínez"
+                      value={newUserForm.name}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                    />
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* ================================================================ */}
-            {/* VISTA 7: DASHBOARD DE ASSET MANAGEMENT                           */}
-            {/* ================================================================ */}
-            {activeModule === "asset_management" && (
-              <>
-                {/* HEADER SUPERIOR DEL DASHBOARD */}
-                <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-20">
-                  <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-16 sm:h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      {/* Botón Home */}
-                      <button
-                        type="button"
-                        onClick={() => setActiveModule("home")}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition cursor-pointer"
-                        title="Regresar a Inicio"
-                      >
-                        <ArrowLeft className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Home</span>
-                      </button>
-
-                      <div className="h-7 w-px bg-slate-200 hidden sm:block" />
-
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h1 className="text-base sm:text-lg font-extrabold text-[#233762] tracking-wide">
-                            Automatizador de tareas
-                          </h1>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
-                            KST / Kyndryl
-                          </span>
-                        </div>
-                        {isRestrictedRole && (
-                          <span className="text-[11px] text-amber-700 font-semibold">
-                            {activeRole === "CSM"
-                              ? "• Modo Consulta (Solo lectura de tabla y descargas de Cierre)"
-                              : "• Modo Impresión (Solo lectura de tabla y descarga de Etiquetas PDF)"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Usuario activo en barra */}
-                    <div className="flex items-center gap-3">
-                      <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs text-slate-700">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-bold font-mono">
-                          {activeRole}
-                        </span>
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#233762] mb-1">
+                      Correo Corporativo (@sekologistics.com)
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="nombre.apellido@sekologistics.com"
+                      value={newUserForm.email}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                    />
                   </div>
-                </header>
 
-                {/* CONTENIDO PRINCIPAL DEL DASHBOARD */}
-                <main className="flex-1 w-full max-w-[1850px] mx-auto px-6 lg:px-10 py-5 space-y-6 relative z-10">
-                  {/* BANNER INFORMATIVO SUPERIOR PARA ROLES RESTRINGIDOS (CSM y ALMACEN) */}
-                  {isRestrictedRole && (
-                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-center justify-between shadow-xs">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
-                          <Lock className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                            Modo Consulta / Operación Restringida
-                          </div>
-                          <div className="text-xs sm:text-sm font-semibold text-amber-950 mt-0.5">
-                            Estás operando como <span className="font-bold underline">{roleConfig.label}</span>. La
-                            subida de archivos, corrección de registros, timbrado y limpieza están bloqueados.
-                          </div>
-                        </div>
-                      </div>
-                      <span className="hidden sm:inline-block text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
-                        SOLO LECTURA
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
-                  <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-500">Lote en proceso:</span>
-                      <span className="text-xs font-mono font-bold text-[#233762] px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
-                        {batchData?.batch_filename || "Sin lote activo"}
-                      </span>
-                    </div>
-
-                    {/* Botón Limpiar tabla / Archivar (Candado para CSM y ALMACEN) */}
-                    <button
-                      onClick={handleArchivePreview}
-                      disabled={!permissions.canArchive || actionLoading === "archive" || !hasOrders}
-                      title={
-                        !permissions.canArchive
-                          ? "Función bloqueada para tu rol. Solo Administradores y Asset Managers pueden limpiar la tabla."
-                          : "Archivar el lote actual y limpiar la tabla (se resguarda en data/archive)"
-                      }
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                  <div>
+                    <label className="block text-xs font-bold text-[#233762] mb-1">Rol Operativo</label>
+                    <select
+                      value={newUserForm.role}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value as UserRole })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
                     >
-                      {!permissions.canArchive ? <Lock className="w-4 h-4 text-slate-400" /> : <Archive className="w-4 h-4" />}
-                      <span>
-                        {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
-                      </span>
+                      <option value="ADMIN">ADMIN (Administrador General)</option>
+                      <option value="ASSET_MANAGER">ASSET_MANAGER (Ejecutivo Asset KST)</option>
+                      <option value="CSM">CSM (Customer Service)</option>
+                      <option value="ALMACEN">ALMACEN (Operador Almacén Lerma)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="newUserActive"
+                      checked={newUserForm.isActive}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, isActive: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300"
+                    />
+                    <label htmlFor="newUserActive" className="text-xs text-slate-700 font-medium cursor-pointer">
+                      Cuenta activa de inmediato
+                    </label>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowNewUserModal(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200"
+                    >
+                      Guardar Usuario
                     </button>
                   </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : activeModule === "roles" ? (
+        /* ==================================================================== */
+        /* VISTA MATRIZ DE ROLES (ACCESIBLE PARA ADMIN)                        */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-7xl mx-auto w-full">
+          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Regresar al Hub</span>
+            </button>
 
-                  {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) */}
-                  <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5">
-                    {/* Dropzone de Ingesta (xl:col-span-4) con Candado para CSM / Almacén */}
+            <span className="text-xs font-mono font-bold text-[#233762] bg-[#EFF3F9] border border-[#233762]/30 px-3 py-1 rounded-full">
+              MATRIZ DE ACCESOS RBAC
+            </span>
+          </div>
+
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-2xl font-extrabold text-[#233762]">Matriz de Roles y Permisos Operativos (RBAC)</h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Especificación del alcance operativo y accesos autorizados para cada perfil de la organización.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {(Object.keys(ROLES_CONFIG) as UserRole[]).map((roleKey) => {
+                const cfg = ROLES_CONFIG[roleKey];
+                const perms = cfg.permissions;
+                const usersInRole = usersList.filter((u) => u.role === roleKey).length;
+                const isRed = roleKey === "ADMIN" || roleKey === "ALMACEN";
+
+                return (
+                  <div
+                    key={roleKey}
+                    className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition p-6 flex flex-col justify-between relative overflow-hidden"
+                  >
                     <div
-                      className={`md:col-span-2 xl:col-span-4 bg-white border-2 border-dashed rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group ${
-                        !permissions.canUpload
-                          ? "border-slate-200 bg-slate-50/60 cursor-not-allowed"
-                          : "border-slate-300 hover:border-[#233762]"
+                      className={`absolute top-0 left-0 w-full h-1.5 ${
+                        isRed ? "bg-[#CE3A39]" : "bg-[#233762]"
                       }`}
-                    >
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        accept=".xlsx,.xls"
-                        className={`absolute inset-0 opacity-0 z-10 ${
-                          !permissions.canUpload || uploading ? "cursor-not-allowed" : "cursor-pointer"
-                        }`}
-                        disabled={!permissions.canUpload || uploading}
-                      />
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`p-3 rounded-xl border transition-transform ${
-                            !permissions.canUpload
-                              ? "bg-slate-100 text-slate-400 border-slate-200"
-                              : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20 group-hover:scale-105"
-                          }`}
-                        >
-                          {!permissions.canUpload ? <Lock className="w-6 h-6" /> : <UploadCloud className="w-6 h-6" />}
-                        </div>
+                    />
+
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="font-bold text-sm text-[#233762]">
-                            {!permissions.canUpload ? "Subida Restringida" : "Ingestar Reporte ServiceNow"}
-                          </h3>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {!permissions.canUpload
-                              ? `Tu rol (${roleConfig.label}) no tiene permisos para subir nuevos archivos.`
-                              : "Arrastra el archivo SCTASK_SHP_Combined_Report_MX_*.xlsx"}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-[#233762]">{cfg.label}</h3>
+                            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                              {cfg.code}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">{cfg.subtitle}</p>
                         </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                        <span className="text-slate-500 font-mono truncate max-w-[200px]" title={batchData?.batch_filename}>
-                          {batchData?.batch_filename ? batchData.batch_filename : "Sin archivo activo"}
+                        <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 shrink-0">
+                          {usersInRole} usuario(s)
                         </span>
-                        <button
-                          type="button"
-                          disabled={!permissions.canUpload}
-                          className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {!permissions.canUpload ? "Bloqueado" : uploading ? "Procesando..." : "Examinar..."}
-                        </button>
                       </div>
-                    </div>
 
-                    {/* Tarjeta KPI 1: Total Órdenes */}
-                    <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-[#233762]" />
-                      <div className="flex items-center justify-between text-slate-500">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#233762]">Total Órdenes</span>
-                        <Package className="w-4 h-4 text-[#233762]" />
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-3xl font-extrabold text-[#233762] font-mono">
-                          {batchData?.metrics.total_orders || 0}
+                      <p className="text-xs text-slate-600 mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 leading-relaxed">
+                        {cfg.description}
+                      </p>
+
+                      <div className="mt-5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                          Acceso a las 3 Opciones del Hub
                         </span>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Ida y Retorno (-1)</p>
-                      </div>
-                    </div>
-
-                    {/* Tarjeta KPI 2: Confirmadas 100% */}
-                    <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
-                      <div className="flex items-center justify-between text-slate-500">
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmadas</span>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-3xl font-extrabold text-emerald-600 font-mono">
-                          {batchData?.metrics.confirmed_100 || 0}
-                        </span>
-                        <p className="text-[11px] text-emerald-600/80 mt-0.5">Semáforo Verde</p>
-                      </div>
-                    </div>
-
-                    {/* Tarjeta KPI 3: Por Revisar */}
-                    <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
-                      <div className="flex items-center justify-between text-slate-500">
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Por Revisar</span>
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-3xl font-extrabold text-amber-600 font-mono">
-                          {batchData?.metrics.review || 0}
-                        </span>
-                        <p className="text-[11px] text-amber-700/80 mt-0.5">Semáforo Amarillo</p>
-                      </div>
-                    </div>
-
-                    {/* Tarjeta KPI 4: Bloqueadas por Error */}
-                    <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-[#CE3A39]" />
-                      <div className="flex items-center justify-between text-slate-500">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#CE3A39]">Bloqueadas</span>
-                        <XCircle className="w-4 h-4 text-[#CE3A39]" />
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-3xl font-extrabold text-[#CE3A39] font-mono">
-                          {batchData?.metrics.error_blocked || 0}
-                        </span>
-                        <p className="text-[11px] text-[#CE3A39]/80 mt-0.5">Teléfono / CP Inválido</p>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* ZONA 2: Barra Maestra de Acciones Techship y Descargas */}
-                  <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      {/* Botón 1: Timbrado Oficial en Estafeta / Techship */}
-                      <button
-                        onClick={() => setShowLiveModal(true)}
-                        disabled={!permissions.canProcessLive || !hasOrders || actionLoading === "live"}
-                        title={
-                          !permissions.canProcessLive
-                            ? "Timbrado restringido para tu perfil operativo."
-                            : "Generar guías oficiales en Techship"
-                        }
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                      >
-                        {!permissions.canProcessLive ? <Lock className="w-4 h-4" /> : <Zap className="w-4 h-4 fill-white" />}
-                        <span>{actionLoading === "live" ? "Timbrando..." : "1. Timbrar Guías en Techship"}</span>
-                      </button>
-
-                      {/* Botón 2: Cierre y PDF de Etiquetas */}
-                      <button
-                        onClick={handleSyncClosing}
-                        disabled={!permissions.canSyncClosing || !hasOrders || actionLoading === "sync"}
-                        title={
-                          !permissions.canSyncClosing
-                            ? "Sincronización restringida para tu perfil operativo."
-                            : "Sincronizar Cierre y Etiquetas"
-                        }
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                      >
-                        {!permissions.canSyncClosing ? <Lock className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
-                        <span>{actionLoading === "sync" ? "Sincronizando..." : "2. Sincronizar Cierre y Etiquetas"}</span>
-                      </button>
-                    </div>
-
-                    {/* Grupo de Descarga Directa de Archivos */}
-                    {batchData ? (
-                      <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
-                        <span className="text-xs text-slate-500 font-bold mr-1 hidden md:inline">Descargar:</span>
-
-                        {/* Cierre.xlsx (Permitido para ADMIN, ASSET_MANAGER y CSM) */}
-                        <button
-                          onClick={() => handleDownload("cierre_excel")}
-                          disabled={
-                            !permissions.allowedDownloads.cierre_excel ||
-                            batchData.files_available?.cierre_excel === false
-                          }
-                          title={
-                            !permissions.allowedDownloads.cierre_excel
-                              ? "Descarga de Cierre.xlsx no autorizada para tu rol."
-                              : batchData.files_available?.cierre_excel === false
-                              ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
-                              : "Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
-                          }
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {!permissions.allowedDownloads.cierre_excel ? (
-                            <Lock className="w-3.5 h-3.5 text-slate-400" />
-                          ) : (
-                            <FileSpreadsheet className="w-3.5 h-3.5" />
-                          )}
-                          <span>Cierre.xlsx</span>
-                        </button>
-
-                        {/* Etiquetas.pdf (Permitido para ADMIN, ASSET_MANAGER y ALMACEN) */}
-                        <button
-                          onClick={() => handleDownload("etiquetas_pdf")}
-                          disabled={
-                            !permissions.allowedDownloads.etiquetas_pdf ||
-                            batchData.files_available?.etiquetas_pdf === false
-                          }
-                          title={
-                            !permissions.allowedDownloads.etiquetas_pdf
-                              ? "Descarga de Etiquetas.pdf no autorizada para tu rol."
-                              : batchData.files_available?.etiquetas_pdf === false
-                              ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
-                              : "Descargar o imprimir PDF consolidado de etiquetas"
-                          }
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {!permissions.allowedDownloads.etiquetas_pdf ? (
-                            <Lock className="w-3.5 h-3.5 text-slate-400" />
-                          ) : (
-                            <FileText className="w-3.5 h-3.5" />
-                          )}
-                          <span>Etiquetas.pdf</span>
-                        </button>
-
-                        {/* Techship.xlsx (Permitido para ADMIN y ASSET_MANAGER) */}
-                        <button
-                          onClick={() => handleDownload("techship_excel")}
-                          disabled={
-                            !permissions.allowedDownloads.techship_excel ||
-                            batchData.files_available?.techship_excel === false
-                          }
-                          title={
-                            !permissions.allowedDownloads.techship_excel
-                              ? "Descarga de Techship.xlsx restringida."
-                              : "Descargar Guias_Techship_Importada_*.xlsx"
-                          }
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {!permissions.allowedDownloads.techship_excel ? (
-                            <Lock className="w-3.5 h-3.5 text-slate-400" />
-                          ) : (
-                            <FileSpreadsheet className="w-3.5 h-3.5" />
-                          )}
-                          <span>Techship.xlsx</span>
-                        </button>
-
-                        {/* Auditoría.xlsx (Permitido para ADMIN, ASSET_MANAGER y CSM) */}
-                        <button
-                          onClick={() => handleDownload("auditoria_excel")}
-                          disabled={
-                            !permissions.allowedDownloads.auditoria_excel ||
-                            batchData.files_available?.auditoria_excel === false
-                          }
-                          title={
-                            !permissions.allowedDownloads.auditoria_excel
-                              ? "Descarga de Auditoría.xlsx no autorizada."
-                              : "Descargar Auditoria_Direcciones_*.xlsx con bitácora"
-                          }
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {!permissions.allowedDownloads.auditoria_excel ? (
-                            <Lock className="w-3.5 h-3.5 text-slate-400" />
-                          ) : (
-                            <FileSpreadsheet className="w-3.5 h-3.5" />
-                          )}
-                          <span>Auditoría.xlsx</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4 text-xs text-slate-400 italic">
-                        <FileSpreadsheet className="w-3.5 h-3.5 opacity-50" />
-                        <span>Sin archivos para descargar</span>
-                      </div>
-                    )}
-                  </section>
-
-                  {/* ZONA 3: Tabla de Órdenes y Auditoría */}
-                  <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-                    {/* Barra de Filtros y Búsqueda */}
-                    <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80">
-                      {/* Pestañas de Filtro */}
-                      <div
-                        className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${
-                          !hasOrders ? "opacity-50" : ""
-                        }`}
-                      >
-                        <button
-                          disabled={!hasOrders}
-                          onClick={() => setActiveTab("ALL")}
-                          className={`px-3 py-1.5 rounded-lg transition ${
-                            !hasOrders
-                              ? "text-slate-400 cursor-not-allowed"
-                              : activeTab === "ALL"
-                              ? "bg-[#233762] text-white shadow-sm"
-                              : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                          }`}
-                        >
-                          Todas ({batchData?.orders.length || 0})
-                        </button>
-                        <button
-                          disabled={!hasOrders}
-                          onClick={() => setActiveTab("ISSUES")}
-                          className={`px-3 py-1.5 rounded-lg transition ${
-                            !hasOrders
-                              ? "text-slate-400 cursor-not-allowed"
-                              : activeTab === "ISSUES"
-                              ? "bg-[#CE3A39] text-white shadow-sm"
-                              : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                          }`}
-                        >
-                          Solo Errores / Revisar (
-                          {(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
-                        </button>
-                        <button
-                          disabled={!hasOrders}
-                          onClick={() => setActiveTab("CONFIRMED")}
-                          className={`px-3 py-1.5 rounded-lg transition ${
-                            !hasOrders
-                              ? "text-slate-400 cursor-not-allowed"
-                              : activeTab === "CONFIRMED"
-                              ? "bg-emerald-600 text-white shadow-sm"
-                              : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                          }`}
-                        >
-                          Confirmadas ({batchData?.metrics.confirmed_100 || 0})
-                        </button>
-                        <button
-                          disabled={!hasOrders}
-                          onClick={() => setActiveTab("OUTBOUND")}
-                          className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                            !hasOrders
-                              ? "text-slate-400 cursor-not-allowed"
-                              : activeTab === "OUTBOUND"
-                              ? "bg-slate-700 text-white"
-                              : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                          }`}
-                        >
-                          Solo Ida ({outboundCount})
-                        </button>
-                        <button
-                          disabled={!hasOrders}
-                          onClick={() => setActiveTab("RETURN")}
-                          className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                            !hasOrders
-                              ? "text-slate-400 cursor-not-allowed"
-                              : activeTab === "RETURN"
-                              ? "bg-slate-700 text-white"
-                              : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                          }`}
-                        >
-                          Solo Retorno ({returnCount})
-                        </button>
-                      </div>
-
-                      {/* Input de Búsqueda Rápida */}
-                      <div className="relative flex-1 max-w-xs">
-                        <Search
-                          className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
-                            !hasOrders ? "text-slate-300" : "text-slate-400"
-                          }`}
-                        />
-                        <input
-                          type="text"
-                          disabled={!hasOrders}
-                          placeholder={
-                            hasOrders ? "Buscar RITM, empleado, CP, teléfono..." : "Sin órdenes para buscar..."
-                          }
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition shadow-2xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Tabla de Registros */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
-                            <th className="py-3 px-4">Tipo</th>
-                            <th className="py-3 px-4">Orden (RITM)</th>
-                            <th className="py-3 px-4">Semáforo</th>
-                            <th className="py-3 px-4">Destinatario / Empleado</th>
-                            <th className="py-3 px-4">Teléfono</th>
-                            <th className="py-3 px-4">Dirección (Calle / Colonia)</th>
-                            <th className="py-3 px-4">CP / Ciudad</th>
-                            <th className="py-3 px-4 text-center">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                          {filteredOrders.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
-                                {batchData
-                                  ? "No hay órdenes que coincidan con los filtros seleccionados."
-                                  : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
-                              </td>
-                            </tr>
-                          ) : (
-                            filteredOrders.map((order) => {
-                              const isError = order.status_semaphore === "ROJO";
-                              const isWarning = order.status_semaphore === "AMARILLO";
-                              const isGreen = order.status_semaphore === "VERDE";
-
-                              return (
-                                <tr
-                                  key={order.order_id}
-                                  className={`hover:bg-slate-50 transition-colors ${
-                                    isError ? "bg-red-50/50" : isWarning ? "bg-amber-50/30" : ""
-                                  }`}
-                                >
-                                  {/* Tipo de Envío */}
-                                  <td className="py-3 px-4 whitespace-nowrap">
-                                    {order.type === "RETURN" ? (
-                                      <span className="px-2 py-0.5 rounded-md bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 font-mono text-[10px] font-bold">
-                                        RETORNO
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 rounded-md bg-[#EFF3F9] text-[#233762] border border-[#233762]/30 font-mono text-[10px] font-bold">
-                                        ENTREGA
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* CustomerOrder / RITM */}
-                                  <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-[#233762]">
-                                    {order.order_id}
-                                  </td>
-
-                                  {/* Semáforo de Calidad Postal */}
-                                  <td className="py-3 px-4 whitespace-nowrap">
-                                    <div className="flex items-center gap-1.5">
-                                      {isGreen && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px]">
-                                          <CheckCircle2 className="w-3.5 h-3.5" />
-                                          100% Confirmada
-                                        </span>
-                                      )}
-                                      {isWarning && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
-                                          <AlertTriangle className="w-3.5 h-3.5" />
-                                          Revisar Colonia
-                                        </span>
-                                      )}
-                                      {isError && (
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-bold text-[11px]">
-                                          <XCircle className="w-3.5 h-3.5" />
-                                          Error / Bloqueada
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  {/* Destinatario */}
-                                  <td className="py-3 px-4 whitespace-nowrap">
-                                    <div className="font-bold text-slate-800">{order.recipient_name}</div>
-                                    <div className="text-[11px] text-slate-500 truncate max-w-[180px]">{order.email}</div>
-                                  </td>
-
-                                  {/* Teléfono */}
-                                  <td className="py-3 px-4 whitespace-nowrap font-mono">
-                                    {order.phone.includes("ERROR") || order.phone.length !== 10 ? (
-                                      <span className="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded border border-red-300">
-                                        {order.phone || "FALTA"}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-700 font-semibold">{order.phone}</span>
-                                    )}
-                                  </td>
-
-                                  {/* Dirección */}
-                                  <td className="py-3 px-4 max-w-xs">
-                                    <div className="text-slate-800 font-mono text-[11px] truncate font-medium">
-                                      {order.address1}
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 truncate">{order.address2 || "—"}</div>
-                                  </td>
-
-                                  {/* Ubicación y CP */}
-                                  <td className="py-3 px-4 whitespace-nowrap">
-                                    <div className="font-mono text-[#233762] font-bold">CP {order.zip}</div>
-                                    <div className="text-[11px] text-slate-500">
-                                      {order.city}, {order.state}
-                                    </div>
-                                  </td>
-
-                                  {/* Botón de Corrección / Candado para Consulta */}
-                                  <td className="py-3 px-4 text-center whitespace-nowrap">
-                                    {permissions.canEditRows ? (
-                                      <button
-                                        onClick={() => handleOpenEdit(order)}
-                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs cursor-pointer"
-                                      >
-                                        <Edit3 className="w-3.5 h-3.5" />
-                                        <span>Corregir</span>
-                                      </button>
-                                    ) : (
-                                      <span
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs font-medium cursor-not-allowed"
-                                        title="Edición restringida para tu rol operativo"
-                                      >
-                                        <Lock className="w-3 h-3 text-slate-400" />
-                                        <span>Lectura</span>
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                </main>
-
-                {/* MODAL DE EDICIÓN EN CALIENTE */}
-                {editingOrder && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                    <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
-                      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-[#EFF3F9] text-[#233762]">
-                            <Edit3 className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h3 className="text-base font-extrabold text-[#233762] flex items-center gap-2">
-                              Corregir Orden <span className="font-mono text-[#CE3A39]">{editingOrder.order_id}</span>
-                            </h3>
-                            <p className="text-xs text-slate-500">
-                              Modifica los campos para re-evaluar con SEPOMEX y quitar el bloqueo en tiempo real.
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setEditingOrder(null)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <form onSubmit={handleSavePatch} className="p-6 space-y-4">
-                        <div>
-                          <label className="block text-xs font-bold text-[#233762] mb-1">
-                            Teléfono de Contacto (Exactamente 10 dígitos)
-                          </label>
-                          <div className="relative">
-                            <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                              type="text"
-                              required
-                              maxLength={10}
-                              value={editFormData.phone}
-                              onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
-                              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
-                              placeholder="Ej. 5576682213"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#233762] mb-1">
-                            Calle y Número Exterior/Interior (Address 1, max 50 caracteres)
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            maxLength={50}
-                            value={editFormData.address1}
-                            onChange={(e) => setEditFormData({ ...editFormData, address1: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#233762] mb-1">
-                            Colonia / Asentamiento Oficial (Address 2, max 50 caracteres)
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={50}
-                            value={editFormData.address2}
-                            onChange={(e) => setEditFormData({ ...editFormData, address2: e.target.value })}
-                            className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <label className="block text-xs font-bold text-[#233762] mb-1">Código Postal</label>
-                            <input
-                              type="text"
-                              maxLength={5}
-                              value={editFormData.zip}
-                              onChange={(e) => setEditFormData({ ...editFormData, zip: e.target.value })}
-                              className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-[#233762] font-bold focus:outline-none focus:border-[#233762]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-[#233762] mb-1">Ciudad / Municipio</label>
-                            <input
-                              type="text"
-                              value={editFormData.city}
-                              onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
-                              className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-[#233762] mb-1">Estado</label>
-                            <input
-                              type="text"
-                              value={editFormData.state}
-                              onChange={(e) => setEditFormData({ ...editFormData, state: e.target.value })}
-                              className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
-                            />
-                          </div>
-                        </div>
-
-                        {!editingOrder.order_id.endsWith("-1") && (
-                          <div className="flex items-center gap-2 pt-2">
-                            <input
-                              type="checkbox"
-                              id="syncCounterpart"
-                              checked={editFormData.sync_counterpart}
-                              onChange={(e) => setEditFormData({ ...editFormData, sync_counterpart: e.target.checked })}
-                              className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300"
-                            />
-                            <label htmlFor="syncCounterpart" className="text-xs text-slate-700 cursor-pointer font-medium">
-                              Sincronizar y corregir también su orden par de Retorno (
-                              <span className="font-mono text-[#233762] font-bold">{editingOrder.order_id}-1</span>)
-                            </label>
-                          </div>
-                        )}
-
-                        <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setEditingOrder(null)}
-                            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={actionLoading === "patch"}
-                            className="px-5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-sm font-bold shadow-sm transition"
-                          >
-                            {actionLoading === "patch" ? "Guardando..." : "Guardar y Revalidar"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                )}
-
-                {/* MODAL DE CONFIRMACIÓN: LIMPIAR TABLA Y ARCHIVAR LOTE */}
-                {archivePreview && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                    <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                      <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-[#FDF2F2] text-[#CE3A39]">
-                          <Archive className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="text-base font-extrabold text-[#233762]">Limpiar tabla y archivar lote</h3>
-                          <p className="text-xs text-slate-500">
-                            Se resguardarán <span className="font-bold font-mono">{archivePreview.moved_count}</span> archivos
-                            activos en el archivo histórico y la tabla quedará en blanco.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="p-6 space-y-3 overflow-y-auto">
-                        <div className="rounded-xl bg-[#EFF3F9] border border-[#233762]/20 p-3 text-xs text-[#233762]">
-                          <strong>Cero pérdida de datos:</strong> Ningún archivo se borra. Todo se organiza por fecha en{" "}
-                          <span className="font-mono font-bold">data/archive/AAAA-MM-DD/</span>. Tu tabla quedará en blanco lista
-                          para recibir el nuevo reporte de ServiceNow de hoy.
-                        </div>
-
-                        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                          {archivePreview.moved?.map((f: any, idx: number) => (
-                            <div key={idx} className="px-3 py-2 flex items-center justify-between gap-3 text-xs">
-                              <span className="font-mono text-slate-700 truncate" title={f.file}>
-                                {f.file}
+                        <div className="space-y-1.5 mt-2">
+                          <div className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50/70">
+                            <span className="font-medium text-slate-700">Asset Management</span>
+                            {roleKey === "ADMIN" || roleKey === "ASSET_MANAGER" ? (
+                              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Permitido</span>
                               </span>
-                              <span className="font-mono text-slate-400 whitespace-nowrap">{f.date}</span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-red-600">
+                                <Lock className="w-3.5 h-3.5 text-red-500" />
+                                <span>Bloqueado</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50/70">
+                            <span className="font-medium text-slate-700">CSM (Customer Service)</span>
+                            {roleKey === "ADMIN" || roleKey === "CSM" ? (
+                              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Permitido</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-red-600">
+                                <Lock className="w-3.5 h-3.5 text-red-500" />
+                                <span>Bloqueado</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50/70">
+                            <span className="font-medium text-slate-700">Almacén Lerma</span>
+                            {roleKey === "ADMIN" || roleKey === "ALMACEN" ? (
+                              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Permitido</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-red-600">
+                                <Lock className="w-3.5 h-3.5 text-red-500" />
+                                <span>Bloqueado</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                          Permisos Operativos en Asset Management
+                        </span>
+                        <div className="space-y-1.5 mt-2">
+                          {[
+                            { ok: perms.canUpload, label: "Subir reporte SCTASK" },
+                            { ok: perms.canEditRows, label: "Editar direcciones SEPOMEX" },
+                            { ok: perms.canProcessLive, label: "Timbrar guías Techship (--live)" },
+                            { ok: perms.canSyncClosing, label: "Sincronizar cierre y PDF" },
+                            { ok: perms.canArchive, label: "Limpiar tabla / Archivar" },
+                            { ok: perms.allowedDownloads.cierre_excel, label: "Descargar Cierre_*.xlsx" },
+                            { ok: perms.allowedDownloads.etiquetas_pdf, label: "Descargar Etiquetas_*.pdf" },
+                          ].map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50/70"
+                            >
+                              <span className={item.ok ? "text-slate-700 font-medium" : "text-slate-400"}>
+                                {item.label}
+                              </span>
+                              {item.ok ? (
+                                <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Sí</span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-red-600">
+                                  <Lock className="w-3.5 h-3.5 text-red-500" />
+                                  <span>No</span>
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>
                       </div>
-
-                      <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-                        <button
-                          onClick={() => setArchivePreview(null)}
-                          className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={handleArchiveConfirm}
-                          disabled={actionLoading === "archive"}
-                          className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
-                        >
-                          {actionLoading === "archive" ? "Limpiando tabla..." : "Sí, limpiar tabla y archivar"}
-                        </button>
-                      </div>
                     </div>
                   </div>
-                )}
-
-                {/* MODAL DE CONFIRMACIÓN DE TIMBRADO REAL (--live) */}
-                {showLiveModal && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                    <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-center space-y-4">
-                      <div className="w-12 h-12 rounded-full bg-red-100 border border-red-200 text-[#CE3A39] flex items-center justify-center mx-auto">
-                        <ShieldAlert className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-extrabold text-slate-900">¿Confirmar Generación Oficial de Guías?</h3>
-                        <p className="text-xs text-slate-600 mt-2">
-                          Esta acción creará las guías reales oficiales de envío. Las órdenes
-                          bloqueadas con <span className="text-[#CE3A39] font-bold">ROJO</span> serán omitidas automáticamente para
-                          proteger la operación.
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-center gap-3 pt-2">
-                        <button
-                          onClick={() => setShowLiveModal(false)}
-                          className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={handleTechshipProcess}
-                          className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 transition"
-                        >
-                          Sí, Timbrar Guías Reales
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* MODAL DE RESULTADOS DE TIMBRADO TECHSHIP */}
-                {simResults && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                    <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-5 h-5 text-[#233762]" />
-                          <h3 className="text-base font-bold text-[#233762]">
-                            Resultado de Timbrado en Techship
-                          </h3>
-                        </div>
-                        <button
-                          onClick={() => setSimResults(null)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <div className="p-6 overflow-y-auto space-y-4">
-                        <div className="grid grid-cols-4 gap-3 text-center">
-                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                            <div className="text-xs text-slate-500 font-medium">Total en Lote</div>
-                            <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                              {simResults.summary?.total || 0}
-                            </div>
-                          </div>
-                          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                            <div className="text-xs text-emerald-700 font-medium">Listas / Éxito</div>
-                            <div className="text-xl font-bold font-mono text-emerald-700 mt-1">
-                              {simResults.summary?.success || simResults.summary?.ready || 0}
-                            </div>
-                          </div>
-                          <div className="p-3 rounded-xl bg-[#EFF3F9] border border-[#233762]/20">
-                            <div className="text-xs text-[#233762] font-medium">Anti-Duplicadas</div>
-                            <div className="text-xl font-bold font-mono text-[#233762] mt-1">
-                              {simResults.summary?.duplicates || 0}
-                            </div>
-                          </div>
-                          <div className="p-3 rounded-xl bg-red-50 border border-red-200">
-                            <div className="text-xs text-[#CE3A39] font-medium">Bloqueadas</div>
-                            <div className="text-xl font-bold font-mono text-[#CE3A39] mt-1">
-                              {simResults.summary?.blocked || 0}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="border border-slate-200 rounded-xl overflow-hidden">
-                          <div className="bg-[#233762] px-4 py-2 text-xs font-semibold text-white uppercase">
-                            Detalle por Orden
-                          </div>
-                          <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto font-mono text-xs">
-                            {simResults.details?.map((item: any, idx: number) => (
-                              <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-50">
-                                <div>
-                                  <span className="font-bold text-[#233762]">{item.order}</span>
-                                  <span className="text-[11px] text-slate-500 ml-2">({item.type})</span>
-                                  <div className="text-[11px] text-slate-600 font-sans mt-0.5">{item.message}</div>
-                                </div>
-                                <div>
-                                  {item.status === "OK" || item.status === "LISTA" ? (
-                                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                                      ACEPTADA
-                                    </span>
-                                  ) : item.status === "DUPLICADO" ? (
-                                    <span className="px-2 py-0.5 rounded bg-[#EFF3F9] text-[#233762] font-bold text-[10px]">
-                                      YA EXISTE (ID {item.shipment_id})
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded bg-red-100 text-[#CE3A39] font-bold text-[10px]">
-                                      BLOQUEADA
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
-                        <button
-                          onClick={() => setSimResults(null)}
-                          className="px-4 py-1.5 rounded-xl bg-[#233762] text-white text-xs font-bold transition hover:bg-[#1B2A4A]"
-                        >
-                          Cerrar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                );
+              })}
+            </div>
           </div>
         </div>
+      ) : activeModule === "profile" ? (
+        /* ==================================================================== */
+        /* VISTA PERFIL DE USUARIO                                             */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-4xl mx-auto w-full">
+          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Regresar al Hub</span>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="w-16 h-16 rounded-2xl bg-[#233762] text-white flex items-center justify-center font-bold font-mono text-2xl shadow-md">
+                  {userInitials}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">{currentUser?.name}</h2>
+                  <p className="text-xs font-mono text-slate-500 mt-0.5">{currentUser?.email}</p>
+                  <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>{roleConfig.label}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="text-sm font-bold text-[#233762] mb-3">Alcance y Permisos de tu Perfil</h3>
+              <p className="text-xs text-slate-600 leading-relaxed mb-4">{roleConfig.description}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
+                  <span>Acceso a Asset Management:</span>
+                  <span className="font-bold">{canEnterAsset ? "Autorizado" : "Restringido"}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
+                  <span>Acceso a CSM:</span>
+                  <span className="font-bold">{canEnterCSM ? "Autorizado" : "Restringido"}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
+                  <span>Acceso a Almacén Lerma:</span>
+                  <span className="font-bold">{canEnterAlmacen ? "Autorizado" : "Restringido"}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 flex items-center justify-between">
+                  <span>Gestión de Usuarios y Roles:</span>
+                  <span className="font-bold">{activeRole === "ADMIN" ? "Autorizado" : "Restringido"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ==================================================================== */
+        /* VISTA DASHBOARD DE ASSET MANAGEMENT (AUTOMATIZADOR DE TAREAS)        */
+        /* ==================================================================== */
+        <>
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
+            <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {/* Botón para volver a la cuadrícula de módulos */}
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("modules")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs group cursor-pointer"
+                  title="Regresar a Módulos"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="hidden sm:inline">Módulos</span>
+                </button>
+
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-12 sm:h-14 w-auto" cycleDuration={8} />
+                </button>
+
+                <div className="h-9 w-px bg-slate-200 hidden md:block" />
+
+                <div className="hidden sm:flex items-center gap-2.5">
+                  <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                    Automatizador de tareas
+                  </h1>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                    KST / Kyndryl
+                  </span>
+                </div>
+              </div>
+
+              {/* Usuario activo y Cerrar sesión */}
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-200 text-[#CE3A39]">
+                    {roleConfig.code}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition cursor-pointer"
+                  title="Ir al Hub"
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hub</span>
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cerrar sesión</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 w-full max-w-[1850px] mx-auto px-6 lg:px-10 py-5 space-y-6 relative z-10">
+            {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Lote en proceso:</span>
+                <span className="text-xs font-mono font-bold text-[#233762] px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                  {batchData?.batch_filename || "Sin lote activo"}
+                </span>
+              </div>
+
+              <button
+                onClick={handleArchivePreview}
+                disabled={actionLoading === "archive" || !hasOrders}
+                title="Archivar el lote actual y limpiar la tabla (se resguarda en data/archive)"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+              >
+                <Archive className="w-4 h-4" />
+                <span>
+                  {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
+                </span>
+              </button>
+            </div>
+
+            {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) */}
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5">
+              <div className="md:col-span-2 xl:col-span-4 bg-white border-2 border-dashed border-slate-300 hover:border-[#233762] rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".xlsx,.xls"
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  disabled={uploading}
+                />
+                <div className="flex items-start gap-3">
+                  <div className="p-3 rounded-xl bg-[#EFF3F9] text-[#233762] border border-[#233762]/20 group-hover:scale-105 transition-transform">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[#233762]">Ingestar Reporte ServiceNow</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Arrastra el archivo SCTASK_SHP_Combined_Report_MX_*.xlsx</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-mono truncate max-w-[200px]" title={batchData?.batch_filename}>
+                    {batchData?.batch_filename ? batchData.batch_filename : "Sin archivo activo"}
+                  </span>
+                  <button
+                    type="button"
+                    className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold shadow-sm transition"
+                  >
+                    {uploading ? "Procesando..." : "Examinar..."}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tarjeta KPI 1: Total Órdenes */}
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#233762]" />
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#233762]">Total Órdenes</span>
+                  <Package className="w-4 h-4 text-[#233762]" />
+                </div>
+                <div className="mt-2">
+                  <span className="text-3xl font-extrabold text-[#233762] font-mono">
+                    {batchData?.metrics.total_orders || 0}
+                  </span>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Ida y Retorno (-1)</p>
+                </div>
+              </div>
+
+              {/* Tarjeta KPI 2: Confirmadas 100% */}
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmadas</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="mt-2">
+                  <span className="text-3xl font-extrabold text-emerald-600 font-mono">
+                    {batchData?.metrics.confirmed_100 || 0}
+                  </span>
+                  <p className="text-[11px] text-emerald-600/80 mt-0.5">Semáforo Verde</p>
+                </div>
+              </div>
+
+              {/* Tarjeta KPI 3: Por Revisar */}
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Por Revisar</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="mt-2">
+                  <span className="text-3xl font-extrabold text-amber-600 font-mono">
+                    {batchData?.metrics.review || 0}
+                  </span>
+                  <p className="text-[11px] text-amber-700/80 mt-0.5">Semáforo Amarillo</p>
+                </div>
+              </div>
+
+              {/* Tarjeta KPI 4: Bloqueadas por Error */}
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#CE3A39]" />
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#CE3A39]">Bloqueadas</span>
+                  <XCircle className="w-4 h-4 text-[#CE3A39]" />
+                </div>
+                <div className="mt-2">
+                  <span className="text-3xl font-extrabold text-[#CE3A39] font-mono">
+                    {batchData?.metrics.error_blocked || 0}
+                  </span>
+                  <p className="text-[11px] text-[#CE3A39]/80 mt-0.5">Teléfono / CP Inválido</p>
+                </div>
+              </div>
+            </section>
+
+            {/* ZONA 2: Barra Maestra de Acciones Techship y Descargas */}
+            <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => setShowLiveModal(true)}
+                  disabled={!hasOrders || actionLoading === "live"}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Zap className="w-4 h-4 fill-white" />
+                  <span>{actionLoading === "live" ? "Timbrando..." : "1. Timbrar Guías en Techship"}</span>
+                </button>
+
+                <button
+                  onClick={handleSyncClosing}
+                  disabled={!hasOrders || actionLoading === "sync"}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Truck className="w-4 h-4" />
+                  <span>{actionLoading === "sync" ? "Sincronizando..." : "2. Sincronizar Cierre y Etiquetas"}</span>
+                </button>
+              </div>
+
+              {batchData ? (
+                <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
+                  <span className="text-xs text-slate-500 font-bold mr-1 hidden md:inline">Descargar:</span>
+
+                  <button
+                    onClick={() => handleDownload("cierre_excel")}
+                    disabled={batchData.files_available?.cierre_excel === false}
+                    title={
+                      batchData.files_available?.cierre_excel === false
+                        ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
+                        : "Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
+                    }
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Cierre.xlsx</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload("etiquetas_pdf")}
+                    disabled={batchData.files_available?.etiquetas_pdf === false}
+                    title={
+                      batchData.files_available?.etiquetas_pdf === false
+                        ? "Disponible tras ejecutar '3. Sincronizar Cierre y Etiquetas'"
+                        : "Descargar o imprimir PDF consolidado de etiquetas"
+                    }
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Etiquetas.pdf</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload("techship_excel")}
+                    disabled={batchData.files_available?.techship_excel === false}
+                    title="Descargar Guias_Techship_Importada_*.xlsx"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Techship.xlsx</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload("auditoria_excel")}
+                    disabled={batchData.files_available?.auditoria_excel === false}
+                    title="Descargar Auditoria_Direcciones_*.xlsx con bitácora"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Auditoría.xlsx</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4 text-xs text-slate-400 italic">
+                  <FileSpreadsheet className="w-3.5 h-3.5 opacity-50" />
+                  <span>Sin archivos para descargar</span>
+                </div>
+              )}
+            </section>
+
+            {/* ZONA 3: Tabla de Órdenes y Auditoría */}
+            <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+              <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80">
+                <div
+                  className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${
+                    !hasOrders ? "opacity-50" : ""
+                  }`}
+                >
+                  <button
+                    disabled={!hasOrders}
+                    onClick={() => setActiveTab("ALL")}
+                    className={`px-3 py-1.5 rounded-lg transition ${
+                      !hasOrders
+                        ? "text-slate-400 cursor-not-allowed"
+                        : activeTab === "ALL"
+                        ? "bg-[#233762] text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    }`}
+                  >
+                    Todas ({batchData?.orders.length || 0})
+                  </button>
+                  <button
+                    disabled={!hasOrders}
+                    onClick={() => setActiveTab("ISSUES")}
+                    className={`px-3 py-1.5 rounded-lg transition ${
+                      !hasOrders
+                        ? "text-slate-400 cursor-not-allowed"
+                        : activeTab === "ISSUES"
+                        ? "bg-[#CE3A39] text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    }`}
+                  >
+                    Solo Errores / Revisar (
+                    {(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
+                  </button>
+                  <button
+                    disabled={!hasOrders}
+                    onClick={() => setActiveTab("CONFIRMED")}
+                    className={`px-3 py-1.5 rounded-lg transition ${
+                      !hasOrders
+                        ? "text-slate-400 cursor-not-allowed"
+                        : activeTab === "CONFIRMED"
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    }`}
+                  >
+                    Confirmadas ({batchData?.metrics.confirmed_100 || 0})
+                  </button>
+                  <button
+                    disabled={!hasOrders}
+                    onClick={() => setActiveTab("OUTBOUND")}
+                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
+                      !hasOrders
+                        ? "text-slate-400 cursor-not-allowed"
+                        : activeTab === "OUTBOUND"
+                        ? "bg-slate-700 text-white"
+                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    }`}
+                  >
+                    Solo Ida ({outboundCount})
+                  </button>
+                  <button
+                    disabled={!hasOrders}
+                    onClick={() => setActiveTab("RETURN")}
+                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
+                      !hasOrders
+                        ? "text-slate-400 cursor-not-allowed"
+                        : activeTab === "RETURN"
+                        ? "bg-slate-700 text-white"
+                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    }`}
+                  >
+                    Solo Retorno ({returnCount})
+                  </button>
+                </div>
+
+                <div className="relative flex-1 max-w-xs">
+                  <Search
+                    className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                      !hasOrders ? "text-slate-300" : "text-slate-400"
+                    }`}
+                  />
+                  <input
+                    type="text"
+                    disabled={!hasOrders}
+                    placeholder={
+                      hasOrders ? "Buscar RITM, empleado, CP, teléfono..." : "Sin órdenes para buscar..."
+                    }
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition shadow-2xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-4">Tipo</th>
+                      <th className="py-3 px-4">Orden (RITM)</th>
+                      <th className="py-3 px-4">Semáforo</th>
+                      <th className="py-3 px-4">Destinatario / Empleado</th>
+                      <th className="py-3 px-4">Teléfono</th>
+                      <th className="py-3 px-4">Dirección (Calle / Colonia)</th>
+                      <th className="py-3 px-4">CP / Ciudad</th>
+                      <th className="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
+                          {batchData
+                            ? "No hay órdenes que coincidan con los filtros seleccionados."
+                            : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOrders.map((order) => {
+                        const isError = order.status_semaphore === "ROJO";
+                        const isWarning = order.status_semaphore === "AMARILLO";
+                        const isGreen = order.status_semaphore === "VERDE";
+
+                        return (
+                          <tr
+                            key={order.order_id}
+                            className={`hover:bg-slate-50 transition-colors ${
+                              isError ? "bg-red-50/50" : isWarning ? "bg-amber-50/30" : ""
+                            }`}
+                          >
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {order.type === "RETURN" ? (
+                                <span className="px-2 py-0.5 rounded-md bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 font-mono text-[10px] font-bold">
+                                  RETORNO
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md bg-[#EFF3F9] text-[#233762] border border-[#233762]/30 font-mono text-[10px] font-bold">
+                                  ENTREGA
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-[#233762]">
+                              {order.order_id}
+                            </td>
+
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                {isGreen && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px]">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    100% Confirmada
+                                  </span>
+                                )}
+                                {isWarning && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    Revisar Colonia
+                                  </span>
+                                )}
+                                {isError && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-bold text-[11px]">
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    Error / Bloqueada
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="font-bold text-slate-800">{order.recipient_name}</div>
+                              <div className="text-[11px] text-slate-500 truncate max-w-[180px]">{order.email}</div>
+                            </td>
+
+                            <td className="py-3 px-4 whitespace-nowrap font-mono">
+                              {order.phone.includes("ERROR") || order.phone.length !== 10 ? (
+                                <span className="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded border border-red-300">
+                                  {order.phone || "FALTA"}
+                                </span>
+                              ) : (
+                                <span className="text-slate-700 font-semibold">{order.phone}</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4 max-w-xs">
+                              <div className="text-slate-800 font-mono text-[11px] truncate font-medium">
+                                {order.address1}
+                              </div>
+                              <div className="text-[11px] text-slate-500 truncate">{order.address2 || "—"}</div>
+                            </td>
+
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="font-mono text-[#233762] font-bold">CP {order.zip}</div>
+                              <div className="text-[11px] text-slate-500">
+                                {order.city}, {order.state}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <button
+                                onClick={() => handleOpenEdit(order)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Corregir</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </main>
+
+          {/* MODAL DE EDICIÓN EN CALIENTE */}
+          {editingOrder && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-[#EFF3F9] text-[#233762]">
+                      <Edit3 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-extrabold text-[#233762] flex items-center gap-2">
+                        Corregir Orden <span className="font-mono text-[#CE3A39]">{editingOrder.order_id}</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Modifica los campos para re-evaluar con SEPOMEX y quitar el bloqueo en tiempo real.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEditingOrder(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSavePatch} className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#233762] mb-1">
+                      Teléfono de Contacto (Exactamente 10 dígitos)
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        maxLength={10}
+                        value={editFormData.phone}
+                        onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                        className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
+                        placeholder="Ej. 5576682213"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#233762] mb-1">
+                      Calle y Número Exterior/Interior (Address 1, max 50 caracteres)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={50}
+                      value={editFormData.address1}
+                      onChange={(e) => setEditFormData({ ...editFormData, address1: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#233762] mb-1">
+                      Colonia / Asentamiento Oficial (Address 2, max 50 caracteres)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={editFormData.address2}
+                      onChange={(e) => setEditFormData({ ...editFormData, address2: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#233762] mb-1">Código Postal</label>
+                      <input
+                        type="text"
+                        maxLength={5}
+                        value={editFormData.zip}
+                        onChange={(e) => setEditFormData({ ...editFormData, zip: e.target.value })}
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-[#233762] font-bold focus:outline-none focus:border-[#233762]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#233762] mb-1">Ciudad / Municipio</label>
+                      <input
+                        type="text"
+                        value={editFormData.city}
+                        onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#233762] mb-1">Estado</label>
+                      <input
+                        type="text"
+                        value={editFormData.state}
+                        onChange={(e) => setEditFormData({ ...editFormData, state: e.target.value })}
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                      />
+                    </div>
+                  </div>
+
+                  {!editingOrder.order_id.endsWith("-1") && (
+                    <div className="flex items-center gap-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="syncCounterpart"
+                        checked={editFormData.sync_counterpart}
+                        onChange={(e) => setEditFormData({ ...editFormData, sync_counterpart: e.target.checked })}
+                        className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300"
+                      />
+                      <label htmlFor="syncCounterpart" className="text-xs text-slate-700 cursor-pointer font-medium">
+                        Sincronizar y corregir también su orden par de Retorno (
+                        <span className="font-mono text-[#233762] font-bold">{editingOrder.order_id}-1</span>)
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingOrder(null)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={actionLoading === "patch"}
+                      className="px-5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-sm font-bold shadow-sm transition cursor-pointer"
+                    >
+                      {actionLoading === "patch" ? "Guardando..." : "Guardar y Revalidar"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE CONFIRMACIÓN: LIMPIAR TABLA Y ARCHIVAR LOTE */}
+          {archivePreview && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-[#FDF2F2] text-[#CE3A39]">
+                    <Archive className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-[#233762]">Limpiar tabla y archivar lote</h3>
+                    <p className="text-xs text-slate-500">
+                      Se resguardarán <span className="font-bold font-mono">{archivePreview.moved_count}</span> archivos
+                      activos en el archivo histórico y la tabla quedará en blanco.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-3 overflow-y-auto">
+                  <div className="rounded-xl bg-[#EFF3F9] border border-[#233762]/20 p-3 text-xs text-[#233762]">
+                    <strong>Cero pérdida de datos:</strong> Ningún archivo se borra. Todo se organiza por fecha en{" "}
+                    <span className="font-mono font-bold">data/archive/AAAA-MM-DD/</span>. Tu tabla quedará en blanco lista
+                    para recibir el nuevo reporte de ServiceNow de hoy.
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                    {archivePreview.moved?.map((f: any, idx: number) => (
+                      <div key={idx} className="px-3 py-2 flex items-center justify-between gap-3 text-xs">
+                        <span className="font-mono text-slate-700 truncate" title={f.file}>
+                          {f.file}
+                        </span>
+                        <span className="font-mono text-slate-400 whitespace-nowrap">{f.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+                  <button
+                    onClick={() => setArchivePreview(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleArchiveConfirm}
+                    disabled={actionLoading === "archive"}
+                    className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-sm transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {actionLoading === "archive" ? "Limpiando tabla..." : "Sí, limpiar tabla y archivar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE CONFIRMACIÓN DE TIMBRADO REAL (--live) */}
+          {showLiveModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-2xl p-6 text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 border border-red-200 text-[#CE3A39] flex items-center justify-center mx-auto">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900">¿Confirmar Generación Oficial de Guías?</h3>
+                  <p className="text-xs text-slate-600 mt-2">
+                    Esta acción creará las guías reales oficiales de envío. Las órdenes
+                    bloqueadas con <span className="text-[#CE3A39] font-bold">ROJO</span> serán omitidas automáticamente para
+                    proteger la operación.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => setShowLiveModal(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleTechshipProcess}
+                    className="px-5 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 transition cursor-pointer"
+                  >
+                    Sí, Timbrar Guías Reales
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE RESULTADOS DE TIMBRADO TECHSHIP */}
+          {simResults && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-[#233762]" />
+                    <h3 className="text-base font-bold text-[#233762]">
+                      Resultado de Timbrado en Techship
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setSimResults(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto space-y-4">
+                  <div className="grid grid-cols-4 gap-3 text-center">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <div className="text-xs text-slate-500 font-medium">Total en Lote</div>
+                      <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+                        {simResults.summary?.total || 0}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className="text-xs text-emerald-700 font-medium">Listas / Éxito</div>
+                      <div className="text-xl font-bold font-mono text-emerald-700 mt-1">
+                        {simResults.summary?.success || simResults.summary?.ready || 0}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#EFF3F9] border border-[#233762]/20">
+                      <div className="text-xs text-[#233762] font-medium">Anti-Duplicadas</div>
+                      <div className="text-xl font-bold font-mono text-[#233762] mt-1">
+                        {simResults.summary?.duplicates || 0}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                      <div className="text-xs text-[#CE3A39] font-medium">Bloqueadas</div>
+                      <div className="text-xl font-bold font-mono text-[#CE3A39] mt-1">
+                        {simResults.summary?.blocked || 0}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="bg-[#233762] px-4 py-2 text-xs font-semibold text-white uppercase">
+                      Detalle por Orden
+                    </div>
+                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto font-mono text-xs">
+                      {simResults.details?.map((item: any, idx: number) => (
+                        <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                          <div>
+                            <span className="font-bold text-[#233762]">{item.order}</span>
+                            <span className="text-[11px] text-slate-500 ml-2">({item.type})</span>
+                            <div className="text-[11px] text-slate-600 font-sans mt-0.5">{item.message}</div>
+                          </div>
+                          <div>
+                            {item.status === "OK" || item.status === "LISTA" ? (
+                              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                                ACEPTADA
+                              </span>
+                            ) : item.status === "DUPLICADO" ? (
+                              <span className="px-2 py-0.5 rounded bg-[#EFF3F9] text-[#233762] font-bold text-[10px]">
+                                YA EXISTE (ID {item.shipment_id})
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-red-100 text-[#CE3A39] font-bold text-[10px]">
+                                BLOQUEADA
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+                  <button
+                    onClick={() => setSimResults(null)}
+                    className="px-4 py-1.5 rounded-xl bg-[#233762] text-white text-xs font-bold transition hover:bg-[#1B2A4A] cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
