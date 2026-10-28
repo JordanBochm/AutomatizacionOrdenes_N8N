@@ -1012,7 +1012,7 @@ export default function TrackingGenerator({
                   </th>
                   <th className="py-3 px-2 w-12 text-center">#</th>
                   <th className="py-3 px-3 w-40 text-center">Carrier</th>
-                  <th className="py-3 px-3 w-36 text-center">Cuenta</th>
+                  <th className="py-3 px-3 w-36 text-center">Client</th>
                   <th className="py-3 px-3">Tracking Number</th>
                   <th className="py-3 px-3">Pick Order (RITM)</th>
                   <th className="py-3 px-3 w-48 text-center">CUSTOMER ORDER</th>

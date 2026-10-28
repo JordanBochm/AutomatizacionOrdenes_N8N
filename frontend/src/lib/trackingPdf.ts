@@ -326,7 +326,7 @@ export function buildTrackingPdf(
   autoTable(doc, {
     startY: tableStartY,
     margin: { top: 18, bottom: 15, left: marginLeft, right: marginLeft },
-    head: [["#", "Carrier", "", "Tracking Number", "Pick Order (RITM)", "CUSTOMER ORDER", "Cajas"]],
+    head: [["#", "Carrier", "Client", "Tracking Number", "Pick Order (RITM)", "CUSTOMER ORDER", "Cajas"]],
     body: tableBody,
     theme: "plain",
     showHead: "everyPage",
