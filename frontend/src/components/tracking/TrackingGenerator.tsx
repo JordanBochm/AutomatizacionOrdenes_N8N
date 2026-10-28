@@ -10,9 +10,6 @@ import {
   Eye,
   Edit3,
   AlertTriangle,
-  Truck,
-  Box,
-  Layers,
   FileText,
   RotateCcw,
   X,
@@ -45,6 +42,35 @@ interface TrackingGeneratorProps {
   apiBase: string;
   triggerToast: (message: string, type: "success" | "error" | "info") => void;
   userName?: string;
+}
+
+/**
+ * Obtiene el prefijo obligatorio de Pick Order según la cuenta ("KYNDRYL_" o "BASF_")
+ */
+function getPickPrefix(account: string): string {
+  const clean = (account || "").trim().toUpperCase();
+  return clean === "BASF" ? "BASF_" : "KYNDRYL_";
+}
+
+/**
+ * Extrae únicamente lo que agregó el usuario después del prefijo KYNDRYL_ o BASF_
+ */
+function extractUserSuffix(rawPickOrder: string): string {
+  const val = rawPickOrder || "";
+  // Si el usuario borró el guion bajo estando vacío (ej. quedó "KYNDRYL" o "BASF"), el sufijo es vacío
+  if (/^(KYNDRYL|BASF)$/i.test(val.trim())) {
+    return "";
+  }
+  return val.replace(/^(KYNDRYL_|BASF_)+/i, "");
+}
+
+/**
+ * Garantiza que pick_order siempre comience con KYNDRYL_ o BASF_ según la columna Cuenta
+ */
+function ensurePickOrderPrefix(account: string, rawPickOrder: string): string {
+  const prefix = getPickPrefix(account);
+  const suffix = extractUserSuffix(rawPickOrder);
+  return `${prefix}${suffix}`;
 }
 
 export default function TrackingGenerator({
@@ -88,6 +114,14 @@ export default function TrackingGenerator({
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+
+  // Modal de confirmación antes de eliminar
+  const [deleteDialog, setDeleteDialog] = useState<{
+    mode: "single" | "selected" | "reset";
+    targetRowId?: string;
+    targetLabel?: string;
+    count?: number;
+  } | null>(null);
 
   // Referencia al iframe para impresión directa
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -144,7 +178,7 @@ export default function TrackingGenerator({
           carrier: baseCarrier,
           account,
           tracking_number: trk,
-          pick_order: `${account}_${o.order_id}`,
+          pick_order: ensurePickOrderPrefix(account, o.order_id),
           customer_order: o.order_id,
           boxes: 1,
           manual: false,
@@ -163,10 +197,13 @@ export default function TrackingGenerator({
         if (parsed && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
           const normalizedRows: TrackingRow[] = parsed.rows.map((r: TrackingRow) => {
             const { carrierName, accountName } = resolveCarrierAndAccount(r);
+            const cleanAcc = accountName.toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
             return {
               ...r,
               carrier: carrierName,
-              account: accountName,
+              account: cleanAcc,
+              pick_order: ensurePickOrderPrefix(cleanAcc, r.pick_order || r.customer_order || ""),
+              boxes: 1,
             };
           });
           setDraftDataToRestore({
@@ -217,7 +254,17 @@ export default function TrackingGenerator({
         date: draftDataToRestore.header?.date || todayStr,
         clients: "KYNDRYL & BASF",
       });
-      setRows(draftDataToRestore.rows || []);
+      setRows(
+        (draftDataToRestore.rows || []).map((r) => {
+          const cleanAcc = (r.account || "").toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
+          return {
+            ...r,
+            account: cleanAcc,
+            pick_order: ensurePickOrderPrefix(cleanAcc, r.pick_order || r.customer_order || ""),
+            boxes: 1,
+          };
+        })
+      );
       setIncludeReturns(Boolean(draftDataToRestore.includeReturns));
       triggerToast("Borrador del día restaurado correctamente.", "success");
     }
@@ -342,14 +389,12 @@ export default function TrackingGenerator({
   }, [rows]);
 
   // ---------------------------------------------------------------------------
-  // 6. TOTALES Y CARRIERS (AGRUPANDO "ESTAFETAREST" COMO "ESTAFETA")
+  // 6. TOTALES Y CARRIERS (CAJAS SIEMPRE 1 POR ORDEN)
   // ---------------------------------------------------------------------------
   const totals = useMemo(() => {
-    let totalBoxes = 0;
     const carrierMap: Record<string, number> = {};
 
     rows.forEach((r) => {
-      totalBoxes += Number(r.boxes || 1);
       const { carrierName } = resolveCarrierAndAccount(r);
       const key = normalizeCarrierSummaryKey(carrierName);
       carrierMap[key] = (carrierMap[key] || 0) + 1;
@@ -357,7 +402,7 @@ export default function TrackingGenerator({
 
     return {
       totalOrders: rows.length,
-      totalBoxes,
+      totalBoxes: rows.length,
       carrierMap,
     };
   }, [rows]);
@@ -371,7 +416,7 @@ export default function TrackingGenerator({
       carrier: "ESTAFETAREST",
       account: "KYNDRYL",
       tracking_number: "",
-      pick_order: "",
+      pick_order: "KYNDRYL_",
       customer_order: "",
       boxes: 1,
       manual: true,
@@ -380,36 +425,32 @@ export default function TrackingGenerator({
     triggerToast("Fila agregada. Captura la información correspondiente.", "info");
   };
 
-  // Edición directa de una celda (con sincronización automática de prefijo KYNDRYL_ / BASF_)
+  // Edición directa de una celda (con prefijo KYNDRYL_ o BASF_ siempre pre-llenado)
   const handleCellChange = (id: string, field: keyof TrackingRow, value: any) => {
     setRows((prev) =>
       prev.map((row) => {
         if (row.id !== id) return row;
-        const updated = { ...row, [field]: value };
+        const currentAcc = (row.account || "KYNDRYL").trim().toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
+        const updated: TrackingRow = { ...row, [field]: value, boxes: 1 };
 
-        if (field === "customer_order") {
+        if (field === "account") {
+          const nextAcc = String(value).trim().toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
+          updated.account = nextAcc;
+          updated.pick_order = ensurePickOrderPrefix(nextAcc, row.pick_order);
+        } else if (field === "pick_order") {
+          updated.pick_order = ensurePickOrderPrefix(currentAcc, String(value));
+        } else if (field === "customer_order") {
           const valStr = String(value).trim();
           const isBasf = valStr.toUpperCase().startsWith("BRITM");
-          const nextAcc = isBasf ? "BASF" : updated.account || "KYNDRYL";
+          const isKyndryl = valStr.toUpperCase().startsWith("RITM");
+          const nextAcc = isBasf ? "BASF" : isKyndryl ? "KYNDRYL" : currentAcc;
           updated.account = nextAcc;
-          if (
-            !row.pick_order ||
-            row.pick_order.startsWith("KYNDRYL_") ||
-            row.pick_order.startsWith("BASF_")
-          ) {
-            updated.pick_order = valStr ? `${nextAcc}_${valStr}` : "";
-          }
-        } else if (field === "account") {
-          const accClean = String(value).trim().toUpperCase() || "KYNDRYL";
-          updated.account = accClean;
-          const coClean = (updated.customer_order || "").trim();
-          if (
-            coClean &&
-            (!row.pick_order ||
-              row.pick_order.startsWith("KYNDRYL_") ||
-              row.pick_order.startsWith("BASF_"))
-          ) {
-            updated.pick_order = `${accClean}_${coClean}`;
+          const prevSuffix = extractUserSuffix(row.pick_order);
+          // Si el usuario aún no había personalizado un sufijo distinto en pick_order, sincronizarlo con customer_order
+          if (!prevSuffix || prevSuffix === (row.customer_order || "").trim()) {
+            updated.pick_order = `${getPickPrefix(nextAcc)}${valStr}`;
+          } else {
+            updated.pick_order = ensurePickOrderPrefix(nextAcc, row.pick_order);
           }
         }
 
@@ -438,25 +479,64 @@ export default function TrackingGenerator({
     }
   };
 
-  const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    setRows((prev) => prev.filter((r) => !selectedIds.has(r.id)));
-    setSelectedIds(new Set());
-    triggerToast(`${count} orden(es) eliminada(s).`, "info");
+  // Solicitar confirmación para eliminar una sola fila
+  const requestDeleteSingleRow = (row: TrackingRow, index: number) => {
+    const label =
+      row.customer_order?.trim() ||
+      extractUserSuffix(row.pick_order) ||
+      row.tracking_number?.trim() ||
+      `Fila #${index + 1}`;
+    setDeleteDialog({
+      mode: "single",
+      targetRowId: row.id,
+      targetLabel: label,
+      count: 1,
+    });
   };
 
-  const handleResetFromBatch = () => {
-    const confirmed = window.confirm(
-      "¿Deseas restaurar la lista de órdenes desde el lote activo del día? Los cambios manuales no guardados se perderán."
-    );
-    if (!confirmed) return;
+  // Solicitar confirmación para eliminar las filas seleccionadas
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteDialog({
+      mode: "selected",
+      count: selectedIds.size,
+    });
+  };
 
-    try {
-      localStorage.removeItem(draftStorageKey);
-    } catch {}
-    initFromActiveBatch(includeReturns);
-    triggerToast("Tabla restaurada desde el lote del día.", "success");
+  // Solicitar confirmación para restaurar órdenes del día (reemplazando lo actual)
+  const handleResetFromBatch = () => {
+    setDeleteDialog({
+      mode: "reset",
+    });
+  };
+
+  // Ejecutar la acción confirmada en la ventana modal
+  const confirmDeleteAction = () => {
+    if (!deleteDialog) return;
+
+    if (deleteDialog.mode === "single" && deleteDialog.targetRowId) {
+      const idToRemove = deleteDialog.targetRowId;
+      setRows((prev) => prev.filter((r) => r.id !== idToRemove));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idToRemove);
+        return next;
+      });
+      triggerToast(`Orden ${deleteDialog.targetLabel || ""} eliminada correctamente.`, "info");
+    } else if (deleteDialog.mode === "selected") {
+      const count = selectedIds.size;
+      setRows((prev) => prev.filter((r) => !selectedIds.has(r.id)));
+      setSelectedIds(new Set());
+      triggerToast(`${count} orden(es) eliminada(s) correctamente.`, "info");
+    } else if (deleteDialog.mode === "reset") {
+      try {
+        localStorage.removeItem(draftStorageKey);
+      } catch {}
+      initFromActiveBatch(includeReturns);
+      triggerToast("Tabla restaurada desde el lote del día.", "success");
+    }
+
+    setDeleteDialog(null);
   };
 
   const handleToggleReturns = (checked: boolean) => {
@@ -744,6 +824,8 @@ export default function TrackingGenerator({
                   const trkClean = (row.tracking_number || "").trim();
                   const ritmClean = (row.customer_order || "").trim();
                   const { carrierName, accountName } = resolveCarrierAndAccount(row);
+                  const normalizedAccount = accountName.toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
+                  const pickOrderValue = ensurePickOrderPrefix(normalizedAccount, row.pick_order);
 
                   const isMissingTrk = !trkClean;
                   const isDuplicateTrk = validationSummary.duplicateTrkSet.has(trkClean);
@@ -791,13 +873,15 @@ export default function TrackingGenerator({
 
                       {/* Columna 3: Cuenta (KYNDRYL / BASF) */}
                       <td className="py-2 px-2 border-r border-slate-200">
-                        <input
-                          type="text"
-                          value={accountName}
+                        <select
+                          value={normalizedAccount}
                           onChange={(e) => handleCellChange(row.id, "account", e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs text-center rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] font-bold text-[#233762] focus:outline-none transition"
-                          placeholder="KYNDRYL"
-                        />
+                          aria-label="Seleccionar cuenta"
+                          className="w-full px-2 py-1.5 text-xs text-center rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] font-bold text-[#233762] focus:outline-none transition cursor-pointer"
+                        >
+                          <option value="KYNDRYL">KYNDRYL</option>
+                          <option value="BASF">BASF</option>
+                        </select>
                       </td>
 
                       {/* Columna 4: Tracking Number */}
@@ -829,14 +913,13 @@ export default function TrackingGenerator({
                         </div>
                       </td>
 
-                      {/* Columna 5: Pick Order (RITM) */}
+                      {/* Columna 5: Pick Order (RITM) - Siempre inicia con KYNDRYL_ o BASF_ ya llenado */}
                       <td className="py-2 px-3">
                         <input
                           type="text"
-                          value={row.pick_order}
+                          value={pickOrderValue}
                           onChange={(e) => handleCellChange(row.id, "pick_order", e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs font-mono text-center text-slate-700 rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] focus:outline-none transition"
-                          placeholder="KYNDRYL_RITM..."
+                          className="w-full px-3 py-1.5 text-xs font-mono text-center text-slate-800 rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] focus:outline-none transition"
                         />
                       </td>
 
@@ -852,7 +935,7 @@ export default function TrackingGenerator({
                                 ? "bg-red-50 border-red-300 text-red-800 focus:border-red-500 font-bold pr-14"
                                 : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-900"
                             }`}
-                            placeholder="RITM..."
+                            placeholder={normalizedAccount === "BASF" ? "BRITM..." : "RITM..."}
                           />
                           {isDuplicateRitm && (
                             <span className="absolute right-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-100 text-red-800 border border-red-200 pointer-events-none">
@@ -862,32 +945,18 @@ export default function TrackingGenerator({
                         </div>
                       </td>
 
-                      {/* Columna 7: Cajas */}
-                      <td className="py-2 px-2 text-center border-r border-slate-200">
-                        <input
-                          type="number"
-                          min="1"
-                          max="99"
-                          value={row.boxes}
-                          onChange={(e) =>
-                            handleCellChange(row.id, "boxes", Math.max(1, parseInt(e.target.value, 10) || 1))
-                          }
-                          className="w-14 text-center px-1.5 py-1.5 text-xs font-bold text-slate-900 rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] focus:outline-none transition"
-                        />
+                      {/* Columna 7: Cajas (Fijo en 1, no editable) */}
+                      <td className="py-2 px-2 text-center border-r border-slate-200 select-none">
+                        <span className="inline-block w-14 text-center py-1.5 text-xs font-bold text-slate-900">
+                          1
+                        </span>
                       </td>
 
-                      {/* Eliminar fila individual */}
+                      {/* Eliminar fila individual (abre ventana de confirmación) */}
                       <td className="py-2 px-2 text-center">
                         <button
                           type="button"
-                          onClick={() => {
-                            setRows((prev) => prev.filter((r) => r.id !== row.id));
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              next.delete(row.id);
-                              return next;
-                            });
-                          }}
+                          onClick={() => requestDeleteSingleRow(row, index)}
                           title="Eliminar esta fila"
                           aria-label="Eliminar fila"
                           className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
@@ -903,6 +972,76 @@ export default function TrackingGenerator({
           )}
         </div>
       </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* VENTANA MODAL DE CONFIRMACIÓN ANTES DE ELIMINAR                    */}
+      {/* ------------------------------------------------------------------ */}
+      {deleteDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setDeleteDialog(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-2xl bg-red-50 border border-red-100 text-[#CE3A39] flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    {deleteDialog.mode === "single" && "¿Estás seguro de eliminar esta orden?"}
+                    {deleteDialog.mode === "selected" &&
+                      `¿Estás seguro de eliminar ${deleteDialog.count} orden(es)?`}
+                    {deleteDialog.mode === "reset" && "¿Estás seguro de restaurar las órdenes del día?"}
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    {deleteDialog.mode === "single" && (
+                      <>
+                        Se eliminará la fila{" "}
+                        <span className="font-bold text-slate-800">{deleteDialog.targetLabel}</span> de la lista de
+                        tracking del día.
+                      </>
+                    )}
+                    {deleteDialog.mode === "selected" && (
+                      <>
+                        Estás a punto de eliminar{" "}
+                        <span className="font-bold text-slate-800">{deleteDialog.count} fila(s) seleccionada(s)</span>{" "}
+                        de la tabla.
+                      </>
+                    )}
+                    {deleteDialog.mode === "reset" && (
+                      <>
+                        Se eliminarán los cambios o filas manuales actuales para recargar las órdenes originales del
+                        lote activo.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setDeleteDialog(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteAction}
+                  className="px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer"
+                >
+                  {deleteDialog.mode === "reset" ? "Sí, restaurar" : "Sí, eliminar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* MODAL DE VISTA PREVIA DEL PDF (SE ABRE AL PRESIONAR EL BOTÓN)      */}
