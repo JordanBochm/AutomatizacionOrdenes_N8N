@@ -354,9 +354,9 @@ export default function DashboardPage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Vista activa:
-  // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
+  // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'operacion_dia' | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
   const [activeModule, setActiveModule] = useState<
-    "login" | "hub" | "modules" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
+    "login" | "hub" | "modules" | "operacion_dia" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
   >("login");
 
   // Estado de Autenticación y RBAC
@@ -992,10 +992,16 @@ export default function DashboardPage() {
     name: string;
     description: string;
     Icon: React.ElementType;
-    target?: "asset_management";
+    target?: "operacion_dia";
     tone: "navy" | "red";
   }[] = [
-    { name: "Automatizador de tareas", description: "Órdenes KST / Kyndryl, validación SEPOMEX y guías Techship.", Icon: Zap, target: "asset_management", tone: "navy" },
+    {
+      name: "Operación del día",
+      description: "Automatización operativa, generación de tracking e historial de cierres.",
+      Icon: Zap,
+      target: "operacion_dia",
+      tone: "navy",
+    },
     { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "red" },
     { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "navy" },
     { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "red" },
@@ -1004,6 +1010,39 @@ export default function DashboardPage() {
     { name: "Auditoría", description: "Bitácora de cambios y control de cumplimiento.", Icon: ShieldAlert, tone: "navy" },
     { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "red" },
     { name: "Mesa de ayuda", description: "Incidencias, soporte y preguntas frecuentes.", Icon: HelpCircle, tone: "navy" },
+  ];
+
+  // Submódulos de Operación del día (3 opciones solicitadas)
+  const operacionDiaModules: {
+    name: string;
+    description: string;
+    Icon: React.ElementType;
+    target?: "asset_management";
+    tone: "navy" | "red";
+    statusBadge: "Activo" | "En desarrollo";
+  }[] = [
+    {
+      name: "Automatizador de operación",
+      description: "Órdenes KST / Kyndryl, validación SEPOMEX y timbrado de guías Techship.",
+      Icon: Zap,
+      target: "asset_management",
+      tone: "navy",
+      statusBadge: "Activo",
+    },
+    {
+      name: "Generador tracking",
+      description: "Generación y consulta de números de guía y trazabilidad de envíos.",
+      Icon: Truck,
+      tone: "red",
+      statusBadge: "En desarrollo",
+    },
+    {
+      name: "Historial de cierres",
+      description: "Consulta y auditoría de archivos de cierre diarios y lotes históricos.",
+      Icon: Archive,
+      tone: "navy",
+      statusBadge: "En desarrollo",
+    },
   ];
 
   return (
@@ -1616,6 +1655,138 @@ export default function DashboardPage() {
                     {isActive && (
                       <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                         Activo
+                      </span>
+                    )}
+                    <div className="flex flex-col items-center w-full">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                      >
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#233762] mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+                    </div>
+                    <span
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
+                        isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                      }`}
+                    >
+                      {isActive ? (
+                        <>
+                          <span>Ingresar</span>
+                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                        </>
+                      ) : (
+                        <span>En desarrollo</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : activeModule === "operacion_dia" ? (
+        /* ==================================================================== */
+        /* VISTA OPERACIÓN DEL DÍA (SUBMÓDULOS CON EL MISMO DISEÑO INSTITUCIONAL)*/
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
+          <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
+            <button
+              type="button"
+              onClick={() => setActiveModule("modules")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+              title="Regresar a Asset Management"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Regresar a Asset Management</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveModule("hub")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs cursor-pointer"
+                title="Ir al Hub Principal"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Hub</span>
+              </button>
+
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-slate-600">{currentUser?.email}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                  {roleConfig.code}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-2 pb-10">
+            <button
+              type="button"
+              onClick={() => setActiveModule("modules")}
+              className="cursor-pointer select-none"
+              title="Regresar a Asset Management"
+            >
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
+              )}
+            </button>
+
+            <div className="text-center mt-4 mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+                <span>Asset Management</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">Operación del día</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">Operación del día</h2>
+              <p className="text-sm text-slate-500 mt-1">Selecciona una herramienta operativa para continuar.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl">
+              {operacionDiaModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
+                const isActive = Boolean(target);
+                const iconTone =
+                  tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
+                return (
+                  <div
+                    key={name}
+                    onClick={() =>
+                      target ? setActiveModule(target) : triggerToast(`Módulo ${name} en construcción`, "info")
+                    }
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[220px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                  >
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
+                        isActive
+                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                          : "bg-transparent group-hover:bg-[#233762]/30"
+                      }`}
+                    />
+                    {statusBadge === "Activo" ? (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                        En desarrollo
                       </span>
                     )}
                     <div className="flex flex-col items-center w-full">
@@ -2332,21 +2503,21 @@ export default function DashboardPage() {
         </div>
       ) : (
         /* ==================================================================== */
-        /* VISTA DASHBOARD DE ASSET MANAGEMENT (AUTOMATIZADOR DE TAREAS)        */
+        /* VISTA DASHBOARD DE OPERACIÓN (AUTOMATIZADOR DE OPERACIÓN)            */
         /* ==================================================================== */
         <>
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
             <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Botón para volver a la cuadrícula de módulos */}
+                {/* Botón para volver a Operación del día */}
                 <button
                   type="button"
-                  onClick={() => setActiveModule("modules")}
+                  onClick={() => setActiveModule("operacion_dia")}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs group cursor-pointer"
-                  title="Regresar a Módulos"
+                  title="Regresar a Operación del día"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                  <span className="hidden sm:inline">Módulos</span>
+                  <span className="hidden sm:inline">Operación del día</span>
                 </button>
 
                 <div className="h-7 w-px bg-slate-200 hidden sm:block" />
@@ -2364,7 +2535,7 @@ export default function DashboardPage() {
 
                 <div className="hidden sm:flex items-center gap-2.5">
                   <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                    Automatizador de tareas
+                    Automatizador de operación
                   </h1>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
                     KST / Kyndryl
