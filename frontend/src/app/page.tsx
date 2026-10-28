@@ -1020,10 +1020,10 @@ export default function DashboardPage() {
       {/* Cargador Universal con Logo Animado SupplyChain México */}
       <SupplyChainLoader active={Boolean(uploading || actionLoading)} />
 
-      {/* Toast Notification */}
+      {/* Toast Notification (Reubicado en bottom-6 right-8 para no tapar el header) */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all ${
+          className={`fixed bottom-6 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all ${
             toast.type === "success"
               ? "bg-emerald-50 border-emerald-300 text-emerald-800"
               : toast.type === "error"
@@ -2336,7 +2336,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <>
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
-            <div className="w-full max-w-[1850px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 {/* Botón para volver a la cuadrícula de módulos */}
                 <button
@@ -2403,7 +2403,7 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <main className="flex-1 w-full max-w-[1850px] mx-auto px-6 lg:px-10 py-5 space-y-6 relative z-10">
+          <main className="flex-1 w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 py-6 space-y-6 relative z-10">
             {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
             <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
               <div className="flex items-center gap-2">
@@ -2426,9 +2426,10 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) */}
-            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5">
-              <div className="md:col-span-2 xl:col-span-4 bg-white border-2 border-dashed border-slate-300 hover:border-[#233762] rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group">
+            {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) - Altura Compactada y Equilibrada */}
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-stretch">
+              {/* Dropzone de Ingesta (xl:col-span-4) alineado a la misma altura h-full min-h-[135px] */}
+              <div className="md:col-span-2 xl:col-span-4 bg-white border-2 border-dashed border-slate-300 hover:border-[#233762] rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group h-full min-h-[135px]">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -2438,8 +2439,8 @@ export default function DashboardPage() {
                   disabled={uploading}
                 />
                 <div className="flex items-start gap-3">
-                  <div className="p-3 rounded-xl bg-[#EFF3F9] text-[#233762] border border-[#233762]/20 group-hover:scale-105 transition-transform">
-                    <UploadCloud className="w-6 h-6" />
+                  <div className="p-2.5 rounded-xl bg-[#EFF3F9] text-[#233762] border border-[#233762]/20 group-hover:scale-105 transition-transform shrink-0">
+                    <UploadCloud className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-[#233762]">Ingestar Reporte ServiceNow</h3>
@@ -2447,13 +2448,13 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-mono truncate max-w-[200px]" title={batchData?.batch_filename}>
                     {batchData?.batch_filename ? batchData.batch_filename : "Sin archivo activo"}
                   </span>
                   <button
                     type="button"
-                    className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold shadow-sm transition"
+                    className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold shadow-xs transition cursor-pointer"
                   >
                     {uploading ? "Procesando..." : "Examinar..."}
                   </button>
@@ -2461,73 +2462,81 @@ export default function DashboardPage() {
               </div>
 
               {/* Tarjeta KPI 1: Total Órdenes */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-[#233762]" />
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#233762]">Total Órdenes</span>
                   <Package className="w-4 h-4 text-[#233762]" />
                 </div>
-                <div className="mt-2">
-                  <span className="text-3xl font-extrabold text-[#233762] font-mono">
+                <div>
+                  <span className="text-4xl font-extrabold tracking-tight font-mono text-[#233762] my-2 block">
                     {batchData?.metrics.total_orders || 0}
                   </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Ida y Retorno (-1)</p>
+                  <p className="text-[11px] text-slate-400">Ida y Retorno (-1)</p>
                 </div>
               </div>
 
               {/* Tarjeta KPI 2: Confirmadas 100% */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmadas</span>
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 </div>
-                <div className="mt-2">
-                  <span className="text-3xl font-extrabold text-emerald-600 font-mono">
+                <div>
+                  <span className="text-4xl font-extrabold tracking-tight font-mono text-emerald-600 my-2 block">
                     {batchData?.metrics.confirmed_100 || 0}
                   </span>
-                  <p className="text-[11px] text-emerald-600/80 mt-0.5">Semáforo Verde</p>
+                  <p className="text-[11px] text-emerald-600/80">Semáforo Verde</p>
                 </div>
               </div>
 
               {/* Tarjeta KPI 3: Por Revisar */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Por Revisar</span>
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                 </div>
-                <div className="mt-2">
-                  <span className="text-3xl font-extrabold text-amber-600 font-mono">
+                <div>
+                  <span className="text-4xl font-extrabold tracking-tight font-mono text-amber-600 my-2 block">
                     {batchData?.metrics.review || 0}
                   </span>
-                  <p className="text-[11px] text-amber-700/80 mt-0.5">Semáforo Amarillo</p>
+                  <p className="text-[11px] text-amber-700/80">Semáforo Amarillo</p>
                 </div>
               </div>
 
               {/* Tarjeta KPI 4: Bloqueadas por Error */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-[#CE3A39]" />
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#CE3A39]">Bloqueadas</span>
                   <XCircle className="w-4 h-4 text-[#CE3A39]" />
                 </div>
-                <div className="mt-2">
-                  <span className="text-3xl font-extrabold text-[#CE3A39] font-mono">
+                <div>
+                  <span className="text-4xl font-extrabold tracking-tight font-mono text-[#CE3A39] my-2 block">
                     {batchData?.metrics.error_blocked || 0}
                   </span>
-                  <p className="text-[11px] text-[#CE3A39]/80 mt-0.5">Teléfono / CP Inválido</p>
+                  <p className="text-[11px] text-[#CE3A39]/80">Teléfono / CP Inválido</p>
                 </div>
               </div>
             </section>
 
-            {/* ZONA 2: Barra Maestra de Acciones Techship y Descargas */}
-            <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            {/* ZONA 2: Barra Maestra de Acciones Techship y Descargas - Mejor Distribución y Bloque Identificador */}
+            <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-4.5 shadow-sm flex flex-wrap items-center justify-between gap-4">
+              {/* Lado Izquierdo: Bloque Identificador + Botones de Acción Operativa */}
               <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/90 mr-1 shadow-2xs">
+                  <Zap className="w-3.5 h-3.5 text-[#CE3A39]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+                    FLUJO TECHSHIP API:
+                  </span>
+                </div>
+
                 <button
                   onClick={() => setShowLiveModal(true)}
                   disabled={!hasOrders || actionLoading === "live"}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs sm:text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Zap className="w-4 h-4 fill-white" />
                   <span>{actionLoading === "live" ? "Timbrando..." : "1. Timbrar Guías en Techship"}</span>
@@ -2536,16 +2545,17 @@ export default function DashboardPage() {
                 <button
                   onClick={handleSyncClosing}
                   disabled={!hasOrders || actionLoading === "sync"}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Truck className="w-4 h-4" />
                   <span>{actionLoading === "sync" ? "Sincronizando..." : "2. Sincronizar Cierre y Etiquetas"}</span>
                 </button>
               </div>
 
+              {/* Lado Derecho: Descargas Agrupadas */}
               {batchData ? (
-                <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
-                  <span className="text-xs text-slate-500 font-bold mr-1 hidden md:inline">Descargar:</span>
+                <div className="flex flex-wrap items-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-4">
+                  <span className="text-xs text-slate-500 font-bold mr-1 hidden sm:inline">Descargas:</span>
 
                   <button
                     onClick={() => handleDownload("cierre_excel")}
@@ -2555,9 +2565,9 @@ export default function DashboardPage() {
                         ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
                         : "Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
                     }
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#233762]" />
                     <span>Cierre.xlsx</span>
                   </button>
 
@@ -2569,9 +2579,9 @@ export default function DashboardPage() {
                         ? "Disponible tras ejecutar '3. Sincronizar Cierre y Etiquetas'"
                         : "Descargar o imprimir PDF consolidado de etiquetas"
                     }
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <FileText className="w-3.5 h-3.5" />
+                    <FileText className="w-3.5 h-3.5 text-[#CE3A39]" />
                     <span>Etiquetas.pdf</span>
                   </button>
 
@@ -2579,9 +2589,9 @@ export default function DashboardPage() {
                     onClick={() => handleDownload("techship_excel")}
                     disabled={batchData.files_available?.techship_excel === false}
                     title="Descargar Guias_Techship_Importada_*.xlsx"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
                     <span>Techship.xlsx</span>
                   </button>
 
@@ -2589,14 +2599,14 @@ export default function DashboardPage() {
                     onClick={() => handleDownload("auditoria_excel")}
                     disabled={batchData.files_available?.auditoria_excel === false}
                     title="Descargar Auditoria_Direcciones_*.xlsx con bitácora"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-amber-700" />
                     <span>Auditoría.xlsx</span>
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4 text-xs text-slate-400 italic">
+                <div className="flex items-center gap-1.5 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-4 text-xs text-slate-400 italic">
                   <FileSpreadsheet className="w-3.5 h-3.5 opacity-50" />
                   <span>Sin archivos para descargar</span>
                 </div>
