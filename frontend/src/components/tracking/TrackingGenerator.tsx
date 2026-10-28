@@ -891,17 +891,6 @@ export default function TrackingGenerator({
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Restaurar órdenes del día</span>
             </button>
-
-            {/* Toggle de Retornos */}
-            <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-100 transition select-none">
-              <input
-                type="checkbox"
-                checked={includeReturns}
-                onChange={(e) => handleToggleReturns(e.target.checked)}
-                className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-[#233762]"
-              />
-              <span>Incluir retornos (-1)</span>
-            </label>
           </div>
 
           {/* Botones de Vista Previa, Impresión y Descarga */}
