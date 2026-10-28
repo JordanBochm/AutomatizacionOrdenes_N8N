@@ -73,6 +73,30 @@ function ensurePickOrderPrefix(account: string, rawPickOrder: string): string {
   return `${prefix}${suffix}`;
 }
 
+/**
+ * Valida que todas las columnas de una fila estén llenadas correctamente antes de permitir agregar otra
+ */
+function getMissingRowFields(row: TrackingRow): string[] {
+  const missing: string[] = [];
+  const { carrierName, accountName } = resolveCarrierAndAccount(row);
+  if (!carrierName.trim()) {
+    missing.push("Carrier");
+  }
+  if (!accountName.trim()) {
+    missing.push("Cuenta");
+  }
+  if (!(row.tracking_number || "").trim()) {
+    missing.push("Tracking Number");
+  }
+  if (!extractUserSuffix(row.pick_order).trim()) {
+    missing.push("Pick Order (RITM)");
+  }
+  if (!(row.customer_order || "").trim()) {
+    missing.push("CUSTOMER ORDER");
+  }
+  return missing;
+}
+
 export default function TrackingGenerator({
   batchData,
   apiBase,
@@ -122,6 +146,9 @@ export default function TrackingGenerator({
     targetLabel?: string;
     count?: number;
   } | null>(null);
+
+  // Fila resaltada cuando el usuario intenta agregar otra sin completar la anterior
+  const [incompleteRowId, setIncompleteRowId] = useState<string | null>(null);
 
   // Referencia al iframe para impresión directa
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -411,6 +438,36 @@ export default function TrackingGenerator({
   // 7. MANEJO DE ACCIONES EN LA TABLA
   // ---------------------------------------------------------------------------
   const handleAddRow = () => {
+    if (rows.length > 0) {
+      // Revisar primero la fila anterior (última fila) y cualquier fila con columnas vacías
+      const lastIndex = rows.length - 1;
+      const lastRow = rows[lastIndex];
+      const lastRowMissing = getMissingRowFields(lastRow);
+
+      if (lastRowMissing.length > 0) {
+        setIncompleteRowId(lastRow.id);
+        triggerToast(
+          `Completa todos los datos de la Fila #${lastIndex + 1} antes de agregar otra (${lastRowMissing.join(", ")}).`,
+          "error"
+        );
+        return;
+      }
+
+      // Verificar si alguna otra fila previa quedó incompleta
+      for (let i = 0; i < rows.length; i++) {
+        const missing = getMissingRowFields(rows[i]);
+        if (missing.length > 0) {
+          setIncompleteRowId(rows[i].id);
+          triggerToast(
+            `Completa todos los datos de la Fila #${i + 1} antes de agregar otra (${missing.join(", ")}).`,
+            "error"
+          );
+          return;
+        }
+      }
+    }
+
+    setIncompleteRowId(null);
     const newRow: TrackingRow = {
       id: `trk-manual-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       carrier: "ESTAFETAREST",
@@ -452,6 +509,10 @@ export default function TrackingGenerator({
           } else {
             updated.pick_order = ensurePickOrderPrefix(nextAcc, row.pick_order);
           }
+        }
+
+        if (incompleteRowId === id && getMissingRowFields(updated).length === 0) {
+          setIncompleteRowId(null);
         }
 
         return updated;
@@ -826,12 +887,18 @@ export default function TrackingGenerator({
                   const { carrierName, accountName } = resolveCarrierAndAccount(row);
                   const normalizedAccount = accountName.toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
                   const pickOrderValue = ensurePickOrderPrefix(normalizedAccount, row.pick_order);
+                  const pickOrderSuffixClean = extractUserSuffix(row.pick_order).trim();
 
+                  const isIncompleteHighlighted = incompleteRowId === row.id;
+                  const isMissingCarrier = !carrierName.trim();
                   const isMissingTrk = !trkClean;
+                  const isMissingPickSuffix = !pickOrderSuffixClean;
+                  const isMissingCustomerOrder = !ritmClean;
+
                   const isDuplicateTrk = validationSummary.duplicateTrkSet.has(trkClean);
                   const isDuplicateRitm = validationSummary.duplicateRitmSet.has(ritmClean);
 
-                  const hasError = isDuplicateTrk || isDuplicateRitm;
+                  const hasError = isDuplicateTrk || isDuplicateRitm || isIncompleteHighlighted;
                   const hasWarning = isMissingTrk && !hasError;
 
                   const rowBgClass = isSelected
@@ -866,7 +933,11 @@ export default function TrackingGenerator({
                           type="text"
                           value={carrierName}
                           onChange={(e) => handleCellChange(row.id, "carrier", e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs text-center rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] font-semibold text-slate-800 focus:outline-none transition"
+                          className={`w-full px-2 py-1.5 text-xs text-center rounded-lg border font-semibold focus:outline-none transition ${
+                            isIncompleteHighlighted && isMissingCarrier
+                              ? "bg-red-50 border-red-400 text-red-900 focus:border-red-500"
+                              : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-800"
+                          }`}
                           placeholder="ESTAFETAREST"
                         />
                       </td>
@@ -892,8 +963,8 @@ export default function TrackingGenerator({
                             value={row.tracking_number}
                             onChange={(e) => handleCellChange(row.id, "tracking_number", e.target.value)}
                             className={`w-full px-3 py-1.5 text-xs font-mono text-center rounded-lg border transition focus:outline-none ${
-                              isDuplicateTrk
-                                ? "bg-red-50 border-red-300 text-red-800 focus:border-red-500 font-bold pr-20"
+                              isDuplicateTrk || (isIncompleteHighlighted && isMissingTrk)
+                                ? "bg-red-50 border-red-400 text-red-800 focus:border-red-500 font-bold pr-20"
                                 : isMissingTrk
                                 ? "bg-amber-50 border-amber-300 text-amber-800 focus:border-amber-500 pr-16"
                                 : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-900"
@@ -919,7 +990,11 @@ export default function TrackingGenerator({
                           type="text"
                           value={pickOrderValue}
                           onChange={(e) => handleCellChange(row.id, "pick_order", e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs font-mono text-center text-slate-800 rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] focus:outline-none transition"
+                          className={`w-full px-3 py-1.5 text-xs font-mono text-center rounded-lg border focus:outline-none transition ${
+                            isIncompleteHighlighted && isMissingPickSuffix
+                              ? "bg-red-50 border-red-400 text-red-900 focus:border-red-500 font-bold"
+                              : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-800"
+                          }`}
                         />
                       </td>
 
@@ -933,6 +1008,8 @@ export default function TrackingGenerator({
                             className={`w-full px-3 py-1.5 text-xs font-mono text-center rounded-lg border transition focus:outline-none ${
                               isDuplicateRitm
                                 ? "bg-red-50 border-red-300 text-red-800 focus:border-red-500 font-bold pr-14"
+                                : isIncompleteHighlighted && isMissingCustomerOrder
+                                ? "bg-red-50 border-red-400 text-red-900 focus:border-red-500 font-bold"
                                 : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-900"
                             }`}
                             placeholder={normalizedAccount === "BASF" ? "BRITM..." : "RITM..."}
