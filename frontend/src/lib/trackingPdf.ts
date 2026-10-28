@@ -182,16 +182,17 @@ export function buildTrackingPdf(
   }
 
   // -------------------------------------------------------------
-  // 2. FRANJA AZUL MARINO DE TÍTULO (ESTILO TRACKING_28_Octubre)
+  // 2. TÍTULO SUPERIOR "Asset Management" Y FRANJA AZUL MARINO
   // -------------------------------------------------------------
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(...COLOR_NAVY);
+  doc.text("Asset Management", centerX, 16.2, { align: "center" });
+
   const bannerY = 19.5;
   const bannerH = 8.2;
   doc.setFillColor(...COLOR_NAVY);
   doc.rect(marginLeft, bannerY, tableWidth, bannerH, "F");
-
-  // Pequeño acento rojo oficial en el borde inferior de la barra de título
-  doc.setFillColor(...COLOR_RED);
-  doc.rect(marginLeft + tableWidth / 2, bannerY + bannerH - 0.6, tableWidth / 2, 0.6, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13.5);
@@ -199,10 +200,18 @@ export function buildTrackingPdf(
   const mainTitle = (header.title || "GUÍAS PARA LAS ÓRDENES DEL DÍA").toUpperCase();
   doc.text(mainTitle, centerX, bannerY + 5.7, { align: "center" });
 
+  // Línea bicolor oficial (Azul Marino y Rojo) ligeramente abajo con separación limpia
+  const officialLineY = bannerY + bannerH + 1.4;
+  const officialLineH = 0.75;
+  doc.setFillColor(...COLOR_NAVY);
+  doc.rect(marginLeft, officialLineY, tableWidth / 2, officialLineH, "F");
+  doc.setFillColor(...COLOR_RED);
+  doc.rect(marginLeft + tableWidth / 2, officialLineY, tableWidth / 2, officialLineH, "F");
+
   // -------------------------------------------------------------
   // 3. FECHA EN CURSIVA Y CLIENTES CENTRADOS
   // -------------------------------------------------------------
-  const dateY = bannerY + bannerH + 4.5; // ~32.2 mm
+  const dateY = officialLineY + officialLineH + 4.2;
   doc.setFont("helvetica", "italic");
   doc.setFontSize(9.5);
   doc.setTextColor(80, 90, 105);
