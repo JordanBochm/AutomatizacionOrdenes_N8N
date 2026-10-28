@@ -64,7 +64,7 @@ export default function TrackingGenerator({
 
   const draftStorageKey = useMemo(() => `sc_tracking_draft_${todayStr}`, [todayStr]);
 
-  // Estados del encabezado editable
+  // Encabezado del PDF (título y clientes fijos por defecto; fecha seleccionable)
   const [headerInfo, setHeaderInfo] = useState<TrackingHeaderInfo>({
     title: "GUÍAS PARA LAS ÓRDENES DEL DÍA",
     date: todayStr,
@@ -212,7 +212,11 @@ export default function TrackingGenerator({
   // Restaurar borrador guardado
   const handleRestoreDraft = () => {
     if (draftDataToRestore) {
-      setHeaderInfo(draftDataToRestore.header || headerInfo);
+      setHeaderInfo({
+        title: "GUÍAS PARA LAS ÓRDENES DEL DÍA",
+        date: draftDataToRestore.header?.date || todayStr,
+        clients: "KYNDRYL & BASF",
+      });
       setRows(draftDataToRestore.rows || []);
       setIncludeReturns(Boolean(draftDataToRestore.includeReturns));
       triggerToast("Borrador del día restaurado correctamente.", "success");
@@ -550,49 +554,27 @@ export default function TrackingGenerator({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* BARRA SUPERIOR: CAMPOS DE ENCABEZADO Y TOTALES                     */}
+      {/* BARRA SUPERIOR: FECHA DE CIERRE Y TOTALES AUTOMÁTICOS              */}
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5 mb-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          {/* Campos editables del encabezado */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 max-w-4xl">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Título del Reporte
-              </label>
-              <input
-                type="text"
-                value={headerInfo.title}
-                onChange={(e) => setHeaderInfo({ ...headerInfo, title: e.target.value })}
-                className="w-full px-3 py-1.5 text-xs font-bold text-[#233762] rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:border-[#233762] transition"
-                placeholder="Título del encabezado"
-              />
-            </div>
-            <div>
+          {/* Selector de Fecha del Cierre */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-56">
               <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Fecha del Cierre
               </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={headerInfo.date}
-                  onChange={(e) => setHeaderInfo({ ...headerInfo, date: e.target.value })}
-                  className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:border-[#233762] transition"
-                />
-              </div>
-              <p className="text-[10px] text-slate-400 mt-0.5 truncate">{formatLongDate(headerInfo.date)}</p>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Clientes / Cuenta
-              </label>
               <input
-                type="text"
-                value={headerInfo.clients}
-                onChange={(e) => setHeaderInfo({ ...headerInfo, clients: e.target.value })}
+                type="date"
+                value={headerInfo.date}
+                onChange={(e) => setHeaderInfo({ ...headerInfo, date: e.target.value })}
                 className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:border-[#233762] transition"
-                placeholder="Clientes"
               />
+            </div>
+            <div className="pt-4">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600">
+                {formatLongDate(headerInfo.date)}
+              </span>
             </div>
           </div>
 
