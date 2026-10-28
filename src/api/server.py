@@ -181,7 +181,23 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
                 incidencias_por_orden.setdefault(ritm, []).append(detalle)
         except Exception:
             pass
-            
+
+    # Cargar guías de Cierre si existe para obtener los tracking numbers timbrados
+    tracking_por_orden = {}
+    cierre_cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
+    if not cierre_cand:
+        cierre_cand = sorted((PROJECT_ROOT / "data" / "archive").glob("**/output/Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
+    if cierre_cand:
+        try:
+            df_cierre = pd.read_excel(cierre_cand[0])
+            for _, r in df_cierre.iterrows():
+                parent_val = str(r.get("Parent", "")).strip()
+                trk_val = str(r.get("Tracking Number", "")).strip()
+                if parent_val and trk_val and trk_val.lower() != "nan" and not trk_val.startswith("ERROR"):
+                    tracking_por_orden[parent_val] = trk_val
+        except Exception:
+            pass
+
     total_orders = 0
     confirmadas_100 = 0
     revisar = 0
@@ -265,6 +281,8 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             "status_semaphore": semaphore,
             "status_text": status_text,
             "incidents": incidents,
+            "tracking_number": tracking_por_orden.get(co),
+            "carrier": "ESTAFETAREST KYNDRYL",
         })
         
     cierre_cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
@@ -579,6 +597,57 @@ def sync_closing(req: TechshipSyncRequest = Body(default_factory=TechshipSyncReq
         "etiquetas_pdf_filename": pdf_path.name if pdf_path.is_file() else None,
         "message": "Cierre y PDF de etiquetas sincronizados correctamente desde Techship.",
     }
+
+
+@app.get("/api/techship/tracking")
+def get_techship_tracking():
+    """
+    Devuelve la lista de números de guía y carrier asociados a las órdenes del lote actual
+    o del Cierre más reciente generado.
+    """
+    guias_path, _, _ = _encontrar_archivos_lote_activo()
+    tracking_map = {}
+    
+    # 1. Buscar en Cierre_*.xlsx en output o archive
+    cierre_cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
+    if not cierre_cand:
+        cierre_cand = sorted((PROJECT_ROOT / "data" / "archive").glob("**/output/Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
+    if cierre_cand:
+        try:
+            df_c = pd.read_excel(cierre_cand[0])
+            for _, r in df_c.iterrows():
+                p = str(r.get("Parent", "")).strip()
+                t = str(r.get("Tracking Number", "")).strip()
+                if p and t and t.lower() != "nan" and not t.startswith("ERROR"):
+                    tracking_map[p] = t
+        except Exception:
+            pass
+
+    # Si hay lote activo, devolver todas las órdenes del lote con su tracking
+    result = []
+    if guias_path and guias_path.is_file():
+        try:
+            df_guias = pd.read_excel(guias_path, sheet_name="Import Orders")
+            for _, r in df_guias.iterrows():
+                co = str(r.get("CustomerOrder", "")).strip()
+                if co and co.lower() != "nan":
+                    result.append({
+                        "order_id": co,
+                        "tracking_number": tracking_map.get(co, ""),
+                        "carrier": "ESTAFETAREST KYNDRYL",
+                    })
+        except Exception:
+            pass
+            
+    if not result and tracking_map:
+        for p, t in tracking_map.items():
+            result.append({
+                "order_id": p,
+                "tracking_number": t,
+                "carrier": "ESTAFETAREST KYNDRYL",
+            })
+            
+    return result
 
 
 @app.get("/api/files/download/{file_type}")
