@@ -554,7 +554,7 @@ export default function TrackingGenerator({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* BARRA SUPERIOR: FECHA DE CIERRE Y TOTALES AUTOMÁTICOS              */}
+      {/* BARRA SUPERIOR: FECHA DE CIERRE                                    */}
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5 mb-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -575,42 +575,6 @@ export default function TrackingGenerator({
               <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600">
                 {formatLongDate(headerInfo.date)}
               </span>
-            </div>
-          </div>
-
-          {/* Totales Automáticos */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <div className="px-3.5 py-2 rounded-xl bg-[#D9E2F3]/60 border border-[#233762]/20 flex items-center gap-2.5">
-              <Box className="w-4 h-4 text-[#233762]" />
-              <div>
-                <p className="text-[10px] font-bold text-[#233762] uppercase tracking-wider">Total Órdenes</p>
-                <p className="text-base font-extrabold text-[#233762] leading-none">{totals.totalOrders}</p>
-              </div>
-            </div>
-
-            <div className="px-3.5 py-2 rounded-xl bg-[#D9E2F3]/60 border border-[#233762]/20 flex items-center gap-2.5">
-              <Layers className="w-4 h-4 text-[#233762]" />
-              <div>
-                <p className="text-[10px] font-bold text-[#233762] uppercase tracking-wider"># de Cajas</p>
-                <p className="text-base font-extrabold text-[#233762] leading-none">{totals.totalBoxes}</p>
-              </div>
-            </div>
-
-            {/* Conteo por Carrier (ej. ESTAFETA: 20) */}
-            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2 text-xs">
-              <Truck className="w-3.5 h-3.5 text-[#CE3A39]" />
-              <div className="flex items-center gap-2 text-slate-700 font-mono font-semibold">
-                {Object.entries(totals.carrierMap).length > 0 ? (
-                  Object.entries(totals.carrierMap).map(([carrierName, count]) => (
-                    <span key={carrierName} className="inline-flex items-center gap-1">
-                      <span className="text-slate-600">{carrierName}:</span>
-                      <span className="font-bold text-[#233762]">{count}</span>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-slate-400">ESTAFETA: 0</span>
-                )}
-              </div>
             </div>
           </div>
         </div>
