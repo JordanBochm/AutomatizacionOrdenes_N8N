@@ -412,8 +412,8 @@ export function buildTrackingPdf(
     doc.setFontSize(7.2);
     doc.setTextColor(...COLOR_SLATE_MUTED);
 
-    doc.text("SupplyChain México • Operación SEKO Logistics / KST", marginLeft, textY);
-    doc.text(`Generado por ${userName} el ${nowStamp}`, centerX, textY, { align: "center" });
+    doc.text("SupplyChain México", marginLeft, textY);
+    doc.text(`Generado el ${nowStamp}`, centerX, textY, { align: "center" });
 
     doc.setFont("helvetica", "bold");
     doc.text(`Página ${i} de ${totalPages}`, marginLeft + tableWidth, textY, { align: "right" });
