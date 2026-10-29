@@ -350,6 +350,18 @@ export default function DashboardPage() {
     sync_counterpart: true,
   });
 
+  // Selección de órdenes para eliminación por bloque (Automatizador)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+
+  // Modal de confirmación para eliminar órdenes del lote
+  const [deleteOrderDialog, setDeleteOrderDialog] = useState<{
+    mode: "single" | "selected";
+    targetOrderIds: string[];
+    targetLabel?: string;
+    count: number;
+    includeCounterparts: boolean;
+  } | null>(null);
+
   // Modales de Techship y Archivo
   const [showLiveModal, setShowLiveModal] = useState<boolean>(false);
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
@@ -768,6 +780,7 @@ export default function DashboardPage() {
 
       const data = await res.json();
       setBatchData(data);
+      setSelectedOrderIds(new Set());
       triggerToast(`Lote procesado exitosamente: ${file.name}`, "success");
     } catch (err: any) {
       triggerToast(err.message || "Error al cargar archivo", "error");
@@ -775,6 +788,123 @@ export default function DashboardPage() {
       setUploading(false);
       setActionLoading(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleToggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllOrders = () => {
+    setSelectedOrderIds((prev) => {
+      if (prev.size === filteredOrders.length && filteredOrders.length > 0) {
+        return new Set();
+      }
+      return new Set(filteredOrders.map((o) => o.order_id));
+    });
+  };
+
+  const handleRequestDeleteSingleOrder = (order: OrderItem) => {
+    const isReturn = order.order_id.endsWith("-1");
+    const baseId = isReturn ? order.order_id.slice(0, -2) : order.order_id;
+    const counterpartId = isReturn ? baseId : `${baseId}-1`;
+    const hasCounterpart = batchData?.orders.some((o) => o.order_id === counterpartId);
+
+    setDeleteOrderDialog({
+      mode: "single",
+      targetOrderIds: [order.order_id],
+      targetLabel: `${order.order_id} (${order.recipient_name})`,
+      count: 1,
+      includeCounterparts: Boolean(hasCounterpart),
+    });
+  };
+
+  const handleRequestDeleteSelectedOrders = () => {
+    if (selectedOrderIds.size === 0) return;
+    setDeleteOrderDialog({
+      mode: "selected",
+      targetOrderIds: Array.from(selectedOrderIds),
+      count: selectedOrderIds.size,
+      includeCounterparts: true,
+    });
+  };
+
+  const removeOrdersLocally = (orderIds: string[], includeCounterparts: boolean) => {
+    if (!batchData) return;
+    const targetSet = new Set(orderIds);
+    if (includeCounterparts) {
+      orderIds.forEach((id) => {
+        if (id.endsWith("-1")) targetSet.add(id.slice(0, -2));
+        else targetSet.add(`${id}-1`);
+      });
+    }
+    const remaining = batchData.orders.filter((o) => !targetSet.has(o.order_id));
+    let conf = 0, rev = 0, err = 0;
+    remaining.forEach((o) => {
+      if (o.status_semaphore === "VERDE") conf++;
+      else if (o.status_semaphore === "AMARILLO") rev++;
+      else err++;
+    });
+    setBatchData({
+      ...batchData,
+      metrics: {
+        total_orders: remaining.length,
+        confirmed_100: conf,
+        review: rev,
+        error_blocked: err,
+      },
+      orders: remaining,
+    });
+  };
+
+  const handleConfirmDeleteOrders = async () => {
+    if (!deleteOrderDialog || deleteOrderDialog.targetOrderIds.length === 0) return;
+
+    try {
+      setActionLoading("delete_order");
+      const res = await fetch(`${API_BASE}/api/batches/delete-orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_ids: deleteOrderDialog.targetOrderIds,
+          delete_counterparts: deleteOrderDialog.includeCounterparts,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.batch) {
+          setBatchData(data.batch);
+        } else {
+          removeOrdersLocally(deleteOrderDialog.targetOrderIds, deleteOrderDialog.includeCounterparts);
+        }
+        triggerToast(
+          deleteOrderDialog.mode === "single"
+            ? `Orden ${deleteOrderDialog.targetLabel || ""} eliminada del lote.`
+            : `${deleteOrderDialog.count} orden(es) eliminada(s) del lote.`,
+          "info"
+        );
+      } else {
+        removeOrdersLocally(deleteOrderDialog.targetOrderIds, deleteOrderDialog.includeCounterparts);
+        triggerToast("Orden(es) omitida(s) de la vista del lote.", "info");
+      }
+
+      setSelectedOrderIds((prev) => {
+        const next = new Set(prev);
+        deleteOrderDialog.targetOrderIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } catch (err: any) {
+      removeOrdersLocally(deleteOrderDialog.targetOrderIds, deleteOrderDialog.includeCounterparts);
+      triggerToast("Orden(es) removida(s) localmente.", "info");
+    } finally {
+      setActionLoading(null);
+      setDeleteOrderDialog(null);
     }
   };
 
@@ -924,6 +1054,7 @@ export default function DashboardPage() {
       setSearchTerm("");
       setActiveTab("ALL");
       setEditingOrder(null);
+      setSelectedOrderIds(new Set());
 
       if (data.skipped?.length) {
         triggerToast(
@@ -2966,6 +3097,26 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
+                {/* Botón para eliminar órdenes seleccionadas */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRequestDeleteSelectedOrders}
+                    disabled={!hasOrders || selectedOrderIds.size === 0}
+                    title="Eliminar órdenes seleccionadas del lote para que no se procesen"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-2xs ${
+                      selectedOrderIds.size > 0
+                        ? "border-red-200 bg-red-50 text-[#CE3A39] hover:bg-red-100 cursor-pointer"
+                        : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      Eliminar seleccionadas {selectedOrderIds.size > 0 ? `(${selectedOrderIds.size})` : ""}
+                    </span>
+                  </button>
+                </div>
+
                 <div className="relative flex-1 max-w-xs">
                   <Search
                     className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
@@ -2989,6 +3140,19 @@ export default function DashboardPage() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-3 w-10 text-center select-none">
+                        <input
+                          type="checkbox"
+                          disabled={!hasOrders || filteredOrders.length === 0}
+                          checked={
+                            filteredOrders.length > 0 &&
+                            filteredOrders.every((o) => selectedOrderIds.has(o.order_id))
+                          }
+                          onChange={handleToggleSelectAllOrders}
+                          className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
+                          aria-label="Seleccionar todas las órdenes"
+                        />
+                      </th>
                       <th className="py-3 px-4">Tipo</th>
                       <th className="py-3 px-4">Orden (RITM)</th>
                       <th className="py-3 px-4">Semáforo</th>
@@ -3002,7 +3166,7 @@ export default function DashboardPage() {
                   <tbody className="divide-y divide-slate-200">
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
+                        <td colSpan={9} className="py-12 text-center text-slate-400 font-medium">
                           {batchData
                             ? "No hay órdenes que coincidan con los filtros seleccionados."
                             : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
@@ -3014,13 +3178,30 @@ export default function DashboardPage() {
                         const isWarning = order.status_semaphore === "AMARILLO";
                         const isGreen = order.status_semaphore === "VERDE";
 
+                        const isSelected = selectedOrderIds.has(order.order_id);
+
                         return (
                           <tr
                             key={order.order_id}
-                            className={`hover:bg-slate-50 transition-colors ${
-                              isError ? "bg-red-50/50" : isWarning ? "bg-amber-50/30" : ""
+                            className={`transition-colors ${
+                              isSelected
+                                ? "bg-blue-50/70 hover:bg-blue-100/60"
+                                : isError
+                                ? "bg-red-50/50 hover:bg-red-50/80"
+                                : isWarning
+                                ? "bg-amber-50/30 hover:bg-amber-50/60"
+                                : "hover:bg-slate-50"
                             }`}
                           >
+                            <td className="py-3 px-3 text-center select-none">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleSelectOrder(order.order_id)}
+                                className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
+                                aria-label={`Seleccionar orden ${order.order_id}`}
+                              />
+                            </td>
                             <td className="py-3 px-4 whitespace-nowrap">
                               {order.type === "RETURN" ? (
                                 <span className="px-2 py-0.5 rounded-md bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 font-mono text-[10px] font-bold">
@@ -3090,13 +3271,25 @@ export default function DashboardPage() {
                             </td>
 
                             <td className="py-3 px-4 text-center whitespace-nowrap">
-                              <button
-                                onClick={() => handleOpenEdit(order)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs cursor-pointer"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                                <span>Corregir</span>
-                              </button>
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(order)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs cursor-pointer"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Corregir</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRequestDeleteSingleOrder(order)}
+                                  title="Eliminar fila del lote (no procesar)"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-500 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 text-xs font-semibold transition shadow-2xs cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-[#CE3A39]" />
+                                  <span>Eliminar</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -3107,6 +3300,85 @@ export default function DashboardPage() {
               </div>
             </section>
           </main>
+
+          {/* MODAL DE CONFIRMACIÓN: ELIMINAR FILAS DEL LOTE OPERATIVO */}
+          {deleteOrderDialog && (
+            <div
+              className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+              onClick={() => setDeleteOrderDialog(null)}
+            >
+              <div
+                className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-11 h-11 rounded-2xl bg-red-50 border border-red-100 text-[#CE3A39] flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-extrabold text-slate-900">
+                        {deleteOrderDialog.mode === "single"
+                          ? "¿Estás seguro de eliminar esta orden del lote?"
+                          : `¿Estás seguro de eliminar ${deleteOrderDialog.count} orden(es) del lote?`}
+                      </h3>
+                      <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                        {deleteOrderDialog.mode === "single" ? (
+                          <>
+                            Se excluirá la orden{" "}
+                            <span className="font-bold font-mono text-slate-900">{deleteOrderDialog.targetLabel}</span>{" "}
+                            del lote operativo para que no sea timbrada ni procesada en Techship.
+                          </>
+                        ) : (
+                          <>
+                            Estás a punto de excluir{" "}
+                            <span className="font-bold text-slate-900">{deleteOrderDialog.count} orden(es)</span> del lote
+                            operativo para que no sean timbradas ni procesadas en Techship.
+                          </>
+                        )}
+                      </p>
+
+                      {/* Opción de eliminar contraparte (-1) */}
+                      <label className="flex items-start gap-2.5 mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 cursor-pointer hover:bg-slate-100/70 transition">
+                        <input
+                          type="checkbox"
+                          checked={deleteOrderDialog.includeCounterparts}
+                          onChange={(e) =>
+                            setDeleteOrderDialog({
+                              ...deleteOrderDialog,
+                              includeCounterparts: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300 mt-0.5 cursor-pointer"
+                        />
+                        <span className="leading-snug">
+                          Eliminar también su orden par de Retorno (<span className="font-mono font-bold">-1</span>) para evitar envíos huérfanos.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-end gap-2.5 border-t border-slate-100 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteOrderDialog(null)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading === "delete_order"}
+                      onClick={handleConfirmDeleteOrders}
+                      className="px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer disabled:opacity-50"
+                    >
+                      {actionLoading === "delete_order" ? "Eliminando..." : "Sí, eliminar del lote"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* MODAL DE EDICIÓN EN CALIENTE */}
           {editingOrder && (

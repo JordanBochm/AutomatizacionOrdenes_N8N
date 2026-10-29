@@ -114,6 +114,14 @@ class OrderPatchRequest(BaseModel):
     declared_value: Optional[float] = None
 
 
+class DeleteOrdersRequest(BaseModel):
+    order_ids: List[str]
+    delete_counterparts: bool = Field(
+        default=True,
+        description="Si es True, elimina también la orden par (-1 o su outbound original) para que no se procese",
+    )
+
+
 class TechshipProcessRequest(BaseModel):
     dry_run: bool = Field(default=False, description="True para simulación segura, False para timbrado real en Estafeta")
 
@@ -518,6 +526,81 @@ def patch_order(pick_order: str, updates: OrderPatchRequest):
         "message": f"Orden '{pick_order}' actualizada correctamente.",
         "batch": estado_lote,
     }
+
+
+@app.post("/api/batches/delete-orders")
+def delete_orders(req: DeleteOrdersRequest):
+    """
+    Elimina una o más órdenes del lote activo en 'Guias_Techship_Importada_*.xlsx'
+    y del reporte de auditoría 'Auditoria_Direcciones_*.xlsx' para que NO sean procesadas en Techship.
+    """
+    guias_path, audit_path, _ = _encontrar_archivos_lote_activo()
+    if not guias_path or not guias_path.is_file():
+        raise HTTPException(status_code=404, detail="No hay lote activo para modificar.")
+
+    if not req.order_ids:
+        raise HTTPException(status_code=400, detail="Debe especificar al menos una orden para eliminar.")
+
+    target_ids = set(str(o).strip() for o in req.order_ids if str(o).strip())
+    if req.delete_counterparts:
+        extras = set()
+        for oid in target_ids:
+            if oid.endswith("-1"):
+                extras.add(oid[:-2])
+            else:
+                extras.add(f"{oid}-1")
+        target_ids.update(extras)
+
+    wb_guias = openpyxl.load_workbook(guias_path)
+    ws_guias = wb_guias["Import Orders"]
+
+    headers_guias = {str(ws_guias.cell(1, c).value).strip(): c for c in range(1, ws_guias.max_column + 1)}
+    col_co = headers_guias.get("CustomerOrder")
+    if not col_co:
+        raise HTTPException(status_code=500, detail="Columna 'CustomerOrder' no encontrada en Import Orders.")
+
+    deleted_count = 0
+    for r in range(ws_guias.max_row, 1, -1):
+        val = str(ws_guias.cell(r, col_co).value or "").strip()
+        if val in target_ids:
+            ws_guias.delete_rows(r, 1)
+            deleted_count += 1
+
+    wb_guias.save(guias_path)
+
+    # También actualizar archivo de auditoría si existe
+    if audit_path and audit_path.is_file():
+        try:
+            wb_audit = openpyxl.load_workbook(audit_path)
+            if "Resumen Direcciones" in wb_audit.sheetnames:
+                ws_res = wb_audit["Resumen Direcciones"]
+                for r in range(ws_res.max_row, 1, -1):
+                    val = str(ws_res.cell(r, 1).value or "").strip()
+                    if val in target_ids:
+                        ws_res.delete_rows(r, 1)
+            if "Incidencias" in wb_audit.sheetnames:
+                ws_inc = wb_audit["Incidencias"]
+                for r in range(ws_inc.max_row, 1, -1):
+                    val = str(ws_inc.cell(r, 2).value or "").strip()
+                    if val in target_ids:
+                        ws_inc.delete_rows(r, 1)
+            wb_audit.save(audit_path)
+        except Exception as e:
+            print(f"[AVISO] No se pudo actualizar el archivo de auditoría al eliminar órdenes: {e}")
+
+    estado_lote = _parsear_estado_lote(guias_path, audit_path)
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"Se eliminaron {deleted_count} fila(s) del lote correctamente.",
+        "batch": estado_lote,
+    }
+
+
+@app.delete("/api/batches/order/{order_id}")
+def delete_single_order(order_id: str, delete_counterpart: bool = Query(default=True)):
+    """Elimina una orden individual y opcionalmente su par de retorno."""
+    return delete_orders(DeleteOrdersRequest(order_ids=[order_id], delete_counterparts=delete_counterpart))
 
 
 @app.post("/api/techship/process")
