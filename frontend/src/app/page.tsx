@@ -1006,6 +1006,18 @@ export default function DashboardPage() {
 
       const data = await res.json();
       triggerToast(data.message || "Cierre y PDF de etiquetas sincronizados correctamente.", "success");
+      setBatchData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          files_available: {
+            ...prev.files_available,
+            cierre_excel: true,
+            etiquetas_pdf: Boolean(data.etiquetas_pdf_filename || prev.files_available?.etiquetas_pdf || true),
+          },
+        };
+      });
+      await fetchHealthAndBatch();
     } catch (err: any) {
       triggerToast(err.message || "Error en sincronización de cierre", "error");
     } finally {
@@ -2986,7 +2998,7 @@ export default function DashboardPage() {
                     disabled={batchData.files_available?.etiquetas_pdf === false}
                     title={
                       batchData.files_available?.etiquetas_pdf === false
-                        ? "Disponible tras ejecutar '3. Sincronizar Cierre y Etiquetas'"
+                        ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
                         : "Descargar o imprimir PDF consolidado de etiquetas"
                     }
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -3003,16 +3015,6 @@ export default function DashboardPage() {
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
                     <span>Techship.xlsx</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleDownload("auditoria_excel")}
-                    disabled={batchData.files_available?.auditoria_excel === false}
-                    title="Descargar Auditoria_Direcciones_*.xlsx con bitácora"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Auditoría.xlsx</span>
                   </button>
                 </div>
               ) : (
