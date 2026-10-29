@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Trash2,
-  Plus,
   Copy,
   ClipboardPaste,
   ArrowUp,
@@ -11,16 +10,14 @@ import {
   Layers,
   AlertTriangle,
   Edit3,
-  ChevronDown,
 } from "lucide-react";
 import { TrackingRow } from "@/lib/trackingPdf";
 import {
   EDITABLE_COLUMNS,
   COLUMN_LABELS,
   EditableField,
-  isScientificNotation,
-  isUnknownClient,
   isRowEmptyData,
+  stripClientPickPrefix,
 } from "@/lib/tableClipboard";
 import {
   CellCoord,
@@ -74,8 +71,6 @@ interface TrackingGridProps {
   onOpenPasteHelper: () => void;
 }
 
-const CLIENT_OPTIONS = ["BASF", "KYNDRYL"];
-
 /**
  * Input único que se monta exclusivamente en la celda activa en modo edición
  */
@@ -88,8 +83,6 @@ const ActiveCellInput: React.FC<{
   onMoveAfterCommit: (deltaRow: number, deltaCol: number) => void;
 }> = ({ field, value, onChange, onCommit, onCancel, onMoveAfterCommit }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState<boolean>(field === "client");
-  const [highlightIdx, setHighlightIdx] = useState<number>(0);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -101,53 +94,12 @@ const ActiveCellInput: React.FC<{
     }
   }, []);
 
-  const filteredClients = useMemo(() => {
-    if (field !== "client") return [];
-    const q = (value || "").trim().toUpperCase();
-    if (!q) return CLIENT_OPTIONS;
-    const matches = CLIENT_OPTIONS.filter((opt) => opt.includes(q));
-    return matches.length > 0 ? matches : CLIENT_OPTIONS;
-  }, [field, value]);
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
       onCancel();
       return;
-    }
-
-    if (field === "client") {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!dropdownOpen) {
-          setDropdownOpen(true);
-          setHighlightIdx(0);
-        } else {
-          setHighlightIdx((prev) => (prev + 1) % filteredClients.length);
-        }
-        return;
-      }
-      if (e.key === "ArrowUp" && dropdownOpen) {
-        e.preventDefault();
-        e.stopPropagation();
-        setHighlightIdx((prev) => (prev - 1 + filteredClients.length) % filteredClients.length);
-        return;
-      }
-      if (e.key === "Enter" && dropdownOpen && filteredClients[highlightIdx]) {
-        const exactTyped = value.trim().toUpperCase();
-        // Si el usuario presionó flechas o escribió un prefijo parcial de BASF/KYNDRYL, usar la opción sugerida
-        const chosen =
-          CLIENT_OPTIONS.find((c) => c.startsWith(exactTyped)) ||
-          exactTyped ||
-          filteredClients[highlightIdx];
-        e.preventDefault();
-        e.stopPropagation();
-        onCommit(chosen);
-        onMoveAfterCommit(e.shiftKey ? -1 : 1, 0);
-        return;
-      }
     }
 
     if (e.key === "Enter") {
@@ -174,12 +126,7 @@ const ActiveCellInput: React.FC<{
         type={field === "boxes" ? "number" : "text"}
         min={field === "boxes" ? 1 : undefined}
         value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          if (field === "client") {
-            setDropdownOpen(true);
-          }
-        }}
+        onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => onCommit()}
         className={`w-full h-full px-2.5 py-1.5 text-xs bg-white text-slate-900 focus:outline-none ${
@@ -188,32 +135,6 @@ const ActiveCellInput: React.FC<{
             : "font-semibold text-center"
         }`}
       />
-
-      {field === "client" && dropdownOpen && (
-        <div
-          className="absolute left-0 top-full mt-1 w-full min-w-[130px] bg-white rounded-xl border border-slate-200 shadow-lg z-40 py-1 overflow-hidden"
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          {filteredClients.map((option, idx) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => {
-                onCommit(option);
-                onMoveAfterCommit(1, 0);
-              }}
-              className={`w-full px-3 py-1.5 text-left text-xs font-bold flex items-center justify-between transition cursor-pointer ${
-                idx === highlightIdx
-                  ? "bg-[#EFF3F9] text-[#233762]"
-                  : "text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <span>{option}</span>
-              <span className="text-[10px] font-normal text-slate-400">Cliente</span>
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 };
@@ -404,6 +325,8 @@ const SheetRow = React.memo<MemoRowProps>(
           const rawCellVal =
             field === "client"
               ? row.client || row.account || ""
+              : field === "pick_order"
+              ? stripClientPickPrefix(row.pick_order)
               : (row as any)[field] ?? "";
 
           const isMono =
@@ -411,7 +334,6 @@ const SheetRow = React.memo<MemoRowProps>(
             field === "pick_order" ||
             field === "customer_order";
 
-          // Clases de borde de rango sin saltos de layout
           const rangeBorderClasses = [
             isTopEdge ? "border-t-2 border-t-[#233762]" : "",
             isBottomEdge ? "border-b-2 border-b-[#233762]" : "",
@@ -466,16 +388,14 @@ const SheetRow = React.memo<MemoRowProps>(
                   <span className="truncate">
                     {String(rawCellVal ?? "") || (
                       <span className="text-slate-300 font-normal">
-                        {isLastTrailingEmpty && colIndex === 2
+                        {isLastTrailingEmpty && colIndex === 1
+                          ? "Ej. Kyndryl / BASF"
+                          : isLastTrailingEmpty && colIndex === 2
                           ? "Pegar (Ctrl+V) o escribir..."
                           : ""}
                       </span>
                     )}
                   </span>
-
-                  {field === "client" && (
-                    <ChevronDown className="w-3 h-3 ml-1 text-slate-400 shrink-0 opacity-60" />
-                  )}
 
                   {badgeText && (
                     <span
@@ -735,7 +655,7 @@ export default function TrackingGrid({
               const isLastTrailingEmpty =
                 rowIndex === rows.length - 1 && isRowEmptyData(row);
               const trkClean = (row.tracking_number || "").trim();
-              const pickClean = (row.pick_order || "").trim();
+              const pickClean = stripClientPickPrefix(row.pick_order);
               const custClean = (row.customer_order || "").trim();
 
               return (
@@ -754,9 +674,7 @@ export default function TrackingGrid({
                   isScientificTrk={validationInfo.scientificRowIndices.has(rowIndex)}
                   isDupTrk={Boolean(trkClean && validationInfo.duplicateTrackingSet.has(trkClean))}
                   isDupPick={Boolean(
-                    pickClean &&
-                      !/^(KYNDRYL_|BASF_)$/i.test(pickClean) &&
-                      validationInfo.duplicatePickSet.has(pickClean)
+                    pickClean && validationInfo.duplicatePickSet.has(pickClean)
                   )}
                   isDupCustomer={Boolean(
                     custClean && validationInfo.duplicateCustomerSet.has(custClean)
@@ -878,4 +796,3 @@ export default function TrackingGrid({
     </div>
   );
 }
-

@@ -74,18 +74,44 @@ export function generateRowId(): string {
 }
 
 /**
- * Crea una fila vacía lista para captura al final de la hoja
+ * Elimina cualquier prefijo KYNDRYL_ o BASF_ para que en la tabla editable solo se vea el valor limpio
  */
-export function createEmptyTrackingRow(defaultClient: Client | string = "BASF"): TrackingRow {
-  const clientNorm = normalizeClientValue(String(defaultClient || "BASF"));
-  const prefix = clientNorm === "KYNDRYL" ? "KYNDRYL_" : clientNorm === "BASF" ? "BASF_" : "";
+export function stripClientPickPrefix(rawPickOrder: string): string {
+  return (rawPickOrder || "").trim().replace(/^(KYNDRYL_|BASF_)+/i, "");
+}
+
+/**
+ * Formatea el Pick Order para el PDF agregando KYNDRYL_ o BASF_ según el cliente escrito por el usuario
+ */
+export function formatPickOrderWithClientPrefix(
+  clientValue: string,
+  rawPickOrder: string,
+  customerOrder: string = ""
+): string {
+  const cleanPick = stripClientPickPrefix(rawPickOrder) || stripClientPickPrefix(customerOrder);
+  const normClient = normalizeClientValue(clientValue).toUpperCase();
+
+  if (normClient === "KYNDRYL") {
+    return cleanPick ? `KYNDRYL_${cleanPick}` : "";
+  }
+  if (normClient === "BASF") {
+    return cleanPick ? `BASF_${cleanPick}` : "";
+  }
+  return cleanPick;
+}
+
+/**
+ * Crea una fila vacía lista para captura al final de la hoja (sin pre-seleccionar cliente ni mostrar prefijo en tabla)
+ */
+export function createEmptyTrackingRow(defaultClient: Client | string = ""): TrackingRow {
+  const clientNorm = defaultClient ? normalizeClientValue(String(defaultClient)) : "";
   return {
     id: generateRowId(),
     carrier: "ESTAFETAREST",
     client: clientNorm,
     account: clientNorm,
     tracking_number: "",
-    pick_order: prefix,
+    pick_order: "",
     customer_order: "",
     boxes: 1,
     manual: true,
@@ -93,14 +119,14 @@ export function createEmptyTrackingRow(defaultClient: Client | string = "BASF"):
 }
 
 /**
- * Determina si una fila está vacía (sin datos reales capturados de tracking/pick/customer)
+ * Determina si una fila está vacía (sin datos reales capturados de tracking/pick/customer/client)
  */
 export function isRowEmptyData(row: TrackingRow): boolean {
   const hasTrk = Boolean((row.tracking_number || "").trim());
   const hasCo = Boolean((row.customer_order || "").trim());
-  const rawPick = (row.pick_order || "").trim();
-  const hasPick = Boolean(rawPick && !/^(KYNDRYL_|BASF_)$/i.test(rawPick));
-  return !hasTrk && !hasCo && !hasPick;
+  const hasPick = Boolean(stripClientPickPrefix(row.pick_order));
+  const hasCli = Boolean((row.client || row.account || "").trim());
+  return !hasTrk && !hasCo && !hasPick && !hasCli;
 }
 
 /**
@@ -108,14 +134,14 @@ export function isRowEmptyData(row: TrackingRow): boolean {
  */
 export function ensureTrailingEmptyRow(
   rows: TrackingRow[],
-  defaultClient: Client | string = "BASF"
+  defaultClient: Client | string = ""
 ): TrackingRow[] {
   if (rows.length === 0) {
     return [createEmptyTrackingRow(defaultClient)];
   }
   const lastRow = rows[rows.length - 1];
   if (!isRowEmptyData(lastRow)) {
-    return [...rows, createEmptyTrackingRow(lastRow.client || defaultClient)];
+    return [...rows, createEmptyTrackingRow("")];
   }
   return rows;
 }
@@ -263,8 +289,8 @@ export function isScientificNotation(value: string): boolean {
 
 /**
  * Normaliza el campo Client según reglas de negocio:
- * - Si contiene "BASF" -> "BASF"
- * - Si contiene "KYNDRYL" o "KST" -> "KYNDRYL"
+ * - Si contiene "BASF" (en cualquier combinación de mayúsculas/minúsculas) -> "BASF"
+ * - Si contiene "KYNDRYL", "KYNDRY", "KYN" o "KST" -> "KYNDRYL"
  * - Si no, deja el texto limpio tal cual
  */
 export function normalizeClientValue(raw: string): string {
@@ -272,7 +298,9 @@ export function normalizeClientValue(raw: string): string {
   if (!cleaned) return "";
   const upper = cleaned.toUpperCase();
   if (upper.includes("BASF")) return "BASF";
-  if (upper.includes("KYNDRYL") || upper.includes("KST")) return "KYNDRYL";
+  if (upper.includes("KYNDRYL") || upper.includes("KYNDRY") || upper === "KYN" || upper.includes("KST")) {
+    return "KYNDRYL";
+  }
   return cleaned;
 }
 
@@ -311,7 +339,12 @@ export function normalizeFieldValue(
       // Conserva espacios simples internos (ej. "8793 8866 3139") y solo colapsa espacios dobles
       return str;
 
-    case "pick_order":
+    case "pick_order": {
+      // En la tabla editable no se muestra el prefijo KYNDRYL_ ni BASF_ (se agrega en el PDF/Vista Previa)
+      const withoutPrefix = stripClientPickPrefix(str);
+      return /ritm/i.test(withoutPrefix) ? withoutPrefix.toUpperCase() : withoutPrefix;
+    }
+
     case "customer_order":
       return /ritm/i.test(str) ? str.toUpperCase() : str;
 
@@ -428,59 +461,41 @@ export function detectAndMapHeaders(firstRow: string[]): HeaderDetectionResult {
 
 /**
  * Aplica autocompletado por cliente e inferencia sin sobrescribir valores ya capturados por el usuario:
- * - Si customer_order tiene un RITM en KYNDRYL y pick_order está vacío (o solo tiene el prefijo), propone "KYNDRYL_" + RITM
- * - Para BASF propone el prefijo "BASF_" si pick_order está vacío
+ * - Mantiene pick_order en la tabla SIN el prefijo KYNDRYL_ / BASF_ (el prefijo se inyecta en la Vista Previa / PDF)
+ * - Si customer_order tiene un RITM y pick_order está vacío, autocompleta el valor limpio en pick_order
  */
 export function applyRowSmartDefaults(
   row: TrackingRow,
   changedField?: EditableField,
   isCustomMode: boolean = false
 ): TrackingRow {
+  const cleanClient = normalizeClientValue(row.client || row.account || "");
+  const cleanPick = stripClientPickPrefix(row.pick_order);
+  const coClean = (row.customer_order || "").trim();
+
   const next: TrackingRow = {
     ...row,
-    account: row.client,
+    client: cleanClient,
+    account: cleanClient,
+    pick_order: cleanPick,
     boxes: isCustomMode ? Math.max(1, Number(row.boxes) || 1) : Math.max(1, Number(row.boxes) || 1),
   };
 
-  const clientUpper = (next.client || "").trim().toUpperCase();
-  const coClean = (next.customer_order || "").trim();
-  const pickClean = (next.pick_order || "").trim();
-
-  // Si cambió client y pick_order solo tenía el prefijo anterior vacío, actualizar prefijo
-  if (changedField === "client") {
-    if (clientUpper === "KYNDRYL" && (!pickClean || /^BASF_$/i.test(pickClean))) {
-      next.pick_order = coClean && /^RITM/i.test(coClean) ? `KYNDRYL_${coClean.toUpperCase()}` : "KYNDRYL_";
-    } else if (clientUpper === "BASF" && (!pickClean || /^KYNDRYL_$/i.test(pickClean))) {
-      next.pick_order = "BASF_";
-    }
-  }
-
-  // Si se capturó customer_order, autocompletar pick_order SOLO si pick_order está vacío o solo tiene el prefijo vacío
   if (!changedField || changedField === "customer_order") {
-    const pickIsBlankOrPrefixOnly =
-      !pickClean || /^KYNDRYL_$/i.test(pickClean) || /^BASF_$/i.test(pickClean);
-
-    if (pickIsBlankOrPrefixOnly && coClean) {
-      if (clientUpper === "KYNDRYL" || /^RITM/i.test(coClean)) {
-        if (!next.client || next.client.toUpperCase() === "KYNDRYL") {
+    if (!next.pick_order && coClean) {
+      if (/^RITM/i.test(coClean)) {
+        if (!next.client) {
           next.client = "KYNDRYL";
           next.account = "KYNDRYL";
-          if (/^RITM/i.test(coClean)) {
-            next.pick_order = `KYNDRYL_${coClean.toUpperCase()}`;
-          } else if (!pickClean) {
-            next.pick_order = `KYNDRYL_${coClean}`;
-          }
         }
-      } else if (clientUpper === "BASF") {
-        if (!pickClean) {
-          next.pick_order = /^BRITM/i.test(coClean)
-            ? `BASF_${coClean.toUpperCase()}`
-            : "BASF_";
+        next.pick_order = coClean.toUpperCase();
+      } else if (/^BRITM/i.test(coClean)) {
+        if (!next.client) {
+          next.client = "BASF";
+          next.account = "BASF";
         }
+        next.pick_order = coClean.toUpperCase();
       }
-    } else if (!pickClean) {
-      if (clientUpper === "KYNDRYL") next.pick_order = "KYNDRYL_";
-      else if (clientUpper === "BASF") next.pick_order = "BASF_";
     }
   }
 
