@@ -55,9 +55,9 @@ if sys.stderr is not None:
 
 import openpyxl
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 # Directorio raíz del proyecto
@@ -76,6 +76,17 @@ from src.techship_client import (
     sincronizar_tracking_desde_api,
     CLIENT_CODE_KST,
     TECHSHIP_BASE_URL,
+)
+from src.tracking.models import (
+    BatchTrackingRequest,
+    ExportTrackingRequest,
+    TrackingResult,
+)
+from src.tracking.service import (
+    SlidingWindowRateLimiter,
+    TrackingService,
+    build_tracking_excel_bytes,
+    verify_tracking_auth,
 )
 
 app = FastAPI(
@@ -872,6 +883,105 @@ def archive_previous(req: ArchiveRequest = Body(default_factory=ArchiveRequest))
         "moved": movidos,
         "skipped": omitidos,
     }
+
+
+# -------------------------------------------------------------
+# 7. MÓDULO DE RASTREO DE ENVÍOS MULTI-CARRIER (FEDEX Y ESTAFETA)
+# -------------------------------------------------------------
+
+tracking_service = TrackingService()
+tracking_rate_limiter = SlidingWindowRateLimiter(max_requests=120, window_seconds=60)
+
+
+@app.get("/api/tracking/config-status")
+async def get_tracking_config_status(
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Informa al frontend si las credenciales de FedEx y Estafeta están configuradas
+    en el backend (.env) y el estado de la caché, sin exponer ninguna llave sensible.
+    """
+    fedex_adapter = tracking_service.adapters.get("FEDEX")
+    estafeta_adapter = tracking_service.adapters.get("ESTAFETA")
+    return {
+        "carriers": {
+            "FEDEX": {
+                "configured": bool(fedex_adapter and fedex_adapter.is_configured()),
+            },
+            "ESTAFETA": {
+                "configured": bool(estafeta_adapter and estafeta_adapter.is_configured()),
+            },
+        },
+        "mock_fallback_enabled": tracking_service.mock_fallback,
+        "cache": tracking_service.cache.stats(),
+    }
+
+
+@app.post("/api/tracking/batch")
+async def track_shipments_batch(
+    req: BatchTrackingRequest,
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Rastrea un lote de hasta 50 guías de forma asíncrona y concurrente (FedEx / Estafeta).
+    Autodetecta el carrier por formato de guía si `carrier` no se especifica.
+    """
+    tracking_rate_limiter.check(auth_ctx.get("ip") or "127.0.0.1")
+    results = await tracking_service.track_batch(
+        guias=req.guias,
+        carrier=req.carrier,
+        force_refresh=req.force_refresh,
+    )
+    return {
+        "total": len(results),
+        "results": results,
+    }
+
+
+@app.post("/api/tracking/export-excel")
+async def export_tracking_excel(
+    req: ExportTrackingRequest,
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Genera y descarga un archivo Excel (.xlsx) con el diseño institucional de
+    SupplyChain México (#233762 / #CE3A39) a partir de los resultados de rastreo.
+    """
+    excel_bytes = build_tracking_excel_bytes(req.resultados)
+    today_str = datetime.date.today().isoformat()
+    filename = f"Rastreo_Envios_SupplyChain_{today_str}.xlsx"
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@app.get("/api/tracking/{guia}", response_model=TrackingResult)
+async def track_single_shipment(
+    guia: str,
+    carrier: Optional[str] = Query(
+        default=None,
+        description="Carrier opcional (FEDEX o ESTAFETA). Si se omite, se autodetecta por formato.",
+    ),
+    force_refresh: bool = Query(
+        default=False,
+        description="Si es True, ignora la caché de 10 minutos y consulta directamente al carrier.",
+    ),
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Rastrea una guía individual en FedEx o Estafeta y devuelve la respuesta normalizada.
+    """
+    tracking_rate_limiter.check(auth_ctx.get("ip") or "127.0.0.1")
+    result = await tracking_service.track_single(
+        raw_guia=guia,
+        carrier=carrier,
+        force_refresh=force_refresh,
+    )
+    return result
 
 
 # -------------------------------------------------------------
