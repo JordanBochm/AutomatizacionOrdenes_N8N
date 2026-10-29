@@ -22,7 +22,11 @@ import {
   ShieldAlert,
   ChevronRight,
   Info,
+  Eye,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { formatLongDate } from "@/lib/trackingPdf";
 
 export type UnifiedTrackingStatus =
   | "RECOLECTADO"
@@ -141,7 +145,7 @@ export function parseGuidesInput(rawText: string): string[] {
   return results;
 }
 
-function getStandardRastreoFileName(ext: "xlsx" | "csv"): string {
+function getStandardRastreoFileName(ext: "xlsx" | "csv" | "pdf"): string {
   const MESES = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -150,6 +154,316 @@ function getStandardRastreoFileName(ext: "xlsx" | "csv"): string {
   const dia = String(now.getDate()).padStart(2, "0");
   const mes = MESES[now.getMonth()] || "Mes";
   return `RASTREO_${dia}_${mes}.${ext}`;
+}
+
+/**
+ * Construye el documento PDF de Rastreo de Envíos replicando exactamente la geometría,
+ * colores (#233762, #CE3A39, #D9E2F3), logotipo y pie de página de TRACKING_28_Octubre.pdf.
+ */
+function buildTransportTrackingPdf(
+  items: TrackingResultItem[],
+  logoDataUrl?: string | null
+): jsPDF {
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "letter",
+  });
+
+  const pageHeight = doc.internal.pageSize.getHeight(); // 215.9 mm
+  const COLOR_NAVY: [number, number, number] = [35, 55, 98]; // #233762
+  const COLOR_RED: [number, number, number] = [206, 58, 57]; // #CE3A39
+  const COLOR_SUMMARY_FILL: [number, number, number] = [217, 226, 243]; // #D9E2F3
+  const COLOR_SLATE_DARK: [number, number, number] = [15, 23, 42]; // #0F172A
+  const COLOR_SLATE_MUTED: [number, number, number] = [100, 116, 139]; // #64748B
+  const COLOR_BLACK: [number, number, number] = [0, 0, 0];
+
+  // 7 columnas que suman exactamente 263.4 mm (márgenes izq/der = 8 mm, igual que trackingPdf.ts)
+  const marginLeft = 8;
+  const colWidths = [9.4, 26, 44, 34, 52, 36, 62];
+  const tableWidth = colWidths.reduce((acc, w) => acc + w, 0); // 263.4 mm
+  const colX: number[] = [marginLeft];
+  for (let i = 0; i < colWidths.length; i++) {
+    colX.push(colX[i] + colWidths[i]);
+  }
+  const centerX = marginLeft + tableWidth / 2;
+
+  // 1. Logotipo Oficial SupplyChain México
+  let logoPlaced = false;
+  if (logoDataUrl) {
+    try {
+      const props = doc.getImageProperties(logoDataUrl);
+      const targetH = 12.5;
+      const targetW = (props.width / props.height) * targetH;
+      doc.addImage(logoDataUrl, "PNG", marginLeft, 5.5, targetW, targetH);
+      logoPlaced = true;
+    } catch {
+      logoPlaced = false;
+    }
+  }
+
+  if (!logoPlaced) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_NAVY);
+    doc.text("Supply", marginLeft, 13);
+    doc.setTextColor(...COLOR_RED);
+    doc.text("Chain", marginLeft + 16, 13);
+    doc.setFontSize(8.5);
+    doc.setTextColor(...COLOR_SLATE_MUTED);
+    doc.text("MÉXICO", marginLeft + 30.5, 13);
+  }
+
+  // 2. Título "Asset Management" y Franja Azul Marino #233762
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(...COLOR_NAVY);
+  doc.text("Asset Management", centerX, 16.2, { align: "center" });
+
+  const bannerY = 19.5;
+  const bannerH = 8.2;
+  doc.setFillColor(...COLOR_NAVY);
+  doc.rect(marginLeft, bannerY, tableWidth, bannerH, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text("REPORTE DE RASTREO DE ENVÍOS DEL DÍA", centerX, bannerY + 5.7, { align: "center" });
+
+  // Línea bicolor oficial (#233762 / #CE3A39)
+  const officialLineY = bannerY + bannerH + 1.4;
+  const officialLineH = 0.75;
+  doc.setFillColor(...COLOR_NAVY);
+  doc.rect(marginLeft, officialLineY, tableWidth / 2, officialLineH, "F");
+  doc.setFillColor(...COLOR_RED);
+  doc.rect(marginLeft + tableWidth / 2, officialLineY, tableWidth / 2, officialLineH, "F");
+
+  // 3. Fecha larga en cursiva y Clientes centrados
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const dateY = officialLineY + officialLineH + 4.2;
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9.5);
+  doc.setTextColor(80, 90, 105);
+  doc.text(formatLongDate(todayIso), centerX, dateY, { align: "center" });
+
+  const clientsY = dateY + 5.5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...COLOR_NAVY);
+  doc.text("KYNDRYL & BASF", centerX, clientsY, { align: "center" });
+
+  const dividerY = clientsY + 2.2;
+  doc.setDrawColor(...COLOR_NAVY);
+  doc.setLineWidth(0.45);
+  doc.line(marginLeft, dividerY, marginLeft + tableWidth, dividerY);
+
+  // 4. Bloque de Resumen Superior con Cajas #D9E2F3 (Idéntico a trackingPdf.ts)
+  const countFedex = items.filter((r) => r.carrier === "FEDEX").length;
+  const countEstafeta = items.filter((r) => r.carrier === "ESTAFETA").length;
+  const countDelivered = items.filter((r) => r.estatus_general === "ENTREGADO").length;
+  const countInTransit = items.filter(
+    (r) =>
+      r.estatus_general === "EN_TRANSITO" ||
+      r.estatus_general === "EN_REPARTO" ||
+      r.estatus_general === "RECOLECTADO"
+  ).length;
+  const countIssues = items.filter(
+    (r) => r.estatus_general === "INCIDENCIA" || r.retrasado || Boolean(r.error)
+  ).length;
+
+  const summaryRowH = 6.2;
+  let currentSummaryY = dividerY + 0.4;
+  const leftBoxX = colX[2];
+  const leftBoxW = colWidths[2] + colWidths[3];
+  const rightBoxX = colX[6];
+  const rightBoxW = colWidths[6];
+
+  const summaryRows: Array<{
+    leftLabel: string;
+    leftVal: number;
+    leftBold: boolean;
+    rightLabel: string;
+    rightVal: number;
+    rightAlert?: boolean;
+  }> = [
+    {
+      leftLabel: "Total Guías:",
+      leftVal: items.length,
+      leftBold: true,
+      rightLabel: "Entregadas:",
+      rightVal: countDelivered,
+    },
+    {
+      leftLabel: "FEDEX:",
+      leftVal: countFedex,
+      leftBold: false,
+      rightLabel: "En Tránsito / Reparto:",
+      rightVal: countInTransit,
+    },
+    {
+      leftLabel: "ESTAFETA:",
+      leftVal: countEstafeta,
+      leftBold: false,
+      rightLabel: "Incidencias / Retrasos:",
+      rightVal: countIssues,
+      rightAlert: countIssues > 0,
+    },
+  ];
+
+  summaryRows.forEach((sr) => {
+    doc.setFont("helvetica", sr.leftBold ? "bold" : "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...(sr.leftBold ? COLOR_NAVY : COLOR_SLATE_DARK));
+    doc.text(sr.leftLabel, colX[2] - 2, currentSummaryY + 4.3, { align: "right" });
+
+    doc.setFillColor(...COLOR_SUMMARY_FILL);
+    doc.setDrawColor(...COLOR_BLACK);
+    doc.setLineWidth(0.25);
+    doc.rect(leftBoxX, currentSummaryY, leftBoxW, summaryRowH, "FD");
+
+    doc.setFont("helvetica", sr.leftBold ? "bold" : "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...COLOR_SLATE_DARK);
+    doc.text(String(sr.leftVal), leftBoxX + leftBoxW / 2, currentSummaryY + 4.4, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...(sr.rightAlert ? COLOR_RED : COLOR_NAVY));
+    doc.text(sr.rightLabel, colX[6] - 2, currentSummaryY + 4.3, { align: "right" });
+
+    doc.setFillColor(...COLOR_SUMMARY_FILL);
+    doc.setDrawColor(...COLOR_BLACK);
+    doc.setLineWidth(0.25);
+    doc.rect(rightBoxX, currentSummaryY, rightBoxW, summaryRowH, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...(sr.rightAlert ? COLOR_RED : COLOR_SLATE_DARK));
+    doc.text(String(sr.rightVal), rightBoxX + rightBoxW / 2, currentSummaryY + 4.4, { align: "center" });
+
+    currentSummaryY += summaryRowH;
+  });
+
+  // 5. Tabla Principal de 7 Columnas
+  const tableStartY = currentSummaryY + 1.4;
+  const tableBody = items.map((r, idx) => {
+    const baseLabel = STATUS_UI_CONFIG[r.estatus_general]?.label || r.estatus_general;
+    const statusText = r.retrasado && r.estatus_general !== "ENTREGADO" ? `${baseLabel} (RETRASADO)` : baseLabel;
+    const routeText =
+      r.origen || r.destino ? `${r.origen || "S/D"} -> ${r.destino || "S/D"}` : "Sin ruta reportada";
+    const dateText =
+      r.estatus_general === "ENTREGADO" && r.fecha_entrega_real
+        ? `Entregado: ${r.fecha_entrega_real}`
+        : r.fecha_estimada_entrega || "—";
+    const lastEv = r.eventos[0];
+    const lastMoveText = lastEv
+      ? `${lastEv.descripcion} (${lastEv.ubicacion})`
+      : r.error || "Sin eventos registrados";
+
+    return [
+      String(idx + 1),
+      r.carrier,
+      r.guia,
+      statusText,
+      routeText,
+      dateText,
+      lastMoveText,
+    ];
+  });
+
+  autoTable(doc, {
+    startY: tableStartY,
+    margin: { top: 18, bottom: 15, left: marginLeft, right: marginLeft },
+    head: [
+      [
+        "#",
+        "Carrier",
+        "Tracking Number",
+        "Estatus",
+        "Origen -> Destino",
+        "Fecha Estimada / Entrega",
+        "Último Movimiento / Ubicación",
+      ],
+    ],
+    body: tableBody,
+    theme: "plain",
+    showHead: "everyPage",
+    headStyles: {
+      fillColor: COLOR_NAVY,
+      textColor: [255, 255, 255],
+      font: "helvetica",
+      fontStyle: "bold",
+      fontSize: 8.8,
+      cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+      lineWidth: 0.25,
+      lineColor: COLOR_BLACK,
+      halign: "center",
+    },
+    bodyStyles: {
+      fillColor: [255, 255, 255],
+      textColor: COLOR_SLATE_DARK,
+      font: "helvetica",
+      fontSize: 8.2,
+      halign: "center",
+      valign: "middle",
+      cellPadding: { top: 2.2, bottom: 2.2, left: 1.5, right: 1.5 },
+      lineWidth: 0.25,
+      lineColor: COLOR_BLACK,
+    },
+    columnStyles: {
+      0: { cellWidth: colWidths[0], halign: "center" },
+      1: { cellWidth: colWidths[1], halign: "center" },
+      2: { cellWidth: colWidths[2], halign: "center", fontStyle: "bold" },
+      3: { cellWidth: colWidths[3], halign: "center", fontStyle: "bold" },
+      4: { cellWidth: colWidths[4], halign: "center" },
+      5: { cellWidth: colWidths[5], halign: "center" },
+      6: { cellWidth: colWidths[6], halign: "left" },
+    },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 3) {
+        const val = String(data.cell.raw || "").toUpperCase();
+        if (val.includes("INCIDENCIA") || val.includes("RETRASADO")) {
+          data.cell.styles.textColor = COLOR_RED;
+        } else if (val.includes("ENTREGADO")) {
+          data.cell.styles.textColor = [21, 128, 61];
+        } else {
+          data.cell.styles.textColor = COLOR_NAVY;
+        }
+      }
+    },
+  });
+
+  // 6. Pie de página institucional en cada hoja
+  const totalPages = doc.getNumberOfPages();
+  const nowStamp = now.toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    const ribbonY = pageHeight - 9.5;
+    doc.setFillColor(...COLOR_NAVY);
+    doc.rect(marginLeft, ribbonY, tableWidth / 2, 0.7, "F");
+    doc.setFillColor(...COLOR_RED);
+    doc.rect(marginLeft + tableWidth / 2, ribbonY, tableWidth / 2, 0.7, "F");
+
+    const textY = pageHeight - 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.2);
+    doc.setTextColor(...COLOR_SLATE_MUTED);
+    doc.text("SupplyChain México", marginLeft, textY);
+    doc.text(`Generado el ${nowStamp}`, centerX, textY, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.text(`Página ${i} de ${totalPages}`, marginLeft + tableWidth, textY, { align: "right" });
+  }
+
+  return doc;
 }
 
 /**
@@ -228,6 +542,11 @@ export default function TransportTracker({
   // Guía seleccionada para el panel lateral (línea de tiempo)
   const [selectedGuideKey, setSelectedGuideKey] = useState<string | null>(null);
 
+  // Modal de Vista Previa del PDF y logotipo institucional
+  const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+
   // Historial reciente en localStorage
   const [recentGuides, setRecentGuides] = useState<RecentGuideItem[]>([]);
 
@@ -269,6 +588,21 @@ export default function TransportTracker({
             mock_fallback: Boolean(data.mock_fallback_enabled),
           });
         }
+      })
+      .catch(() => {});
+
+    // Precargar logotipo institucional para el PDF estandarizado
+    fetch("/logo-supplychain.png")
+      .then((res) => (res.ok ? res.blob() : null))
+      .then((blob) => {
+        if (!blob) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === "string") {
+            setLogoDataUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(blob);
       })
       .catch(() => {});
   }, [apiBase, userEmail, userRole]);
@@ -649,6 +983,42 @@ export default function TransportTracker({
     }
   };
 
+  // Abrir Vista Previa en vivo del PDF (mismo patrón que Generador de Tracking)
+  const handleOpenPdfPreview = () => {
+    if (filteredResults.length === 0) {
+      triggerToast("Consulta al menos una guía para abrir la vista previa del PDF.", "info");
+      return;
+    }
+    try {
+      const doc = buildTransportTrackingPdf(filteredResults, logoDataUrl);
+      const blob = doc.output("blob");
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
+      const url = URL.createObjectURL(blob);
+      setPdfBlobUrl(url);
+      setShowPreviewModal(true);
+    } catch (err: any) {
+      triggerToast(err.message || "Error al generar la vista previa del PDF.", "error");
+    }
+  };
+
+  // Descargar PDF estandarizado (RASTREO_DD_Mes.pdf)
+  const handleDownloadPdf = () => {
+    if (filteredResults.length === 0) {
+      triggerToast("No hay resultados en la tabla para generar el PDF.", "error");
+      return;
+    }
+    try {
+      const doc = buildTransportTrackingPdf(filteredResults, logoDataUrl);
+      const fileName = getStandardRastreoFileName("pdf");
+      doc.save(fileName);
+      triggerToast(`Archivo ${fileName} generado y descargado exitosamente.`, "success");
+    } catch (err: any) {
+      triggerToast(err.message || "Error al descargar el PDF.", "error");
+    }
+  };
+
   const handleCopyGuide = (e: React.MouseEvent, guia: string) => {
     e.stopPropagation();
     navigator.clipboard?.writeText(guia);
@@ -1020,7 +1390,7 @@ export default function TransportTracker({
             </div>
           </div>
 
-          {/* Botones Actualizar Todo y Exportación CSV / Excel */}
+          {/* Botones Actualizar Todo, Excel Estandarizado, Vista Previa y Generar PDF */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -1035,24 +1405,35 @@ export default function TransportTracker({
 
             <button
               type="button"
-              onClick={handleExportCsv}
-              disabled={filteredResults.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Descargar vista actual en formato CSV compatible con Excel"
+              onClick={handleExportExcel}
+              disabled={filteredResults.length === 0 || isExportingExcel}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-[#233762]/30 bg-[#EFF3F9] hover:bg-slate-200/80 text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Descargar archivo Excel (.xlsx) con el diseño institucional estandarizado de Tracking"
             >
-              <Download className="w-3.5 h-3.5 text-slate-600" />
-              <span>CSV</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#233762]" />
+              <span>{isExportingExcel ? "Generando..." : "Excel (.xlsx)"}</span>
             </button>
 
             <button
               type="button"
-              onClick={handleExportExcel}
-              disabled={filteredResults.length === 0 || isExportingExcel}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#233762]/30 bg-[#EFF3F9] hover:bg-slate-200/80 text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Descargar reporte institucional formateado en Excel (.xlsx)"
+              onClick={handleOpenPdfPreview}
+              disabled={filteredResults.length === 0}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Abrir vista previa en vivo del PDF estandarizado"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-[#233762]" />
-              <span>{isExportingExcel ? "Generando..." : "Excel (.xlsx)"}</span>
+              <Eye className="w-3.5 h-3.5" />
+              <span>Vista previa</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={filteredResults.length === 0}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Descargar PDF oficial con el formato estandarizado de Tracking"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Generar PDF</span>
             </button>
 
             {results.length > 0 && (
@@ -1543,6 +1924,78 @@ export default function TransportTracker({
                     );
                   })}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ==================================================================== */}
+      {/* MODAL DE VISTA PREVIA DEL PDF ESTANDARIZADO (IGUAL A TRACKING)       */}
+      {/* ==================================================================== */}
+      {showPreviewModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setShowPreviewModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-6xl h-[88vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-[#233762]">
+                    Vista Previa &bull; {getStandardRastreoFileName("pdf")}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {filteredResults.length} guía(s) en el reporte &bull; Formato institucional SupplyChain México
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  disabled={isExportingExcel}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-[#233762]/30 bg-[#EFF3F9] hover:bg-slate-200/80 text-[#233762] text-xs font-bold transition cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#233762]" />
+                  <span>Descargar Excel (.xlsx)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Descargar PDF</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(false)}
+                  aria-label="Cerrar vista previa"
+                  className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer ml-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-slate-100 p-3 flex items-center justify-center">
+              {pdfBlobUrl ? (
+                <iframe
+                  src={pdfBlobUrl}
+                  title="Vista previa del PDF de Rastreo"
+                  className="w-full h-full rounded-xl border border-slate-300 shadow-inner bg-white"
+                />
+              ) : (
+                <p className="text-xs text-slate-500 font-semibold">Cargando documento PDF...</p>
               )}
             </div>
           </div>
