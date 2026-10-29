@@ -24,7 +24,6 @@ import {
   X,
   Truck,
   ArrowUpDown,
-  Building2,
   HelpCircle,
   AlertCircle,
   Archive,
@@ -1135,7 +1134,7 @@ export default function DashboardPage() {
     return (name[0] || "U").toUpperCase();
   }, [currentUser?.name]);
 
-  // Catálogo de módulos de Asset Management (cuadrícula de 3x3)
+  // Catálogo de módulos de Asset Management (6 módulos operativos)
   const hubModules: {
     name: string;
     description: string;
@@ -1153,11 +1152,8 @@ export default function DashboardPage() {
     { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "red" },
     { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "navy" },
     { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "red" },
-    { name: "Inventario", description: "Existencias, movimientos y conteos cíclicos.", Icon: Package, tone: "navy" },
-    { name: "Proveedores", description: "Catálogo de proveedores y evaluación de desempeño.", Icon: Building2, tone: "red" },
-    { name: "Auditoría", description: "Bitácora de cambios y control de cumplimiento.", Icon: ShieldAlert, tone: "navy" },
-    { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "red" },
-    { name: "Mesa de ayuda", description: "Incidencias, soporte y preguntas frecuentes.", Icon: HelpCircle, tone: "navy" },
+    { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "navy" },
+    { name: "Mesa de ayuda", description: "Incidencias, soporte y preguntas frecuentes.", Icon: HelpCircle, tone: "red" },
   ];
 
   // Submódulos de Operación del día (3 opciones solicitadas)
