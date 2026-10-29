@@ -1,13 +1,16 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+export type Client = "KYNDRYL" | "BASF";
+
 export interface TrackingRow {
   id: string; // uuid interno
   carrier: string; // default "ESTAFETAREST"
-  account?: string; // "KYNDRYL" | "BASF"
+  client: Client | string; // "KYNDRYL" | "BASF" | otro
+  account?: string; // alias de compatibilidad
   tracking_number: string;
   pick_order: string; // default `KYNDRYL_${ritm}` o `BASF_${britm}`
-  customer_order: string; // el RITM/BRITM, ej. RITM0542434 o BRITM4083391
+  customer_order: string; // el RITM/BRITM, ej. RITM0542434 o 32120 - Andares
   boxes: number; // default 1
   manual: boolean; // true si se agregó a mano
 }
@@ -34,7 +37,7 @@ export function resolveCarrierAndAccount(row: TrackingRow): {
   accountName: string;
 } {
   const rawCarrier = (row.carrier || "ESTAFETAREST").trim();
-  const explicitAccount = (row.account || "").trim();
+  const explicitAccount = (row.client || row.account || "").trim();
 
   if (explicitAccount) {
     const parts = rawCarrier.split(/\s+/);
@@ -236,10 +239,23 @@ export function buildTrackingPdf(
   //    - Fila 1: Total Órdenes: [ N ]          # de Cajas: [ M ]
   //    - Fila 2: ESTAFETA:      [ N ]
   // -------------------------------------------------------------
+  const activeRows = rows.filter((r, i) => {
+    const isLast = i === rows.length - 1;
+    if (!isLast) return true;
+    const hasTrk = Boolean((r.tracking_number || "").trim());
+    const hasCo = Boolean((r.customer_order || "").trim());
+    const hasPick = Boolean(
+      (r.pick_order || "")
+        .replace(/^(KYNDRYL_|BASF_)$/i, "")
+        .trim()
+    );
+    return hasTrk || hasCo || hasPick;
+  });
+
   const carrierCounts: Record<string, number> = {};
   let totalBoxes = 0;
 
-  rows.forEach((r) => {
+  activeRows.forEach((r) => {
     const { carrierName } = resolveCarrierAndAccount(r);
     const key = normalizeCarrierSummaryKey(carrierName);
     carrierCounts[key] = (carrierCounts[key] || 0) + 1;
@@ -271,7 +287,7 @@ export function buildTrackingPdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...COLOR_SLATE_DARK);
-  doc.text(String(rows.length), totalBoxX + totalBoxW / 2, currentSummaryY + 4.4, { align: "center" });
+  doc.text(String(activeRows.length), totalBoxX + totalBoxW / 2, currentSummaryY + 4.4, { align: "center" });
 
   // "# de Cajas:" alineado a la derecha de Col 5 y caja en Col 6
   doc.setFont("helvetica", "bold");
@@ -318,7 +334,7 @@ export function buildTrackingPdf(
   // -------------------------------------------------------------
   const tableStartY = currentSummaryY + 1.4;
 
-  const tableBody = rows.map((r, idx) => {
+  const tableBody = activeRows.map((r, idx) => {
     const { carrierName, accountName } = resolveCarrierAndAccount(r);
     const defaultPickPrefix = accountName.toUpperCase() === "BASF" ? "BASF_" : "KYNDRYL_";
     return [

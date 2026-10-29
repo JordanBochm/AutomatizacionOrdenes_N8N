@@ -8,12 +8,14 @@ import {
   Download,
   Printer,
   Eye,
-  Edit3,
   AlertTriangle,
-  FileText,
   RotateCcw,
   SlidersHorizontal,
   Lock,
+  Undo2,
+  Redo2,
+  ClipboardPaste,
+  Copy,
   X,
 } from "lucide-react";
 import {
@@ -26,6 +28,18 @@ import {
   resolveCarrierAndAccount,
   normalizeCarrierSummaryKey,
 } from "@/lib/trackingPdf";
+import {
+  EDITABLE_COLUMNS,
+  COLUMN_LABELS,
+  ensureTrailingEmptyRow,
+  isRowEmptyData,
+  isScientificNotation,
+  isUnknownClient,
+  serializeToTsv,
+  generateRowId,
+} from "@/lib/tableClipboard";
+import { useSheetGrid } from "@/hooks/useSheetGrid";
+import TrackingGrid, { GridValidationInfo } from "./TrackingGrid";
 
 interface OrderItemLike {
   order_id: string;
@@ -46,67 +60,6 @@ interface TrackingGeneratorProps {
   userName?: string;
 }
 
-/**
- * Obtiene el prefijo obligatorio de Pick Order según la cuenta ("KYNDRYL_" o "BASF_")
- */
-function getPickPrefix(account: string): string {
-  const clean = (account || "").trim().toUpperCase();
-  return clean === "BASF" ? "BASF_" : "KYNDRYL_";
-}
-
-/**
- * Extrae únicamente lo que agregó el usuario después del prefijo KYNDRYL_ o BASF_
- */
-function extractUserSuffix(rawPickOrder: string): string {
-  const val = rawPickOrder || "";
-  if (/^(KYNDRYL|BASF)$/i.test(val.trim())) {
-    return "";
-  }
-  return val.replace(/^(KYNDRYL_|BASF_)+/i, "");
-}
-
-/**
- * Garantiza que pick_order siempre comience con KYNDRYL_ o BASF_ según la columna Cuenta
- */
-function ensurePickOrderPrefix(account: string, rawPickOrder: string): string {
-  const prefix = getPickPrefix(account);
-  const suffix = extractUserSuffix(rawPickOrder);
-  return `${prefix}${suffix}`;
-}
-
-/**
- * Valida que todas las columnas de una fila estén llenadas correctamente antes de permitir agregar otra
- */
-function getMissingRowFields(row: TrackingRow, isCustomMode: boolean): string[] {
-  const missing: string[] = [];
-  const { carrierName, accountName } = resolveCarrierAndAccount(row);
-  if (!carrierName.trim()) {
-    missing.push("Carrier");
-  }
-  if (!accountName.trim()) {
-    missing.push("Cuenta");
-  }
-  if (!(row.tracking_number || "").trim()) {
-    missing.push("Tracking Number");
-  }
-  if (isCustomMode) {
-    if (!(row.pick_order || "").trim()) {
-      missing.push("Pick Order");
-    }
-  } else {
-    if (!extractUserSuffix(row.pick_order).trim()) {
-      missing.push("Pick Order (RITM)");
-    }
-  }
-  if (!(row.customer_order || "").trim()) {
-    missing.push("CUSTOMER ORDER");
-  }
-  if (isCustomMode && (!row.boxes || Number(row.boxes) < 1)) {
-    missing.push("Cajas");
-  }
-  return missing;
-}
-
 export default function TrackingGenerator({
   batchData,
   apiBase,
@@ -124,48 +77,66 @@ export default function TrackingGenerator({
 
   const draftStorageKey = useMemo(() => `sc_tracking_draft_${todayStr}`, [todayStr]);
 
-  // Modo Tracking Ajeno / Libre (permite clientes fuera de Kyndryl & BASF y edición total)
+  // Modo Tracking Ajeno / Libre
   const [isCustomMode, setIsCustomMode] = useState<boolean>(false);
 
-  // Encabezado del PDF (título y clientes fijos en modo oficial; editables en modo libre)
+  // Encabezado del PDF
   const [headerInfo, setHeaderInfo] = useState<TrackingHeaderInfo>({
     title: "GUÍAS PARA LAS ÓRDENES DEL DÍA",
     date: todayStr,
     clients: "KYNDRYL & BASF",
   });
 
-  // Filas de tracking
-  const [rows, setRows] = useState<TrackingRow[]>([]);
-  const [includeReturns, setIncludeReturns] = useState<boolean>(false);
+  // Filas de la hoja de cálculo (siempre termina con una fila vacía lista para escribir/pegar)
+  const [rows, setRows] = useState<TrackingRow[]>(() => ensureTrailingEmptyRow([], "BASF"));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Estado de borrador disponible
+  // Borrador en localStorage
   const [draftPrompt, setDraftPrompt] = useState<boolean>(false);
   const [draftDataToRestore, setDraftDataToRestore] = useState<{
     header: TrackingHeaderInfo;
     rows: TrackingRow[];
-    includeReturns: boolean;
     isCustomMode?: boolean;
   } | null>(null);
 
-  // Modal de Vista Previa bajo demanda
+  // Modal de Vista Previa del PDF
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
 
+  // Modal de pegado manual (fallback cuando el navegador bloquea navigator.clipboard.readText)
+  const [pasteModalOpen, setPasteModalOpen] = useState<boolean>(false);
+  const [pasteModalText, setPasteModalText] = useState<string>("");
+
   // Modal de confirmación antes de eliminar
   const [deleteDialog, setDeleteDialog] = useState<{
-    mode: "single" | "selected" | "reset";
-    targetRowId?: string;
+    mode: "single" | "selected" | "range" | "reset";
+    targetRowIds?: string[];
     targetLabel?: string;
     count?: number;
   } | null>(null);
 
-  // Fila resaltada cuando el usuario intenta agregar otra sin completar la anterior
-  const [incompleteRowId, setIncompleteRowId] = useState<string | null>(null);
-
-  // Referencia al iframe para impresión directa
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Solicitar eliminación de filas desde atajo de teclado (Ctrl+Shift+Delete)
+  const handleRequestDeleteRowsFromHook = useCallback((rowIds: string[], label: string) => {
+    if (!rowIds || rowIds.length === 0) return;
+    setDeleteDialog({
+      mode: "range",
+      targetRowIds: rowIds,
+      targetLabel: label,
+      count: rowIds.length,
+    });
+  }, []);
+
+  // Hook principal de hoja de cálculo (selección, teclado, deshacer/rehacer, portapapeles)
+  const sheet = useSheetGrid({
+    rows,
+    setRows,
+    triggerToast,
+    onRequestDeleteRows: handleRequestDeleteRowsFromHook,
+    defaultClient: "BASF",
+  });
 
   // ---------------------------------------------------------------------------
   // 1. CARGA DEL LOGOTIPO OFICIAL COMO DATA-URL
@@ -198,33 +169,36 @@ export default function TrackingGenerator({
   // 2. INICIALIZACIÓN DE FILAS DESDE BATCHDATA O API DE TRACKING
   // ---------------------------------------------------------------------------
   const buildRowsFromBatch = useCallback(
-    (orders: OrderItemLike[], withReturns: boolean, trackingLookup: Record<string, string> = {}): TrackingRow[] => {
-      if (!orders || orders.length === 0) return [];
+    (orders: OrderItemLike[], trackingLookup: Record<string, string> = {}): TrackingRow[] => {
+      if (!orders || orders.length === 0) {
+        return ensureTrailingEmptyRow([], "BASF");
+      }
 
-      const filtered = orders.filter((o) => {
-        if (!withReturns) {
-          return o.type === "OUTBOUND" && !o.order_id.endsWith("-1");
-        }
-        return true;
-      });
+      const filtered = orders.filter(
+        (o) => o.type === "OUTBOUND" && !o.order_id.endsWith("-1")
+      );
 
-      return filtered.map((o) => {
+      const mapped: TrackingRow[] = filtered.map((o) => {
         const trk = o.tracking_number || trackingLookup[o.order_id] || "";
         const isBasf = o.order_id.trim().toUpperCase().startsWith("BRITM");
-        const account = isBasf ? "BASF" : "KYNDRYL";
-        const baseCarrier = (o.carrier || "ESTAFETAREST").trim().split(/\s+/)[0] || "ESTAFETAREST";
+        const client = isBasf ? "BASF" : "KYNDRYL";
+        const baseCarrier =
+          (o.carrier || "ESTAFETAREST").trim().split(/\s+/)[0]?.toUpperCase() || "ESTAFETAREST";
 
         return {
-          id: `trk-${o.order_id}-${Math.random().toString(36).substring(2, 7)}`,
+          id: generateRowId(),
           carrier: baseCarrier,
-          account,
+          client,
+          account: client,
           tracking_number: trk,
-          pick_order: ensurePickOrderPrefix(account, o.order_id),
+          pick_order: `${client}_${o.order_id}`,
           customer_order: o.order_id,
           boxes: 1,
           manual: false,
         };
       });
+
+      return ensureTrailingEmptyRow(mapped, "BASF");
     },
     []
   );
@@ -236,43 +210,36 @@ export default function TrackingGenerator({
       if (rawDraft) {
         const parsed = JSON.parse(rawDraft);
         if (parsed && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
-          const customFlag = Boolean(parsed.isCustomMode);
-          const normalizedRows: TrackingRow[] = parsed.rows.map((r: TrackingRow) => {
+          const normalizedRows: TrackingRow[] = parsed.rows.map((r: any) => {
             const { carrierName, accountName } = resolveCarrierAndAccount(r);
-            if (customFlag) {
-              return {
-                ...r,
-                carrier: carrierName,
-                account: accountName,
-                boxes: Math.max(1, Number(r.boxes) || 1),
-              };
-            }
-            const cleanAcc = accountName.toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
             return {
               ...r,
+              id: r.id || generateRowId(),
               carrier: carrierName,
-              account: cleanAcc,
-              pick_order: ensurePickOrderPrefix(cleanAcc, r.pick_order || r.customer_order || ""),
-              boxes: 1,
+              client: r.client || accountName || "BASF",
+              account: r.client || accountName || "BASF",
+              boxes: Math.max(1, Number(r.boxes) || 1),
             };
           });
-          setDraftDataToRestore({
-            ...parsed,
-            rows: normalizedRows,
-            isCustomMode: customFlag,
-          });
-          setDraftPrompt(true);
-          return;
+          const nonBlankCount = normalizedRows.filter((r) => !isRowEmptyData(r)).length;
+          if (nonBlankCount > 0) {
+            setDraftDataToRestore({
+              ...parsed,
+              rows: ensureTrailingEmptyRow(normalizedRows, "BASF"),
+            });
+            setDraftPrompt(true);
+            return;
+          }
         }
       }
     } catch (e) {
       console.warn("Error leyendo borrador de tracking de localStorage:", e);
     }
 
-    initFromActiveBatch(includeReturns);
+    initFromActiveBatch();
   }, []);
 
-  const initFromActiveBatch = async (withReturns: boolean) => {
+  const initFromActiveBatch = async () => {
     const trackingLookup: Record<string, string> = {};
 
     try {
@@ -287,18 +254,14 @@ export default function TrackingGenerator({
           });
         }
       }
-    } catch {
-      // Continuar con batchData si el endpoint aún no responde
-    }
+    } catch {}
 
     const initialOrders = batchData?.orders || [];
-    const generatedRows = buildRowsFromBatch(initialOrders, withReturns, trackingLookup);
+    const generatedRows = buildRowsFromBatch(initialOrders, trackingLookup);
     setRows(generatedRows);
     setSelectedIds(new Set());
-    setIncompleteRowId(null);
   };
 
-  // Restaurar borrador guardado
   const handleRestoreDraft = () => {
     if (draftDataToRestore) {
       const customFlag = Boolean(draftDataToRestore.isCustomMode);
@@ -312,50 +275,34 @@ export default function TrackingGenerator({
           ? draftDataToRestore.header?.clients || "KYNDRYL & BASF"
           : "KYNDRYL & BASF",
       });
-      setRows(draftDataToRestore.rows || []);
-      setIncludeReturns(Boolean(draftDataToRestore.includeReturns));
+      setRows(ensureTrailingEmptyRow(draftDataToRestore.rows || [], "BASF"));
       triggerToast("Borrador del día restaurado correctamente.", "success");
     }
     setDraftPrompt(false);
   };
 
-  // Descartar borrador y recargar desde el lote
   const handleDiscardDraft = () => {
     try {
       localStorage.removeItem(draftStorageKey);
     } catch {}
     setDraftPrompt(false);
-    initFromActiveBatch(includeReturns);
+    initFromActiveBatch();
     triggerToast("Cargando órdenes originales del lote activo.", "info");
   };
 
-  // Alternar entre Modo Oficial (Kyndryl & BASF) y Modo Tracking Ajeno / Libre
   const handleToggleCustomMode = () => {
-    setIncompleteRowId(null);
     setIsCustomMode((prev) => {
       const next = !prev;
       if (!next) {
-        // Al regresar al modo oficial Kyndryl & BASF, restauramos encabezado fijo y normalizamos filas
         setHeaderInfo((h) => ({
           ...h,
           title: "GUÍAS PARA LAS ÓRDENES DEL DÍA",
           clients: "KYNDRYL & BASF",
         }));
-        setRows((currentRows) =>
-          currentRows.map((r) => {
-            const cleanAcc = (r.account || "").trim().toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
-            return {
-              ...r,
-              account: cleanAcc,
-              pick_order: ensurePickOrderPrefix(cleanAcc, r.pick_order || r.customer_order || ""),
-              boxes: 1,
-            };
-          })
-        );
         triggerToast("Modo Oficial KYNDRYL & BASF activado.", "info");
       } else {
         triggerToast(
-          "Modo Tracking Ajeno activado: ahora puedes modificar clientes, título, cuenta, pick order y cajas libremente.",
+          "Modo Tracking Ajeno activado: puedes personalizar el encabezado del reporte libremente.",
           "success"
         );
       }
@@ -370,11 +317,11 @@ export default function TrackingGenerator({
     if (draftPrompt) return;
     const timer = setTimeout(() => {
       try {
-        if (rows.length > 0) {
+        const nonEmptyRows = rows.filter((r) => !isRowEmptyData(r));
+        if (nonEmptyRows.length > 0) {
           const payload = {
             header: headerInfo,
             rows,
-            includeReturns,
             isCustomMode,
             savedAt: new Date().toISOString(),
           };
@@ -383,21 +330,12 @@ export default function TrackingGenerator({
       } catch (e) {
         console.warn("Error guardando borrador en localStorage:", e);
       }
-    }, 800);
+    }, 600);
     return () => clearTimeout(timer);
-  }, [rows, headerInfo, includeReturns, isCustomMode, draftPrompt, draftStorageKey]);
-
-  // Limpieza de URL blob al desmontar
-  useEffect(() => {
-    return () => {
-      if (pdfBlobUrl) {
-        URL.revokeObjectURL(pdfBlobUrl);
-      }
-    };
-  }, [pdfBlobUrl]);
+  }, [rows, headerInfo, isCustomMode, draftPrompt, draftStorageKey]);
 
   // ---------------------------------------------------------------------------
-  // 4. GENERACIÓN BAJO DEMANDA DE LA VISTA PREVIA DEL PDF
+  // 4. REGENERACIÓN DEL PDF CON DEBOUNCE DE 400 MS
   // ---------------------------------------------------------------------------
   const generatePreviewUrl = useCallback(() => {
     try {
@@ -418,9 +356,282 @@ export default function TrackingGenerator({
     }
   }, [rows, headerInfo, logoDataUrl, userName, triggerToast]);
 
+  useEffect(() => {
+    if (!showPreviewModal) return;
+    const timer = setTimeout(() => {
+      generatePreviewUrl();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [rows, headerInfo, showPreviewModal, generatePreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
+    };
+  }, [pdfBlobUrl]);
+
+  // ---------------------------------------------------------------------------
+  // 5. VALIDACIONES VISUALES EN VIVO (SIN BLOQUEAR EDICIÓN)
+  // ---------------------------------------------------------------------------
+  const validationInfo = useMemo<GridValidationInfo>(() => {
+    const emptyTrackingRowIndices = new Set<number>();
+    const scientificRowIndices = new Set<number>();
+    const unknownClientRowIndices = new Set<number>();
+
+    const trkCounts: Record<string, number[]> = {};
+    const pickCounts: Record<string, number[]> = {};
+    const custCounts: Record<string, number[]> = {};
+
+    rows.forEach((r, idx) => {
+      // Omitir la fila vacía plantilla del final
+      if (idx === rows.length - 1 && isRowEmptyData(r)) {
+        return;
+      }
+
+      const trk = (r.tracking_number || "").trim();
+      const pick = (r.pick_order || "").trim();
+      const cust = (r.customer_order || "").trim();
+      const cli = (r.client || r.account || "").trim();
+
+      if (!trk) {
+        emptyTrackingRowIndices.add(idx);
+      } else {
+        if (isScientificNotation(trk)) {
+          scientificRowIndices.add(idx);
+        }
+        trkCounts[trk] = trkCounts[trk] || [];
+        trkCounts[trk].push(idx);
+      }
+
+      if (pick && !/^(KYNDRYL_|BASF_)$/i.test(pick)) {
+        pickCounts[pick] = pickCounts[pick] || [];
+        pickCounts[pick].push(idx);
+      }
+
+      if (cust) {
+        custCounts[cust] = custCounts[cust] || [];
+        custCounts[cust].push(idx);
+      }
+
+      if (!isCustomMode && isUnknownClient(cli)) {
+        unknownClientRowIndices.add(idx);
+      }
+    });
+
+    const duplicateTrackingSet = new Set(
+      Object.keys(trkCounts).filter((k) => trkCounts[k].length > 1)
+    );
+    const duplicatePickSet = new Set(
+      Object.keys(pickCounts).filter((k) => pickCounts[k].length > 1)
+    );
+    const duplicateCustomerSet = new Set(
+      Object.keys(custCounts).filter((k) => custCounts[k].length > 1)
+    );
+
+    const dupRowIndices = new Set<number>();
+    duplicateTrackingSet.forEach((k) => trkCounts[k].forEach((i) => dupRowIndices.add(i)));
+    duplicatePickSet.forEach((k) => pickCounts[k].forEach((i) => dupRowIndices.add(i)));
+    duplicateCustomerSet.forEach((k) => custCounts[k].forEach((i) => dupRowIndices.add(i)));
+
+    const errorRowIndices = new Set<number>([
+      ...scientificRowIndices,
+      ...unknownClientRowIndices,
+    ]);
+
+    let firstIssueRowIndex: number | null = null;
+    for (let i = 0; i < rows.length; i++) {
+      if (
+        errorRowIndices.has(i) ||
+        dupRowIndices.has(i) ||
+        emptyTrackingRowIndices.has(i)
+      ) {
+        firstIssueRowIndex = i;
+        break;
+      }
+    }
+
+    return {
+      emptyTrackingRowIndices,
+      duplicateTrackingSet,
+      duplicatePickSet,
+      duplicateCustomerSet,
+      scientificRowIndices,
+      unknownClientRowIndices,
+      emptyCount: emptyTrackingRowIndices.size,
+      duplicateCount: dupRowIndices.size,
+      errorCount: errorRowIndices.size,
+      firstIssueRowIndex,
+    };
+  }, [rows, isCustomMode]);
+
+  // ---------------------------------------------------------------------------
+  // 6. TOTALES PARA MODAL DE VISTA PREVIA
+  // ---------------------------------------------------------------------------
+  const totals = useMemo(() => {
+    const activeRows = rows.filter((r, i) => !(i === rows.length - 1 && isRowEmptyData(r)));
+    let totalBoxes = 0;
+    const carrierMap: Record<string, number> = {};
+
+    activeRows.forEach((r) => {
+      totalBoxes += Math.max(1, Number(r.boxes) || 1);
+      const { carrierName } = resolveCarrierAndAccount(r);
+      const key = normalizeCarrierSummaryKey(carrierName);
+      carrierMap[key] = (carrierMap[key] || 0) + 1;
+    });
+
+    return {
+      totalOrders: activeRows.length,
+      totalBoxes,
+      carrierMap,
+    };
+  }, [rows]);
+
+  // ---------------------------------------------------------------------------
+  // 7. BOTONES DE PORTAPAPELES Y ACCIONES DE FILAS
+  // ---------------------------------------------------------------------------
+  const handlePasteFromExcelButton = async () => {
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.readText === "function") {
+        const clipText = await navigator.clipboard.readText();
+        if (clipText && clipText.trim()) {
+          sheet.pasteTsvText(clipText);
+          return;
+        }
+      }
+      // Si está vacío o no disponible, abrir modal de pegado manual
+      setPasteModalText("");
+      setPasteModalOpen(true);
+    } catch {
+      // Si el navegador niega el permiso de lectura del portapapeles, abrir modal con textarea
+      setPasteModalText("");
+      setPasteModalOpen(true);
+    }
+  };
+
+  const handleConfirmPasteModal = () => {
+    if (!pasteModalText.trim()) {
+      triggerToast("Pega primero las celdas copiadas desde Excel.", "info");
+      return;
+    }
+    sheet.pasteTsvText(pasteModalText);
+    setPasteModalOpen(false);
+    setPasteModalText("");
+  };
+
+  const handleCopyToExcelButton = async () => {
+    const activeRows = rows.filter((r, i) => !(i === rows.length - 1 && isRowEmptyData(r)));
+    const targetRows =
+      selectedIds.size > 0
+        ? activeRows.filter((r) => selectedIds.has(r.id))
+        : activeRows;
+
+    if (targetRows.length === 0) {
+      triggerToast("No hay filas con datos para copiar a Excel.", "info");
+      return;
+    }
+
+    const headerLine = EDITABLE_COLUMNS.map((f) => COLUMN_LABELS[f]);
+    const bodyLines = targetRows.map((r) =>
+      EDITABLE_COLUMNS.map((f) => (f === "client" ? r.client || r.account || "" : (r as any)[f] ?? ""))
+    );
+    const tsv = serializeToTsv([headerLine, ...bodyLines]);
+
+    try {
+      await navigator.clipboard.writeText(tsv);
+      triggerToast(
+        `${targetRows.length} fila(s) copiada(s) con encabezados para pegar en Excel.`,
+        "success"
+      );
+    } catch {
+      triggerToast("No se pudo copiar al portapapeles.", "error");
+    }
+  };
+
+  const handleToggleSelectRow = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === rows.length && rows.length > 0) {
+        return new Set();
+      }
+      return new Set(rows.map((r) => r.id));
+    });
+  }, [rows]);
+
+  const requestDeleteSingleRow = useCallback((row: TrackingRow, index: number) => {
+    const label =
+      row.customer_order?.trim() ||
+      row.tracking_number?.trim() ||
+      `Fila #${index + 1}`;
+    setDeleteDialog({
+      mode: "single",
+      targetRowIds: [row.id],
+      targetLabel: label,
+      count: 1,
+    });
+  }, []);
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteDialog({
+      mode: "selected",
+      targetRowIds: Array.from(selectedIds),
+      count: selectedIds.size,
+    });
+  };
+
+  const handleResetFromBatch = () => {
+    setDeleteDialog({
+      mode: "reset",
+    });
+  };
+
+  const confirmDeleteAction = () => {
+    if (!deleteDialog) return;
+
+    if (
+      (deleteDialog.mode === "single" ||
+        deleteDialog.mode === "selected" ||
+        deleteDialog.mode === "range") &&
+      deleteDialog.targetRowIds
+    ) {
+      const idSet = new Set(deleteDialog.targetRowIds);
+      const filtered = rows.filter((r) => !idSet.has(r.id));
+      sheet.commitRows(filtered, true);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        idSet.forEach((id) => next.delete(id));
+        return next;
+      });
+      triggerToast(
+        deleteDialog.mode === "single"
+          ? `Orden ${deleteDialog.targetLabel || ""} eliminada.`
+          : `${idSet.size} fila(s) eliminada(s) correctamente.`,
+        "info"
+      );
+    } else if (deleteDialog.mode === "reset") {
+      try {
+        localStorage.removeItem(draftStorageKey);
+      } catch {}
+      initFromActiveBatch();
+      triggerToast("Tabla restaurada desde el lote del día.", "success");
+    }
+
+    setDeleteDialog(null);
+  };
+
   const handleOpenPreview = () => {
-    if (rows.length === 0) {
-      triggerToast("Agrega al menos una orden para abrir la vista previa.", "info");
+    if (totals.totalOrders === 0) {
+      triggerToast("Captura o pega al menos una orden para abrir la vista previa.", "info");
       return;
     }
     const url = generatePreviewUrl();
@@ -429,273 +640,15 @@ export default function TrackingGenerator({
     }
   };
 
-  const handleClosePreview = () => {
-    setShowPreviewModal(false);
-  };
-
-  // ---------------------------------------------------------------------------
-  // 5. VALIDACIONES VISUALES Y DETECCIÓN DE PROBLEMAS
-  // ---------------------------------------------------------------------------
-  const validationSummary = useMemo(() => {
-    const trkCounts: Record<string, number> = {};
-    const ritmCounts: Record<string, number> = {};
-    let emptyCount = 0;
-
-    rows.forEach((r) => {
-      const trk = (r.tracking_number || "").trim();
-      const ritm = (r.customer_order || "").trim();
-
-      if (!trk) {
-        emptyCount++;
-      } else {
-        trkCounts[trk] = (trkCounts[trk] || 0) + 1;
-      }
-
-      if (ritm) {
-        ritmCounts[ritm] = (ritmCounts[ritm] || 0) + 1;
-      }
-    });
-
-    const duplicateTrkSet = new Set(
-      Object.keys(trkCounts).filter((k) => (trkCounts[k] || 0) > 1)
-    );
-    const duplicateRitmSet = new Set(
-      Object.keys(ritmCounts).filter((k) => (ritmCounts[k] || 0) > 1)
-    );
-
-    return {
-      emptyCount,
-      duplicateTrkSet,
-      duplicateRitmSet,
-      totalIssues: emptyCount + duplicateTrkSet.size + duplicateRitmSet.size,
-    };
-  }, [rows]);
-
-  // ---------------------------------------------------------------------------
-  // 6. TOTALES Y CARRIERS
-  // ---------------------------------------------------------------------------
-  const totals = useMemo(() => {
-    let totalBoxes = 0;
-    const carrierMap: Record<string, number> = {};
-
-    rows.forEach((r) => {
-      totalBoxes += isCustomMode ? Math.max(1, Number(r.boxes) || 1) : 1;
-      const { carrierName } = resolveCarrierAndAccount(r);
-      const key = normalizeCarrierSummaryKey(carrierName);
-      carrierMap[key] = (carrierMap[key] || 0) + 1;
-    });
-
-    return {
-      totalOrders: rows.length,
-      totalBoxes,
-      carrierMap,
-    };
-  }, [rows, isCustomMode]);
-
-  // ---------------------------------------------------------------------------
-  // 7. MANEJO DE ACCIONES EN LA TABLA
-  // ---------------------------------------------------------------------------
-  const handleAddRow = () => {
-    if (rows.length > 0) {
-      const lastIndex = rows.length - 1;
-      const lastRow = rows[lastIndex];
-      const lastRowMissing = getMissingRowFields(lastRow, isCustomMode);
-
-      if (lastRowMissing.length > 0) {
-        setIncompleteRowId(lastRow.id);
-        triggerToast(
-          `Completa todos los datos de la Fila #${lastIndex + 1} antes de agregar otra (${lastRowMissing.join(", ")}).`,
-          "error"
-        );
-        return;
-      }
-
-      for (let i = 0; i < rows.length; i++) {
-        const missing = getMissingRowFields(rows[i], isCustomMode);
-        if (missing.length > 0) {
-          setIncompleteRowId(rows[i].id);
-          triggerToast(
-            `Completa todos los datos de la Fila #${i + 1} antes de agregar otra (${missing.join(", ")}).`,
-            "error"
-          );
-          return;
-        }
-      }
-    }
-
-    setIncompleteRowId(null);
-    const defaultAccount = isCustomMode
-      ? headerInfo.clients !== "KYNDRYL & BASF" && headerInfo.clients.trim()
-        ? headerInfo.clients.trim().toUpperCase()
-        : ""
-      : "KYNDRYL";
-
-    const newRow: TrackingRow = {
-      id: `trk-manual-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      carrier: "ESTAFETAREST",
-      account: defaultAccount,
-      tracking_number: "",
-      pick_order: isCustomMode ? "" : "KYNDRYL_",
-      customer_order: "",
-      boxes: 1,
-      manual: true,
-    };
-    setRows((prev) => [...prev, newRow]);
-    triggerToast("Fila agregada. Captura la información correspondiente.", "info");
-  };
-
-  // Edición directa de una celda (estricta en modo oficial; libre en modo tracking ajeno)
-  const handleCellChange = (id: string, field: keyof TrackingRow, value: any) => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== id) return row;
-
-        if (isCustomMode) {
-          const updatedCustom: TrackingRow = {
-            ...row,
-            [field]: field === "boxes" ? Math.max(1, parseInt(String(value), 10) || 1) : value,
-          };
-          if (incompleteRowId === id && getMissingRowFields(updatedCustom, true).length === 0) {
-            setIncompleteRowId(null);
-          }
-          return updatedCustom;
-        }
-
-        // Modo Oficial KYNDRYL & BASF
-        const currentAcc = (row.account || "KYNDRYL").trim().toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
-        const updated: TrackingRow = { ...row, [field]: value, boxes: 1 };
-
-        if (field === "account") {
-          const nextAcc = String(value).trim().toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
-          updated.account = nextAcc;
-          updated.pick_order = ensurePickOrderPrefix(nextAcc, row.pick_order);
-        } else if (field === "pick_order") {
-          updated.pick_order = ensurePickOrderPrefix(currentAcc, String(value));
-        } else if (field === "customer_order") {
-          const valStr = String(value).trim();
-          const isBasf = valStr.toUpperCase().startsWith("BRITM");
-          const isKyndryl = valStr.toUpperCase().startsWith("RITM");
-          const nextAcc = isBasf ? "BASF" : isKyndryl ? "KYNDRYL" : currentAcc;
-          updated.account = nextAcc;
-          const prevSuffix = extractUserSuffix(row.pick_order);
-          if (!prevSuffix || prevSuffix === (row.customer_order || "").trim()) {
-            updated.pick_order = `${getPickPrefix(nextAcc)}${valStr}`;
-          } else {
-            updated.pick_order = ensurePickOrderPrefix(nextAcc, row.pick_order);
-          }
-        }
-
-        if (incompleteRowId === id && getMissingRowFields(updated, false).length === 0) {
-          setIncompleteRowId(null);
-        }
-
-        return updated;
-      })
-    );
-  };
-
-  const handleToggleSelectRow = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const handleToggleSelectAll = () => {
-    if (selectedIds.size === rows.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(rows.map((r) => r.id)));
-    }
-  };
-
-  // Solicitar confirmación para eliminar una sola fila
-  const requestDeleteSingleRow = (row: TrackingRow, index: number) => {
-    const label =
-      row.customer_order?.trim() ||
-      (isCustomMode ? row.pick_order?.trim() : extractUserSuffix(row.pick_order)) ||
-      row.tracking_number?.trim() ||
-      `Fila #${index + 1}`;
-    setDeleteDialog({
-      mode: "single",
-      targetRowId: row.id,
-      targetLabel: label,
-      count: 1,
-    });
-  };
-
-  // Solicitar confirmación para eliminar las filas seleccionadas
-  const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
-    setDeleteDialog({
-      mode: "selected",
-      count: selectedIds.size,
-    });
-  };
-
-  // Solicitar confirmación para restaurar órdenes del día (reemplazando lo actual)
-  const handleResetFromBatch = () => {
-    setDeleteDialog({
-      mode: "reset",
-    });
-  };
-
-  // Ejecutar la acción confirmada en la ventana modal
-  const confirmDeleteAction = () => {
-    if (!deleteDialog) return;
-
-    if (deleteDialog.mode === "single" && deleteDialog.targetRowId) {
-      const idToRemove = deleteDialog.targetRowId;
-      setRows((prev) => prev.filter((r) => r.id !== idToRemove));
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(idToRemove);
-        return next;
-      });
-      if (incompleteRowId === idToRemove) {
-        setIncompleteRowId(null);
-      }
-      triggerToast(`Orden ${deleteDialog.targetLabel || ""} eliminada correctamente.`, "info");
-    } else if (deleteDialog.mode === "selected") {
-      const count = selectedIds.size;
-      setRows((prev) => prev.filter((r) => !selectedIds.has(r.id)));
-      setSelectedIds(new Set());
-      setIncompleteRowId(null);
-      triggerToast(`${count} orden(es) eliminada(s) correctamente.`, "info");
-    } else if (deleteDialog.mode === "reset") {
-      try {
-        localStorage.removeItem(draftStorageKey);
-      } catch {}
-      initFromActiveBatch(includeReturns);
-      triggerToast("Tabla restaurada desde el lote del día.", "success");
-    }
-
-    setDeleteDialog(null);
-  };
-
-  const handleToggleReturns = (checked: boolean) => {
-    setIncludeReturns(checked);
-    initFromActiveBatch(checked);
-    triggerToast(
-      checked ? "Retornos (-1) incluidos en la lista." : "Mostrando solo órdenes de ida (Outbound).",
-      "info"
-    );
-  };
-
   const handleDownloadPdf = () => {
-    if (rows.length === 0) {
-      triggerToast("No hay órdenes en la lista para generar el PDF.", "error");
+    if (totals.totalOrders === 0) {
+      triggerToast("No hay órdenes con datos para generar el PDF.", "error");
       return;
     }
 
-    if (validationSummary.duplicateTrkSet.size > 0 || validationSummary.duplicateRitmSet.size > 0) {
+    if (validationInfo.duplicateCount > 0) {
       const confirmDup = window.confirm(
-        "Se detectaron números de guía o RITMs duplicados en la lista. ¿Deseas generar el PDF de todos modos?"
+        "Se detectaron números de guía o pedidos duplicados en la tabla. ¿Deseas generar el PDF de todos modos?"
       );
       if (!confirmDup) return;
     }
@@ -710,7 +663,7 @@ export default function TrackingGenerator({
   };
 
   const handlePrint = () => {
-    if (rows.length === 0) {
+    if (totals.totalOrders === 0) {
       triggerToast("No hay órdenes en la lista para imprimir.", "error");
       return;
     }
@@ -721,9 +674,7 @@ export default function TrackingGenerator({
       try {
         iframeRef.current.contentWindow?.print();
         return;
-      } catch {
-        // Fallback a ventana nueva
-      }
+      } catch {}
     }
     const printWin = window.open(url, "_blank");
     if (printWin) {
@@ -773,7 +724,7 @@ export default function TrackingGenerator({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* BARRA SUPERIOR: FECHA DE CIERRE Y MODO TRACKING AJENO / LIBRE      */}
+      {/* BARRA SUPERIOR: FECHA DE CIERRE Y ACCIONES DE HOJA DE CÁLCULO      */}
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5 mb-5">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-slate-100">
@@ -796,7 +747,6 @@ export default function TrackingGenerator({
               </span>
             </div>
 
-            {/* Campos adicionales desbloqueados solo cuando está activo el modo Tracking Ajeno */}
             {isCustomMode && (
               <>
                 <div className="w-full sm:w-72">
@@ -828,7 +778,7 @@ export default function TrackingGenerator({
             )}
           </div>
 
-          {/* Botón para habilitar Tracking Ajeno a Kyndryl & BASF */}
+          {/* Botón para habilitar Tracking Ajeno */}
           <div className="flex items-center gap-2 self-start lg:self-end shrink-0">
             <button
               type="button"
@@ -855,17 +805,67 @@ export default function TrackingGenerator({
         </div>
 
         {/* ---------------------------------------------------------------- */}
-        {/* BARRA DE ACCIONES PRINCIPALES Y VALIDACIONES                     */}
+        {/* BARRA DE ACCIONES: FILAS, DESHACER/REHACER, EXCEL Y PDF          */}
         {/* ---------------------------------------------------------------- */}
         <div className="pt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={handleAddRow}
+              onClick={sheet.addRowAtEndAndFocus}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold transition shadow-xs cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Agregar fila</span>
+              <span>+ Agregar fila</span>
+            </button>
+
+            {/* Deshacer / Rehacer */}
+            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5">
+              <button
+                type="button"
+                onClick={sheet.undo}
+                disabled={!sheet.canUndo}
+                title="Deshacer (Ctrl+Z)"
+                aria-label="Deshacer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-white hover:text-[#233762] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                <span>Deshacer</span>
+              </button>
+              <div className="w-px h-4 bg-slate-200" />
+              <button
+                type="button"
+                onClick={sheet.redo}
+                disabled={!sheet.canRedo}
+                title="Rehacer (Ctrl+Y)"
+                aria-label="Rehacer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-white hover:text-[#233762] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+                <span>Rehacer</span>
+              </button>
+            </div>
+
+            {/* Pegar desde Excel / Copiar a Excel */}
+            <button
+              type="button"
+              onClick={handlePasteFromExcelButton}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#233762]/25 bg-[#EFF3F9] hover:bg-[#E2E8F4] text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer"
+              title="Pegar bloque copiado desde Excel (Ctrl+V)"
+            >
+              <ClipboardPaste className="w-3.5 h-3.5" />
+              <span>Pegar desde Excel</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopyToExcelButton}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition shadow-2xs cursor-pointer"
+              title="Copiar filas a Excel en formato TSV"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>
+                Copiar a Excel {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+              </span>
             </button>
 
             <button
@@ -898,7 +898,7 @@ export default function TrackingGenerator({
             <button
               type="button"
               onClick={handleOpenPreview}
-              disabled={rows.length === 0}
+              disabled={totals.totalOrders === 0}
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -908,7 +908,7 @@ export default function TrackingGenerator({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={rows.length === 0}
+              disabled={totals.totalOrders === 0}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -918,7 +918,7 @@ export default function TrackingGenerator({
             <button
               type="button"
               onClick={handleDownloadPdf}
-              disabled={rows.length === 0}
+              disabled={totals.totalOrders === 0}
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-3.5 h-3.5" />
@@ -926,296 +926,101 @@ export default function TrackingGenerator({
             </button>
           </div>
         </div>
-
-        {/* Alerta de problemas / validaciones visuales */}
-        {validationSummary.totalIssues > 0 && (
-          <div className="mt-3 px-3.5 py-2 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                <strong>Atención:</strong>{" "}
-                {validationSummary.emptyCount > 0 && `${validationSummary.emptyCount} orden(es) sin guía timbrada. `}
-                {validationSummary.duplicateTrkSet.size > 0 &&
-                  `${validationSummary.duplicateTrkSet.size} tracking(s) duplicado(s). `}
-                {validationSummary.duplicateRitmSet.size > 0 &&
-                  `${validationSummary.duplicateRitmSet.size} RITM(s) duplicado(s). `}
-              </span>
-            </div>
-            <span className="text-[11px] font-semibold text-amber-700">Verifica las filas resaltadas</span>
-          </div>
-        )}
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* TABLA EDITABLE DE ANCHO COMPLETO (7 COLUMNAS OFICIALES)            */}
+      {/* TABLA TIPO HOJA DE CÁLCULO (TrackingGrid)                          */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden min-h-[480px]">
-        <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2 font-bold text-[#233762]">
-            <Edit3 className="w-4 h-4" />
-            <span>Órdenes del día ({rows.length})</span>
-            {isCustomMode && (
-              <span className="ml-1 px-2 py-0.5 rounded-full bg-red-100 text-[#CE3A39] text-[10px] font-extrabold uppercase tracking-wider">
-                Modo Tracking Ajeno (Edición Libre)
-              </span>
-            )}
-          </div>
-          <span className="text-[11px] text-slate-500">
-            {isCustomMode
-              ? "Modo libre: puedes modificar Cuenta, Pick Order, Cajas y Encabezado para cualquier cliente"
-              : "Estructura oficial de 7 columnas (KYNDRYL & BASF) • Presiona \"Vista previa\" para revisar el documento"}
-          </span>
-        </div>
+      <TrackingGrid
+        rows={rows}
+        selectedIds={selectedIds}
+        onToggleSelectRow={handleToggleSelectRow}
+        onToggleSelectAll={handleToggleSelectAll}
+        onRequestDeleteSingleRow={requestDeleteSingleRow}
+        validationInfo={validationInfo}
+        gridContainerRef={sheet.gridContainerRef}
+        activeCell={sheet.activeCell}
+        selection={sheet.selection}
+        editingCell={sheet.editingCell}
+        editingValue={sheet.editingValue}
+        setEditingValue={sheet.setEditingValue}
+        fillDragEndRow={sheet.fillDragEndRow}
+        startEditing={sheet.startEditing}
+        cancelEditing={sheet.cancelEditing}
+        commitCellEdit={sheet.commitCellEdit}
+        moveActiveCell={sheet.moveActiveCell}
+        handleGridKeyDown={sheet.handleGridKeyDown}
+        handleGridPaste={sheet.handleGridPaste}
+        handleCellMouseDown={sheet.handleCellMouseDown}
+        handleCellMouseEnter={sheet.handleCellMouseEnter}
+        selectEntireColumn={sheet.selectEntireColumn}
+        selectEntireRow={sheet.selectEntireRow}
+        startFillHandleDrag={sheet.startFillHandleDrag}
+        insertRowAt={sheet.insertRowAt}
+        duplicateRowAt={sheet.duplicateRowAt}
+        copySelectionToClipboard={sheet.copySelectionToClipboard}
+        onOpenPasteHelper={handlePasteFromExcelButton}
+      />
 
-        <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[680px]">
-          {rows.length === 0 ? (
-            <div className="h-full min-h-[360px] flex flex-col items-center justify-center p-8 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-3">
-                <FileText className="w-7 h-7" />
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL DE PEGADO MANUAL DESDE EXCEL (FALLBACK DE PORTAPAPELES)      */}
+      {/* ------------------------------------------------------------------ */}
+      {pasteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPasteModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 font-extrabold text-[#233762] text-sm">
+                <ClipboardPaste className="w-4 h-4" />
+                <span>Pegar bloque desde Excel</span>
               </div>
-              <h3 className="text-base font-bold text-slate-800">No hay órdenes en la lista</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                Carga un lote en Asset Management o haz clic en &quot;Agregar fila&quot; para capturar guías manualmente.
-              </p>
               <button
                 type="button"
-                onClick={handleAddRow}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                onClick={() => setPasteModalOpen(false)}
+                aria-label="Cerrar ventana de pegado"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
-                <span>Agregar primera orden</span>
+                <X className="w-4 h-4" />
               </button>
             </div>
-          ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead className="bg-[#233762] text-white sticky top-0 z-10 font-bold select-none text-[11px]">
-                <tr>
-                  <th className="py-3 px-3 w-11 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.size === rows.length && rows.length > 0}
-                      onChange={handleToggleSelectAll}
-                      aria-label="Seleccionar todas las filas"
-                      className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
-                    />
-                  </th>
-                  <th className="py-3 px-2 w-12 text-center">#</th>
-                  <th className="py-3 px-3 w-40 text-center">Carrier</th>
-                  <th className="py-3 px-3 w-36 text-center">Client</th>
-                  <th className="py-3 px-3">Tracking Number</th>
-                  <th className="py-3 px-3">Pick Order (RITM)</th>
-                  <th className="py-3 px-3 w-48 text-center">CUSTOMER ORDER</th>
-                  <th className="py-3 px-3 w-24 text-center">Cajas</th>
-                  <th className="py-3 px-2 w-12 text-center"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {rows.map((row, index) => {
-                  const isSelected = selectedIds.has(row.id);
-                  const trkClean = (row.tracking_number || "").trim();
-                  const ritmClean = (row.customer_order || "").trim();
-                  const { carrierName, accountName } = resolveCarrierAndAccount(row);
-                  const normalizedAccount = accountName.toUpperCase() === "BASF" ? "BASF" : "KYNDRYL";
-                  const pickOrderValue = isCustomMode
-                    ? row.pick_order || ""
-                    : ensurePickOrderPrefix(normalizedAccount, row.pick_order);
-                  const pickOrderSuffixClean = isCustomMode
-                    ? (row.pick_order || "").trim()
-                    : extractUserSuffix(row.pick_order).trim();
 
-                  const isIncompleteHighlighted = incompleteRowId === row.id;
-                  const isMissingCarrier = !carrierName.trim();
-                  const isMissingAccount = !(isCustomMode ? (row.account || "").trim() : normalizedAccount);
-                  const isMissingTrk = !trkClean;
-                  const isMissingPickSuffix = !pickOrderSuffixClean;
-                  const isMissingCustomerOrder = !ritmClean;
-
-                  const isDuplicateTrk = validationSummary.duplicateTrkSet.has(trkClean);
-                  const isDuplicateRitm = validationSummary.duplicateRitmSet.has(ritmClean);
-
-                  const hasError = isDuplicateTrk || isDuplicateRitm || isIncompleteHighlighted;
-                  const hasWarning = isMissingTrk && !hasError;
-
-                  const rowBgClass = isSelected
-                    ? "bg-blue-50/70"
-                    : hasError
-                    ? "bg-red-50/60"
-                    : hasWarning
-                    ? "bg-amber-50/40"
-                    : "bg-white";
-
-                  return (
-                    <tr key={row.id} className={`transition-colors hover:bg-slate-50 ${rowBgClass}`}>
-                      {/* Checkbox de selección */}
-                      <td className="py-2 px-3 text-center border-r border-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleSelectRow(row.id)}
-                          aria-label={`Seleccionar orden ${row.customer_order}`}
-                          className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
-                        />
-                      </td>
-
-                      {/* Columna 1: # (1..N) */}
-                      <td className="py-2 px-2 text-center font-bold text-slate-700 font-mono text-xs border-r border-slate-200">
-                        {index + 1}
-                      </td>
-
-                      {/* Columna 2: Carrier */}
-                      <td className="py-2 px-2 border-r border-slate-200">
-                        <input
-                          type="text"
-                          value={isCustomMode ? row.carrier : carrierName}
-                          onChange={(e) => handleCellChange(row.id, "carrier", e.target.value)}
-                          className={`w-full px-2 py-1.5 text-xs text-center rounded-lg border font-semibold focus:outline-none transition ${
-                            isIncompleteHighlighted && isMissingCarrier
-                              ? "bg-red-50 border-red-400 text-red-900 focus:border-red-500"
-                              : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-800"
-                          }`}
-                          placeholder="ESTAFETAREST"
-                        />
-                      </td>
-
-                      {/* Columna 3: Cuenta (Selector KYNDRYL/BASF en modo oficial; Texto libre en modo ajeno) */}
-                      <td className="py-2 px-2 border-r border-slate-200">
-                        {isCustomMode ? (
-                          <input
-                            type="text"
-                            value={row.account ?? ""}
-                            onChange={(e) => handleCellChange(row.id, "account", e.target.value)}
-                            placeholder="Ej. CLIENTE..."
-                            className={`w-full px-2 py-1.5 text-xs text-center rounded-lg border font-bold focus:outline-none transition ${
-                              isIncompleteHighlighted && isMissingAccount
-                                ? "bg-red-50 border-red-400 text-red-900 focus:border-red-500"
-                                : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-[#233762]"
-                            }`}
-                          />
-                        ) : (
-                          <select
-                            value={normalizedAccount}
-                            onChange={(e) => handleCellChange(row.id, "account", e.target.value)}
-                            aria-label="Seleccionar cuenta"
-                            className="w-full px-2 py-1.5 text-xs text-center rounded-lg bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-[#233762] font-bold text-[#233762] focus:outline-none transition cursor-pointer"
-                          >
-                            <option value="KYNDRYL">KYNDRYL</option>
-                            <option value="BASF">BASF</option>
-                          </select>
-                        )}
-                      </td>
-
-                      {/* Columna 4: Tracking Number */}
-                      <td className="py-2 px-3">
-                        <div className="relative flex items-center">
-                          <input
-                            type="text"
-                            value={row.tracking_number}
-                            onChange={(e) => handleCellChange(row.id, "tracking_number", e.target.value)}
-                            className={`w-full px-3 py-1.5 text-xs font-mono text-center rounded-lg border transition focus:outline-none ${
-                              isDuplicateTrk || (isIncompleteHighlighted && isMissingTrk)
-                                ? "bg-red-50 border-red-400 text-red-800 focus:border-red-500 font-bold pr-20"
-                                : isMissingTrk
-                                ? "bg-amber-50 border-amber-300 text-amber-800 focus:border-amber-500 pr-16"
-                                : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-900"
-                            }`}
-                            placeholder="Capturar número de guía..."
-                          />
-                          {isMissingTrk && (
-                            <span className="absolute right-2.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 pointer-events-none">
-                              Sin guía
-                            </span>
-                          )}
-                          {isDuplicateTrk && (
-                            <span className="absolute right-2.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-100 text-red-800 border border-red-200 pointer-events-none">
-                              Duplicado
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Columna 5: Pick Order (RITM) */}
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          value={pickOrderValue}
-                          onChange={(e) => handleCellChange(row.id, "pick_order", e.target.value)}
-                          placeholder={isCustomMode ? "Pick Order libre..." : undefined}
-                          className={`w-full px-3 py-1.5 text-xs font-mono text-center rounded-lg border focus:outline-none transition ${
-                            isIncompleteHighlighted && isMissingPickSuffix
-                              ? "bg-red-50 border-red-400 text-red-900 focus:border-red-500 font-bold"
-                              : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-800"
-                          }`}
-                        />
-                      </td>
-
-                      {/* Columna 6: CUSTOMER ORDER */}
-                      <td className="py-2 px-3 border-r border-slate-200">
-                        <div className="relative flex items-center">
-                          <input
-                            type="text"
-                            value={row.customer_order}
-                            onChange={(e) => handleCellChange(row.id, "customer_order", e.target.value)}
-                            className={`w-full px-3 py-1.5 text-xs font-mono text-center rounded-lg border transition focus:outline-none ${
-                              isDuplicateRitm
-                                ? "bg-red-50 border-red-300 text-red-800 focus:border-red-500 font-bold pr-14"
-                                : isIncompleteHighlighted && isMissingCustomerOrder
-                                ? "bg-red-50 border-red-400 text-red-900 focus:border-red-500 font-bold"
-                                : "bg-transparent hover:bg-slate-50 focus:bg-white border-transparent focus:border-[#233762] text-slate-900"
-                            }`}
-                            placeholder={
-                              isCustomMode
-                                ? "Orden / Referencia..."
-                                : normalizedAccount === "BASF"
-                                ? "BRITM..."
-                                : "RITM..."
-                            }
-                          />
-                          {isDuplicateRitm && (
-                            <span className="absolute right-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-100 text-red-800 border border-red-200 pointer-events-none">
-                              Dup
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Columna 7: Cajas (Fijo en 1 en modo oficial; Editable en modo ajeno) */}
-                      <td className="py-2 px-2 text-center border-r border-slate-200">
-                        {isCustomMode ? (
-                          <input
-                            type="number"
-                            min="1"
-                            max="999"
-                            value={row.boxes || 1}
-                            onChange={(e) => handleCellChange(row.id, "boxes", e.target.value)}
-                            className="w-16 text-center px-1.5 py-1.5 text-xs font-bold text-slate-900 rounded-lg bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#233762] focus:outline-none transition"
-                          />
-                        ) : (
-                          <span className="inline-block w-14 text-center py-1.5 text-xs font-bold text-slate-900 select-none">
-                            1
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Eliminar fila individual (abre ventana de confirmación) */}
-                      <td className="py-2 px-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => requestDeleteSingleRow(row, index)}
-                          title="Eliminar esta fila"
-                          aria-label="Eliminar fila"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+            <div className="p-5">
+              <p className="text-xs text-slate-600 mb-3">
+                Pega aquí (<kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px]">Ctrl+V</kbd>) las celdas copiadas desde tu hoja de Excel (con o sin fila de encabezados):
+              </p>
+              <textarea
+                rows={7}
+                autoFocus
+                value={pasteModalText}
+                onChange={(e) => setPasteModalText(e.target.value)}
+                placeholder={"Carrier\tClient\tTracking Number\tPick Order\tCUSTOMER ORDER\tCajas\nESTAFETAREST\tBASF\t8793 8866 3139\tBASF_...\t32120 - Andares\t1"}
+                className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#233762] focus:outline-none text-xs font-mono text-slate-800"
+              />
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPasteModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPasteModal}
+                  className="px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold transition cursor-pointer"
+                >
+                  Procesar y Pegar
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* VENTANA MODAL DE CONFIRMACIÓN ANTES DE ELIMINAR                    */}
@@ -1237,7 +1042,7 @@ export default function TrackingGenerator({
                 <div className="flex-1">
                   <h3 className="text-base font-extrabold text-slate-900">
                     {deleteDialog.mode === "single" && "¿Estás seguro de eliminar esta orden?"}
-                    {deleteDialog.mode === "selected" &&
+                    {(deleteDialog.mode === "selected" || deleteDialog.mode === "range") &&
                       `¿Estás seguro de eliminar ${deleteDialog.count} orden(es)?`}
                     {deleteDialog.mode === "reset" && "¿Estás seguro de restaurar las órdenes del día?"}
                   </h3>
@@ -1245,15 +1050,15 @@ export default function TrackingGenerator({
                     {deleteDialog.mode === "single" && (
                       <>
                         Se eliminará la fila{" "}
-                        <span className="font-bold text-slate-800">{deleteDialog.targetLabel}</span> de la lista de
-                        tracking del día.
+                        <span className="font-bold text-slate-800">{deleteDialog.targetLabel}</span> de la hoja de
+                        tracking.
                       </>
                     )}
-                    {deleteDialog.mode === "selected" && (
+                    {(deleteDialog.mode === "selected" || deleteDialog.mode === "range") && (
                       <>
                         Estás a punto de eliminar{" "}
-                        <span className="font-bold text-slate-800">{deleteDialog.count} fila(s) seleccionada(s)</span>{" "}
-                        de la tabla.
+                        <span className="font-bold text-slate-800">{deleteDialog.count} fila(s)</span> de la tabla.
+                        Puedes revertirlo después con <kbd className="px-1 rounded bg-slate-100 font-mono">Ctrl+Z</kbd>.
                       </>
                     )}
                     {deleteDialog.mode === "reset" && (
@@ -1288,18 +1093,17 @@ export default function TrackingGenerator({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* MODAL DE VISTA PREVIA DEL PDF (SE ABRE AL PRESIONAR EL BOTÓN)      */}
+      {/* MODAL DE VISTA PREVIA DEL PDF                                      */}
       {/* ------------------------------------------------------------------ */}
       {showPreviewModal && (
         <div
           className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
-          onClick={handleClosePreview}
+          onClick={() => setShowPreviewModal(false)}
         >
           <div
             className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-6xl h-[88vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabecera del Modal */}
             <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center">
@@ -1310,7 +1114,8 @@ export default function TrackingGenerator({
                     Vista Previa &bull; {getTrackingPdfFileName(headerInfo.date)}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    {totals.totalOrders} orden(es) &bull; {totals.totalBoxes} caja(s) &bull; {formatLongDate(headerInfo.date)}
+                    {totals.totalOrders} orden(es) &bull; {totals.totalBoxes} caja(s) &bull;{" "}
+                    {formatLongDate(headerInfo.date)}
                   </p>
                 </div>
               </div>
@@ -1336,7 +1141,7 @@ export default function TrackingGenerator({
 
                 <button
                   type="button"
-                  onClick={handleClosePreview}
+                  onClick={() => setShowPreviewModal(false)}
                   aria-label="Cerrar vista previa"
                   className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer ml-1"
                 >
@@ -1345,7 +1150,6 @@ export default function TrackingGenerator({
               </div>
             </div>
 
-            {/* Visor PDF embebido */}
             <div className="flex-1 bg-slate-100 p-3 flex items-center justify-center">
               {pdfBlobUrl ? (
                 <iframe
