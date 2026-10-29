@@ -326,7 +326,7 @@ const SheetRow = React.memo<MemoRowProps>(
             field === "client"
               ? row.client || row.account || ""
               : field === "pick_order"
-              ? stripClientPickPrefix(row.pick_order)
+              ? stripClientPickPrefix(row.pick_order, row.client || row.account || "")
               : (row as any)[field] ?? "";
 
           const isMono =

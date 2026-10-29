@@ -42,7 +42,7 @@ export function resolveCarrierAndAccount(row: TrackingRow): {
   if (explicitAccount) {
     const parts = rawCarrier.split(/\s+/);
     const baseCarrier = parts[0] || "ESTAFETAREST";
-    let normalizedAccount = explicitAccount;
+    let normalizedAccount = explicitAccount.toUpperCase();
     if (/basf/i.test(explicitAccount)) {
       normalizedAccount = "BASF";
     } else if (/kyndryl|kyndry|kyn|kst/i.test(explicitAccount)) {
@@ -54,7 +54,7 @@ export function resolveCarrierAndAccount(row: TrackingRow): {
   const parts = rawCarrier.split(/\s+/);
   if (parts.length >= 2) {
     const secondPart = parts.slice(1).join(" ");
-    let normalizedAccount = secondPart;
+    let normalizedAccount = secondPart.toUpperCase();
     if (/basf/i.test(secondPart)) {
       normalizedAccount = "BASF";
     } else if (/kyndryl|kyndry|kyn|kst/i.test(secondPart)) {
@@ -352,20 +352,26 @@ export function buildTrackingPdf(
 
   const tableBody = activeRows.map((r, idx) => {
     const { carrierName, accountName } = resolveCarrierAndAccount(r);
+    const accountUpper = (accountName || "").trim().toUpperCase();
     const rawPickBase = (r.pick_order || r.customer_order || "").trim();
-    const cleanPick = rawPickBase.replace(/^(KYNDRYL_|BASF_)+/i, "").trim();
 
-    let formattedPickOrder = cleanPick;
-    if (/kyndryl|kyndry|kyn|kst/i.test(accountName)) {
-      formattedPickOrder = cleanPick ? `KYNDRYL_${cleanPick}` : "KYNDRYL_";
-    } else if (/basf/i.test(accountName)) {
-      formattedPickOrder = cleanPick ? `BASF_${cleanPick}` : "BASF_";
+    let cleanPick = rawPickBase.replace(/^(KYNDRYL_|BASF_)+/i, "").trim();
+    if (accountUpper) {
+      const escapedAcc = accountUpper.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const accPrefixRegex = new RegExp(`^(${escapedAcc}_)+`, "i");
+      cleanPick = cleanPick.replace(accPrefixRegex, "").trim();
     }
+
+    const formattedPickOrder = accountUpper
+      ? cleanPick
+        ? `${accountUpper}_${cleanPick}`
+        : `${accountUpper}_`
+      : cleanPick;
 
     return [
       String(idx + 1),
       carrierName,
-      accountName,
+      accountUpper || accountName,
       r.tracking_number ? r.tracking_number : "Sin guía",
       formattedPickOrder,
       r.customer_order || "",
