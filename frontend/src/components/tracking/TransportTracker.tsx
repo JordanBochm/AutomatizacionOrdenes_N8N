@@ -141,6 +141,17 @@ export function parseGuidesInput(rawText: string): string[] {
   return results;
 }
 
+function getStandardRastreoFileName(ext: "xlsx" | "csv"): string {
+  const MESES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+  const now = new Date();
+  const dia = String(now.getDate()).padStart(2, "0");
+  const mes = MESES[now.getMonth()] || "Mes";
+  return `RASTREO_${dia}_${mes}.${ext}`;
+}
+
 /**
  * Pre-detección ligera en cliente para mostrar vista previa inmediata mientras el usuario escribe.
  */
@@ -589,7 +600,7 @@ export default function TransportTracker({
     const link = document.createElement("a");
     const today = new Date().toISOString().slice(0, 10);
     link.href = url;
-    link.setAttribute("download", `Rastreo_Envios_SupplyChain_${today}.csv`);
+    link.setAttribute("download", getStandardRastreoFileName("csv"));
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -625,7 +636,7 @@ export default function TransportTracker({
       const link = document.createElement("a");
       const today = new Date().toISOString().slice(0, 10);
       link.href = url;
-      link.setAttribute("download", `Rastreo_Envios_SupplyChain_${today}.xlsx`);
+      link.setAttribute("download", getStandardRastreoFileName("xlsx"));
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

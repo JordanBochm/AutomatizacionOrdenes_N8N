@@ -86,6 +86,7 @@ from src.tracking.service import (
     SlidingWindowRateLimiter,
     TrackingService,
     build_tracking_excel_bytes,
+    get_standardized_tracking_excel_filename,
     verify_tracking_auth,
 )
 
@@ -948,8 +949,7 @@ async def export_tracking_excel(
     SupplyChain México (#233762 / #CE3A39) a partir de los resultados de rastreo.
     """
     excel_bytes = build_tracking_excel_bytes(req.resultados)
-    today_str = datetime.date.today().isoformat()
-    filename = f"Rastreo_Envios_SupplyChain_{today_str}.xlsx"
+    filename = get_standardized_tracking_excel_filename()
     return Response(
         content=excel_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
