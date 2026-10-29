@@ -13,6 +13,7 @@ import time
 import asyncio
 from typing import Any, Dict, List, Optional
 import httpx
+from dotenv import load_dotenv
 
 from src.tracking.base import (
     CarrierAdapter,
@@ -97,10 +98,16 @@ class FedExAdapter(CarrierAdapter):
         base_url: Optional[str] = None,
         locale: Optional[str] = None,
     ):
+        load_dotenv(override=True)
+        self._explicit_client_id = client_id
+        self._explicit_client_secret = client_secret
+        self._explicit_base_url = base_url
+        self._explicit_locale = locale
+
         self.client_id = (client_id if client_id is not None else os.getenv("FEDEX_CLIENT_ID", "")).strip()
         self.client_secret = (client_secret if client_secret is not None else os.getenv("FEDEX_CLIENT_SECRET", "")).strip()
         self.base_url = (
-            base_url if base_url is not None else os.getenv("FEDEX_BASE_URL", "https://apis-sandbox.fedex.com")
+            base_url if base_url is not None else os.getenv("FEDEX_BASE_URL", "https://apis.fedex.com")
         ).strip().rstrip("/")
         self.locale = (locale if locale is not None else os.getenv("FEDEX_LOCALE", "es_MX")).strip()
 
@@ -108,7 +115,20 @@ class FedExAdapter(CarrierAdapter):
         self._token_expires_at: float = 0.0
         self._token_lock = asyncio.Lock()
 
+    def _refresh_env_if_dynamic(self) -> None:
+        if self._explicit_client_id is None:
+            load_dotenv(override=True)
+            new_id = os.getenv("FEDEX_CLIENT_ID", "").strip()
+            new_secret = os.getenv("FEDEX_CLIENT_SECRET", "").strip()
+            new_url = os.getenv("FEDEX_BASE_URL", "https://apis.fedex.com").strip().rstrip("/")
+            if new_id != self.client_id or new_secret != self.client_secret or new_url != self.base_url:
+                self.client_id = new_id
+                self.client_secret = new_secret
+                self.base_url = new_url
+                self.invalidate_token()
+
     def is_configured(self) -> bool:
+        self._refresh_env_if_dynamic()
         return bool(self.client_id and self.client_secret)
 
     def invalidate_token(self) -> None:
@@ -120,6 +140,7 @@ class FedExAdapter(CarrierAdapter):
         Obtiene o reutiliza el token OAuth2 de FedEx (`grant_type=client_credentials`).
         Renueva automáticamente 60 segundos antes de su expiración.
         """
+        self._refresh_env_if_dynamic()
         now = time.monotonic()
         if self._access_token and now < self._token_expires_at:
             return self._access_token
@@ -152,7 +173,7 @@ class FedExAdapter(CarrierAdapter):
 
             if resp.status_code in (401, 403):
                 logger.error("Credenciales OAuth2 rechazadas por FedEx (HTTP %s)", resp.status_code)
-                raise CarrierAuthError("FEDEX", f"HTTP {resp.status_code}")
+                raise CarrierAuthError("FEDEX", f"Credenciales OAuth2 rechazadas (HTTP {resp.status_code})")
             if resp.status_code == 429:
                 raise CarrierQuotaExceededError("FEDEX")
             if resp.status_code >= 500:
@@ -211,8 +232,13 @@ class FedExAdapter(CarrierAdapter):
                 token = await self.autenticar(client)
                 continue
 
-            if resp.status_code in (401, 403):
-                raise CarrierAuthError("FEDEX", f"HTTP {resp.status_code}")
+            if resp.status_code == 403:
+                raise CarrierAuthError(
+                    "FEDEX",
+                    "OAuth2 exitoso en Producción, pero tu proyecto en FedEx Developer Portal no tiene habilitado el permiso 'Track API' (HTTP 403 FORBIDDEN.ERROR).",
+                )
+            if resp.status_code == 401:
+                raise CarrierAuthError("FEDEX", "HTTP 401 Unauthorized")
             if resp.status_code == 429:
                 raise CarrierQuotaExceededError("FEDEX")
             if resp.status_code >= 500:
