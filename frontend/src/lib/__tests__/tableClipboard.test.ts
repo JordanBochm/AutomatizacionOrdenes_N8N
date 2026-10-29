@@ -86,4 +86,25 @@ describe("tableClipboard - Parser TSV, Normalizadores y Mapeo de Encabezados", (
     ]);
     assert.equal(serialized, "ESTAFETAREST\tKYNDRYL\t8793 8866 3139");
   });
+
+  it("7. Aplica la misma lógica de prefijo oculto en tabla y visible en PDF para cualquier cliente en Tracking Ajeno", () => {
+    const customTsv = "ESTAFETAREST\tLululemon\t9988 7766 5544\tLULULEMON_ORD900\tORD900\t2";
+    const matrix = parseTsv(customTsv);
+    const result = applyPastedMatrixToRows({
+      rows: [createEmptyTrackingRow("")],
+      matrix,
+      startRow: 0,
+      startCol: 0,
+    });
+
+    const row = result.nextRows[0];
+    assert.equal(row.client, "LULULEMON");
+    // En la tabla editable no se muestra el prefijo LULULEMON_
+    assert.equal(row.pick_order, "ORD900");
+    // En la vista previa / PDF sí aparece como LULULEMON_ORD900
+    assert.equal(
+      formatPickOrderWithClientPrefix(row.client, row.pick_order, row.customer_order),
+      "LULULEMON_ORD900"
+    );
+  });
 });

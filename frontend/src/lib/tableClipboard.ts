@@ -76,26 +76,33 @@ export function generateRowId(): string {
 /**
  * Elimina cualquier prefijo KYNDRYL_ o BASF_ para que en la tabla editable solo se vea el valor limpio
  */
-export function stripClientPickPrefix(rawPickOrder: string): string {
-  return (rawPickOrder || "").trim().replace(/^(KYNDRYL_|BASF_)+/i, "");
+export function stripClientPickPrefix(rawPickOrder: string, clientValue: string = ""): string {
+  let val = (rawPickOrder || "").trim().replace(/^(KYNDRYL_|BASF_)+/i, "");
+  const cleanCli = (clientValue || "").trim();
+  if (cleanCli) {
+    const escapedCli = cleanCli.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const dynamicRegex = new RegExp(`^(${escapedCli}_)+`, "i");
+    val = val.replace(dynamicRegex, "");
+  }
+  return val.trim();
 }
 
 /**
- * Formatea el Pick Order para el PDF agregando KYNDRYL_ o BASF_ según el cliente escrito por el usuario
+ * Formatea el Pick Order para el PDF agregando <CLIENTE>_ (KYNDRYL_, BASF_ o cualquier cliente en Tracking Ajeno)
+ * según el cliente escrito por el usuario en la fila
  */
 export function formatPickOrderWithClientPrefix(
   clientValue: string,
   rawPickOrder: string,
   customerOrder: string = ""
 ): string {
-  const cleanPick = stripClientPickPrefix(rawPickOrder) || stripClientPickPrefix(customerOrder);
   const normClient = normalizeClientValue(clientValue).toUpperCase();
+  const cleanPick =
+    stripClientPickPrefix(rawPickOrder, normClient) ||
+    stripClientPickPrefix(customerOrder, normClient);
 
-  if (normClient === "KYNDRYL") {
-    return cleanPick ? `KYNDRYL_${cleanPick}` : "";
-  }
-  if (normClient === "BASF") {
-    return cleanPick ? `BASF_${cleanPick}` : "";
+  if (normClient) {
+    return cleanPick ? `${normClient}_${cleanPick}` : `${normClient}_`;
   }
   return cleanPick;
 }
@@ -301,7 +308,7 @@ export function normalizeClientValue(raw: string): string {
   if (upper.includes("KYNDRYL") || upper.includes("KYNDRY") || upper === "KYN" || upper.includes("KST")) {
     return "KYNDRYL";
   }
-  return cleaned;
+  return upper;
 }
 
 /**
@@ -470,7 +477,7 @@ export function applyRowSmartDefaults(
   isCustomMode: boolean = false
 ): TrackingRow {
   const cleanClient = normalizeClientValue(row.client || row.account || "");
-  const cleanPick = stripClientPickPrefix(row.pick_order);
+  const cleanPick = stripClientPickPrefix(row.pick_order, cleanClient);
   const coClean = (row.customer_order || "").trim();
 
   const next: TrackingRow = {

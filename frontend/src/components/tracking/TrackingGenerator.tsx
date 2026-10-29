@@ -6,7 +6,6 @@ import {
   Trash2,
   RefreshCw,
   Download,
-  Printer,
   Eye,
   AlertTriangle,
   RotateCcw,
@@ -213,13 +212,14 @@ export default function TrackingGenerator({
         if (parsed && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
           const normalizedRows: TrackingRow[] = parsed.rows.map((r: any) => {
             const { carrierName, accountName } = resolveCarrierAndAccount(r);
+            const resolvedClient = r.client ?? accountName ?? "";
             return {
               ...r,
               id: r.id || generateRowId(),
               carrier: carrierName,
-              client: r.client ?? accountName ?? "",
-              account: r.client ?? accountName ?? "",
-              pick_order: stripClientPickPrefix(r.pick_order || ""),
+              client: resolvedClient,
+              account: resolvedClient,
+              pick_order: stripClientPickPrefix(r.pick_order || "", resolvedClient),
               boxes: Math.max(1, Number(r.boxes) || 1),
             };
           });
@@ -664,30 +664,6 @@ export default function TrackingGenerator({
     }
   };
 
-  const handlePrint = () => {
-    if (totals.totalOrders === 0) {
-      triggerToast("No hay órdenes en la lista para imprimir.", "error");
-      return;
-    }
-    const url = generatePreviewUrl();
-    if (!url) return;
-
-    if (showPreviewModal && iframeRef.current) {
-      try {
-        iframeRef.current.contentWindow?.print();
-        return;
-      } catch {}
-    }
-    const printWin = window.open(url, "_blank");
-    if (printWin) {
-      printWin.addEventListener("load", () => {
-        try {
-          printWin.print();
-        } catch {}
-      });
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col w-full max-w-[1540px] mx-auto px-6 sm:px-8 lg:px-12 py-6">
       {/* ------------------------------------------------------------------ */}
@@ -895,7 +871,7 @@ export default function TrackingGenerator({
             </button>
           </div>
 
-          {/* Botones de Vista Previa, Impresión y Descarga */}
+          {/* Botones de Vista Previa y Descarga */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -905,16 +881,6 @@ export default function TrackingGenerator({
             >
               <Eye className="w-3.5 h-3.5" />
               <span>Vista previa</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              disabled={totals.totalOrders === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Imprimir</span>
             </button>
 
             <button
@@ -1123,15 +1089,6 @@ export default function TrackingGenerator({
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-2xs cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={handleDownloadPdf}
