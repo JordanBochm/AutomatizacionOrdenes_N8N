@@ -5,6 +5,7 @@ import SplashScreen from "@/components/layout/SplashScreen";
 import AnimatedLogo from "@/components/layout/AnimatedLogo";
 import SupplyChainLoader from "@/components/layout/SupplyChainLoader";
 import TrackingGenerator from "@/components/tracking/TrackingGenerator";
+import TransportTracker from "@/components/tracking/TransportTracker";
 import {
   UploadCloud,
   CheckCircle2,
@@ -268,7 +269,7 @@ function loadCurrentUserFromSession(): CurrentUser | null {
     if (raw) {
       return JSON.parse(raw);
     }
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -370,7 +371,7 @@ export default function DashboardPage() {
   // Vista activa:
   // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'operacion_dia' | 'generador_tracking' | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
   const [activeModule, setActiveModule] = useState<
-    "login" | "hub" | "modules" | "operacion_dia" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
+    "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
   >("login");
 
   // Estado de Autenticación y RBAC
@@ -1122,8 +1123,8 @@ export default function DashboardPage() {
     currentHour >= 5 && currentHour < 12
       ? "Buenos días"
       : currentHour >= 12 && currentHour < 19
-      ? "Buenas tardes"
-      : "Buenas noches";
+        ? "Buenas tardes"
+        : "Buenas noches";
 
   const userInitials = useMemo(() => {
     const name = currentUser?.name || "Seko User";
@@ -1139,22 +1140,22 @@ export default function DashboardPage() {
     name: string;
     description: string;
     Icon: React.ElementType;
-    target?: "operacion_dia";
+    target?: "operacion_dia" | "transporte";
     tone: "navy" | "red";
   }[] = [
-    {
-      name: "Operación del día",
-      description: "Automatización operativa, generación de tracking e historial de cierres.",
-      Icon: Zap,
-      target: "operacion_dia",
-      tone: "navy",
-    },
-    { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "red" },
-    { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "navy" },
-    { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "red" },
-    { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "navy" },
-    { name: "Mesa de ayuda", description: "Incidencias, soporte y preguntas frecuentes.", Icon: HelpCircle, tone: "red" },
-  ];
+      {
+        name: "Operación del día",
+        description: "Automatización operativa, generación de tracking e historial de cierres.",
+        Icon: Zap,
+        target: "operacion_dia",
+        tone: "navy",
+      },
+      { name: "Transporte", description: "Rastreo de envios.", Icon: Truck, target: "transporte", tone: "red" },
+      { name: "Facturación", description: "Facturación mensual.", Icon: FileText, tone: "navy" },
+      { name: "Reportes", description: "Reportes de entrada, salidas, devoluciones y arreglo de computadoras.", Icon: FileSpreadsheet, tone: "red" },
+      { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "navy" },
+      { name: "Mesa de ayuda (SOP)", description: "Manuales, ayuda manuales técnicos acerca de la operación.", Icon: HelpCircle, tone: "red" },
+    ];
 
   // Submódulos de Operación del día (3 opciones solicitadas)
   const operacionDiaModules: {
@@ -1165,30 +1166,30 @@ export default function DashboardPage() {
     tone: "navy" | "red";
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
-    {
-      name: "Automatizador de operación",
-      description: "Órdenes KST / Kyndryl, validación SEPOMEX y timbrado de guías Techship.",
-      Icon: Zap,
-      target: "asset_management",
-      tone: "navy",
-      statusBadge: "Activo",
-    },
-    {
-      name: "Generador tracking",
-      description: "Generación y vista previa en vivo del PDF de guías y trazabilidad de envíos.",
-      Icon: Truck,
-      target: "generador_tracking",
-      tone: "red",
-      statusBadge: "Activo",
-    },
-    {
-      name: "Historial de cierres",
-      description: "Consulta y auditoría de archivos de cierre diarios y lotes históricos.",
-      Icon: Archive,
-      tone: "navy",
-      statusBadge: "En desarrollo",
-    },
-  ];
+      {
+        name: "Automatizador de operación",
+        description: "Órdenes KST / Kyndryl, validación SEPOMEX y timbrado de guías Techship.",
+        Icon: Zap,
+        target: "asset_management",
+        tone: "navy",
+        statusBadge: "Activo",
+      },
+      {
+        name: "Generador tracking",
+        description: "Generación y vista previa en vivo del PDF de guías y trazabilidad de envíos.",
+        Icon: Truck,
+        target: "generador_tracking",
+        tone: "red",
+        statusBadge: "Activo",
+      },
+      {
+        name: "Historial",
+        description: "Consulta de archivos de cierre diarios, trackings.",
+        Icon: Archive,
+        tone: "navy",
+        statusBadge: "En desarrollo",
+      },
+    ];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
@@ -1207,13 +1208,12 @@ export default function DashboardPage() {
       {/* Toast Notification (Reubicado en bottom-6 right-8 para no tapar el header) */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all ${
-            toast.type === "success"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-              : toast.type === "error"
+          className={`fixed bottom-6 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all ${toast.type === "success"
+            ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+            : toast.type === "error"
               ? "bg-red-50 border-red-300 text-red-800"
               : "bg-blue-50 border-blue-300 text-blue-900"
-          }`}
+            }`}
         >
           {toast.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
           {toast.type === "error" && <XCircle className="w-5 h-5 text-red-600" />}
@@ -1312,11 +1312,10 @@ export default function DashboardPage() {
                           key={demo.label}
                           type="button"
                           onClick={() => handleSelectDemoAccount(demo)}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border text-left transition-all flex items-center justify-between cursor-pointer ${
-                            isSelected
-                              ? "bg-[#EFF3F9] border-[#233762] text-[#233762] font-bold shadow-2xs"
-                              : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900"
-                          }`}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border text-left transition-all flex items-center justify-between cursor-pointer ${isSelected
+                            ? "bg-[#EFF3F9] border-[#233762] text-[#233762] font-bold shadow-2xs"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900"
+                            }`}
                         >
                           <span className="truncate">{demo.label}</span>
                           <span className="text-[9px] px-1 py-0.5 rounded bg-white border border-slate-200 text-slate-500 font-mono">
@@ -1357,9 +1356,8 @@ export default function DashboardPage() {
             {LOGISTICS_IMAGES.map((imgSrc, idx) => (
               <div
                 key={idx}
-                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                  idx === currentImageIndex ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
-                }`}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === currentImageIndex ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
+                  }`}
                 style={{ transitionProperty: "opacity, transform", transitionDuration: "1000ms" }}
               >
                 <img
@@ -1387,9 +1385,8 @@ export default function DashboardPage() {
                 <button
                   key={dotIdx}
                   onClick={() => setCurrentImageIndex(dotIdx)}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    dotIdx === currentImageIndex ? "w-8 bg-[#CE3A39]" : "w-2 bg-white/60 hover:bg-white"
-                  }`}
+                  className={`h-2 rounded-full transition-all duration-300 ${dotIdx === currentImageIndex ? "w-8 bg-[#CE3A39]" : "w-2 bg-white/60 hover:bg-white"
+                    }`}
                   aria-label={`Ir a foto ${dotIdx + 1}`}
                 />
               ))}
@@ -1519,18 +1516,16 @@ export default function DashboardPage() {
               {/* TARJETA 1: ASSET MANAGEMENT (Activo para ADMIN y ASSET_MANAGER) */}
               <div
                 onClick={() => handleHubNavigation("asset")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
-                  canEnterAsset
-                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
-                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
-                }`}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAsset
+                  ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                  : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                  }`}
               >
                 <div
-                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                    canEnterAsset
-                      ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                      : "bg-slate-300"
-                  }`}
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${canEnterAsset
+                    ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                    : "bg-slate-300"
+                    }`}
                 />
 
                 {/* Badge de Estado / Candado */}
@@ -1547,28 +1542,26 @@ export default function DashboardPage() {
 
                 <div className="flex flex-col items-center w-full">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
-                      canEnterAsset
-                        ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
-                        : "bg-slate-100 text-slate-400"
-                    }`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAsset
+                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                      : "bg-slate-100 text-slate-400"
+                      }`}
                   >
                     {canEnterAsset ? <Laptop className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
                   </div>
                   <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                     {canEnterAsset
-                      ? "Automatización de órdenes, validación SEPOMEX y guías Techship."
+                      ? "Operación del día, historial de cierres y generación de trackings."
                       : "Área exclusiva para Asset Management y Administrador."}
                   </p>
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                    canEnterAsset
-                      ? "text-[#233762] group-hover:text-[#CE3A39]"
-                      : "text-slate-400"
-                  }`}
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAsset
+                    ? "text-[#233762] group-hover:text-[#CE3A39]"
+                    : "text-slate-400"
+                    }`}
                 >
                   {canEnterAsset ? (
                     <>
@@ -1584,18 +1577,16 @@ export default function DashboardPage() {
               {/* TARJETA 2: CSM (Activo para ADMIN y CSM) */}
               <div
                 onClick={() => handleHubNavigation("csm")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
-                  canEnterCSM
-                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
-                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
-                }`}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterCSM
+                  ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                  : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                  }`}
               >
                 <div
-                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                    canEnterCSM
-                      ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                      : "bg-slate-300"
-                  }`}
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${canEnterCSM
+                    ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                    : "bg-slate-300"
+                    }`}
                 />
 
                 {/* Badge de Estado / Candado */}
@@ -1612,11 +1603,10 @@ export default function DashboardPage() {
 
                 <div className="flex flex-col items-center w-full">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
-                      canEnterCSM
-                        ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
-                        : "bg-slate-100 text-slate-400"
-                    }`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterCSM
+                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                      : "bg-slate-100 text-slate-400"
+                      }`}
                   >
                     {canEnterCSM ? <Headset className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
                   </div>
@@ -1629,11 +1619,10 @@ export default function DashboardPage() {
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                    canEnterCSM
-                      ? "text-[#233762] group-hover:text-[#CE3A39]"
-                      : "text-slate-400"
-                  }`}
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterCSM
+                    ? "text-[#233762] group-hover:text-[#CE3A39]"
+                    : "text-slate-400"
+                    }`}
                 >
                   {canEnterCSM ? (
                     <>
@@ -1649,18 +1638,16 @@ export default function DashboardPage() {
               {/* TARJETA 3: ALMACÉN (Activo para ADMIN y ALMACEN) */}
               <div
                 onClick={() => handleHubNavigation("almacen")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
-                  canEnterAlmacen
-                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
-                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
-                }`}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAlmacen
+                  ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                  : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                  }`}
               >
                 <div
-                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                    canEnterAlmacen
-                      ? "bg-[#CE3A39] group-hover:bg-[#233762]"
-                      : "bg-slate-300"
-                  }`}
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${canEnterAlmacen
+                    ? "bg-[#CE3A39] group-hover:bg-[#233762]"
+                    : "bg-slate-300"
+                    }`}
                 />
 
                 {/* Badge de Estado / Candado */}
@@ -1677,11 +1664,10 @@ export default function DashboardPage() {
 
                 <div className="flex flex-col items-center w-full">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
-                      canEnterAlmacen
-                        ? "bg-[#FDF2F2] text-[#CE3A39] group-hover:scale-110 group-hover:bg-[#CE3A39] group-hover:text-white"
-                        : "bg-slate-100 text-slate-400"
-                    }`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAlmacen
+                      ? "bg-[#FDF2F2] text-[#CE3A39] group-hover:scale-110 group-hover:bg-[#CE3A39] group-hover:text-white"
+                      : "bg-slate-100 text-slate-400"
+                      }`}
                   >
                     {canEnterAlmacen ? <Warehouse className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
                   </div>
@@ -1694,11 +1680,10 @@ export default function DashboardPage() {
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                    canEnterAlmacen
-                      ? "text-[#CE3A39] group-hover:text-[#233762]"
-                      : "text-slate-400"
-                  }`}
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAlmacen
+                    ? "text-[#CE3A39] group-hover:text-[#233762]"
+                    : "text-slate-400"
+                    }`}
                 >
                   {canEnterAlmacen ? (
                     <>
@@ -1791,11 +1776,10 @@ export default function DashboardPage() {
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[200px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                        isActive
-                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                          : "bg-transparent group-hover:bg-[#233762]/30"
-                      }`}
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                        : "bg-transparent group-hover:bg-[#233762]/30"
+                        }`}
                     />
                     {isActive && (
                       <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1812,9 +1796,8 @@ export default function DashboardPage() {
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
                     </div>
                     <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                        isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
-                      }`}
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                        }`}
                     >
                       {isActive ? (
                         <>
@@ -1930,11 +1913,10 @@ export default function DashboardPage() {
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[220px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                        isActive
-                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                          : "bg-transparent group-hover:bg-[#233762]/30"
-                      }`}
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                        : "bg-transparent group-hover:bg-[#233762]/30"
+                        }`}
                     />
                     {statusBadge === "Activo" ? (
                       <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1955,9 +1937,8 @@ export default function DashboardPage() {
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
                     </div>
                     <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                        isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
-                      }`}
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                        }`}
                     >
                       {isActive ? (
                         <>
@@ -2063,6 +2044,98 @@ export default function DashboardPage() {
             apiBase={API_BASE}
             triggerToast={triggerToast}
             userName={currentUser?.name || "Usuario Seko"}
+          />
+        </div>
+      ) : activeModule === "transporte" ? (
+        /* ==================================================================== */
+        /* VISTA TRANSPORTE - RASTREO DE ENVÍOS MULTI-CARRIER (FEDEX / ESTAFETA) */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
+            <div className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {/* Botón para volver a Asset Management */}
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("modules")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs group cursor-pointer"
+                  title="Regresar a Asset Management"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="hidden sm:inline">Regresar</span>
+                </button>
+
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  {!logoError ? (
+                    <img
+                      src="/logo-supplychain.png"
+                      alt="SupplyChain México"
+                      className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 drop-shadow-xs"
+                      onError={() => setLogoError(true)}
+                    />
+                  ) : (
+                    <AnimatedLogo className="h-10 sm:h-12 w-auto" cycleDuration={8} />
+                  )}
+                </button>
+
+                <div className="h-9 w-px bg-slate-200 hidden md:block" />
+
+                <div className="hidden sm:flex items-center gap-2.5">
+                  <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                    Transporte · Rastreo de Envíos
+                  </h1>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                    FEDEX & ESTAFETA
+                  </span>
+                </div>
+              </div>
+
+              {/* Botones de navegación y sesión */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer"
+                  title="Ir al Hub Principal"
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hub</span>
+                </button>
+
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                    {roleConfig.code}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cerrar sesión</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Componente Modular TransportTracker */}
+          <TransportTracker
+            batchData={batchData}
+            apiBase={API_BASE}
+            triggerToast={triggerToast}
+            userEmail={currentUser?.email || "operador@supplychain.mx"}
+            userRole={roleConfig.code}
           />
         </div>
       ) : activeModule === "csm" ? (
@@ -2355,15 +2428,14 @@ export default function DashboardPage() {
 
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
-                                usr.role === "ADMIN"
-                                  ? "bg-red-50 text-[#CE3A39] border-[#CE3A39]/30"
-                                  : usr.role === "ASSET_MANAGER"
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${usr.role === "ADMIN"
+                                ? "bg-red-50 text-[#CE3A39] border-[#CE3A39]/30"
+                                : usr.role === "ASSET_MANAGER"
                                   ? "bg-blue-50 text-[#233762] border-[#233762]/30"
                                   : usr.role === "CSM"
-                                  ? "bg-amber-50 text-amber-800 border-amber-300"
-                                  : "bg-slate-100 text-slate-700 border-slate-300"
-                              }`}
+                                    ? "bg-amber-50 text-amber-800 border-amber-300"
+                                    : "bg-slate-100 text-slate-700 border-slate-300"
+                                }`}
                             >
                               {ROLES_CONFIG[usr.role]?.label || usr.role}
                             </span>
@@ -2388,16 +2460,14 @@ export default function DashboardPage() {
                               onClick={() => handleToggleUserActive(usr.id)}
                               disabled={isSelf}
                               title={isSelf ? "No puedes desactivar tu cuenta" : "Alternar estado"}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${
-                                usr.isActive
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                                  : "bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200"
-                              } ${isSelf ? "opacity-70 cursor-not-allowed" : ""}`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${usr.isActive
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                : "bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200"
+                                } ${isSelf ? "opacity-70 cursor-not-allowed" : ""}`}
                             >
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  usr.isActive ? "bg-emerald-500" : "bg-slate-400"
-                                }`}
+                                className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-emerald-500" : "bg-slate-400"
+                                  }`}
                               />
                               <span>{usr.isActive ? "Activo" : "Inactivo"}</span>
                             </button>
@@ -2409,9 +2479,8 @@ export default function DashboardPage() {
                               onClick={() => handleDeleteUser(usr.id)}
                               disabled={isSelf}
                               title={isSelf ? "No puedes eliminarte a ti mismo" : "Eliminar usuario"}
-                              className={`p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer ${
-                                isSelf ? "opacity-30 cursor-not-allowed" : ""
-                              }`}
+                              className={`p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer ${isSelf ? "opacity-30 cursor-not-allowed" : ""
+                                }`}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -2563,9 +2632,8 @@ export default function DashboardPage() {
                     className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition p-6 flex flex-col justify-between relative overflow-hidden"
                   >
                     <div
-                      className={`absolute top-0 left-0 w-full h-1.5 ${
-                        isRed ? "bg-[#CE3A39]" : "bg-[#233762]"
-                      }`}
+                      className={`absolute top-0 left-0 w-full h-1.5 ${isRed ? "bg-[#CE3A39]" : "bg-[#233762]"
+                        }`}
                     />
 
                     <div>
@@ -3025,33 +3093,30 @@ export default function DashboardPage() {
             <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
               <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80">
                 <div
-                  className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${
-                    !hasOrders ? "opacity-50" : ""
-                  }`}
+                  className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${!hasOrders ? "opacity-50" : ""
+                    }`}
                 >
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("ALL")}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "ALL"
+                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "ALL"
                         ? "bg-[#233762] text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Todas ({batchData?.orders.length || 0})
                   </button>
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("ISSUES")}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "ISSUES"
+                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "ISSUES"
                         ? "bg-[#CE3A39] text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Solo Errores / Revisar (
                     {(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
@@ -3059,39 +3124,36 @@ export default function DashboardPage() {
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("CONFIRMED")}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "CONFIRMED"
+                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "CONFIRMED"
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Confirmadas ({batchData?.metrics.confirmed_100 || 0})
                   </button>
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("OUTBOUND")}
-                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "OUTBOUND"
+                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "OUTBOUND"
                         ? "bg-slate-700 text-white"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Solo Ida ({outboundCount})
                   </button>
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("RETURN")}
-                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "RETURN"
+                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "RETURN"
                         ? "bg-slate-700 text-white"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Solo Retorno ({returnCount})
                   </button>
@@ -3104,11 +3166,10 @@ export default function DashboardPage() {
                     onClick={handleRequestDeleteSelectedOrders}
                     disabled={!hasOrders || selectedOrderIds.size === 0}
                     title="Eliminar órdenes seleccionadas del lote para que no se procesen"
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-2xs ${
-                      selectedOrderIds.size > 0
-                        ? "border-red-200 bg-red-50 text-[#CE3A39] hover:bg-red-100 cursor-pointer"
-                        : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                    }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-2xs ${selectedOrderIds.size > 0
+                      ? "border-red-200 bg-red-50 text-[#CE3A39] hover:bg-red-100 cursor-pointer"
+                      : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                      }`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>
@@ -3119,9 +3180,8 @@ export default function DashboardPage() {
 
                 <div className="relative flex-1 max-w-xs">
                   <Search
-                    className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
-                      !hasOrders ? "text-slate-300" : "text-slate-400"
-                    }`}
+                    className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${!hasOrders ? "text-slate-300" : "text-slate-400"
+                      }`}
                   />
                   <input
                     type="text"
@@ -3183,15 +3243,14 @@ export default function DashboardPage() {
                         return (
                           <tr
                             key={order.order_id}
-                            className={`transition-colors ${
-                              isSelected
-                                ? "bg-blue-50/70 hover:bg-blue-100/60"
-                                : isError
+                            className={`transition-colors ${isSelected
+                              ? "bg-blue-50/70 hover:bg-blue-100/60"
+                              : isError
                                 ? "bg-red-50/50 hover:bg-red-50/80"
                                 : isWarning
-                                ? "bg-amber-50/30 hover:bg-amber-50/60"
-                                : "hover:bg-slate-50"
-                            }`}
+                                  ? "bg-amber-50/30 hover:bg-amber-50/60"
+                                  : "hover:bg-slate-50"
+                              }`}
                           >
                             <td className="py-3 px-3 text-center select-none">
                               <input
