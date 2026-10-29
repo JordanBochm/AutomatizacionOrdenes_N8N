@@ -864,6 +864,8 @@ export default function DashboardPage() {
 
   const handleConfirmDeleteOrders = async () => {
     if (!deleteOrderDialog || deleteOrderDialog.targetOrderIds.length === 0) return;
+    const dialogData = { ...deleteOrderDialog };
+    setDeleteOrderDialog(null);
 
     try {
       setActionLoading("delete_order");
@@ -871,8 +873,8 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          order_ids: deleteOrderDialog.targetOrderIds,
-          delete_counterparts: deleteOrderDialog.includeCounterparts,
+          order_ids: dialogData.targetOrderIds,
+          delete_counterparts: dialogData.includeCounterparts,
         }),
       });
 
@@ -881,30 +883,29 @@ export default function DashboardPage() {
         if (data.batch) {
           setBatchData(data.batch);
         } else {
-          removeOrdersLocally(deleteOrderDialog.targetOrderIds, deleteOrderDialog.includeCounterparts);
+          removeOrdersLocally(dialogData.targetOrderIds, dialogData.includeCounterparts);
         }
         triggerToast(
-          deleteOrderDialog.mode === "single"
-            ? `Orden ${deleteOrderDialog.targetLabel || ""} eliminada del lote.`
-            : `${deleteOrderDialog.count} orden(es) eliminada(s) del lote.`,
+          dialogData.mode === "single"
+            ? `Orden ${dialogData.targetLabel || ""} eliminada del lote.`
+            : `${dialogData.count} orden(es) eliminada(s) del lote.`,
           "info"
         );
       } else {
-        removeOrdersLocally(deleteOrderDialog.targetOrderIds, deleteOrderDialog.includeCounterparts);
+        removeOrdersLocally(dialogData.targetOrderIds, dialogData.includeCounterparts);
         triggerToast("Orden(es) omitida(s) de la vista del lote.", "info");
       }
 
       setSelectedOrderIds((prev) => {
         const next = new Set(prev);
-        deleteOrderDialog.targetOrderIds.forEach((id) => next.delete(id));
+        dialogData.targetOrderIds.forEach((id) => next.delete(id));
         return next;
       });
     } catch (err: any) {
-      removeOrdersLocally(deleteOrderDialog.targetOrderIds, deleteOrderDialog.includeCounterparts);
+      removeOrdersLocally(dialogData.targetOrderIds, dialogData.includeCounterparts);
       triggerToast("Orden(es) removida(s) localmente.", "info");
     } finally {
       setActionLoading(null);
-      setDeleteOrderDialog(null);
     }
   };
 
@@ -963,6 +964,8 @@ export default function DashboardPage() {
   };
 
   const handleTechshipProcess = async () => {
+    // Cerrar modal de confirmación de inmediato para que se aprecie la animación oficial de carga
+    setShowLiveModal(false);
     try {
       setActionLoading("live");
       const res = await fetch(`${API_BASE}/api/techship/process`, {
@@ -978,7 +981,6 @@ export default function DashboardPage() {
 
       const data = await res.json();
       setSimResults(data);
-      setShowLiveModal(false);
       triggerToast("Timbrado oficial completado en Techship.", "success");
       fetchHealthAndBatch();
     } catch (err: any) {
@@ -1046,10 +1048,10 @@ export default function DashboardPage() {
   };
 
   const handleArchiveConfirm = async () => {
+    setArchivePreview(null);
     try {
       setActionLoading("archive");
       const data = await callArchive(false, true);
-      setArchivePreview(null);
       setBatchData(null);
       setSearchTerm("");
       setActiveTab("ALL");

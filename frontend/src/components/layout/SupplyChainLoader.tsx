@@ -15,7 +15,7 @@ export default function SupplyChainLoader({
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300"
     >
       <style>{`
         /* Rotación dinámica continua, rápida y con movimiento de escala para estado de carga */
