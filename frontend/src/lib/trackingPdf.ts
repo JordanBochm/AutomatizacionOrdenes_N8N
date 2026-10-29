@@ -42,14 +42,27 @@ export function resolveCarrierAndAccount(row: TrackingRow): {
   if (explicitAccount) {
     const parts = rawCarrier.split(/\s+/);
     const baseCarrier = parts[0] || "ESTAFETAREST";
-    return { carrierName: baseCarrier, accountName: explicitAccount };
+    let normalizedAccount = explicitAccount;
+    if (/basf/i.test(explicitAccount)) {
+      normalizedAccount = "BASF";
+    } else if (/kyndryl|kyndry|kyn|kst/i.test(explicitAccount)) {
+      normalizedAccount = "KYNDRYL";
+    }
+    return { carrierName: baseCarrier, accountName: normalizedAccount };
   }
 
   const parts = rawCarrier.split(/\s+/);
   if (parts.length >= 2) {
+    const secondPart = parts.slice(1).join(" ");
+    let normalizedAccount = secondPart;
+    if (/basf/i.test(secondPart)) {
+      normalizedAccount = "BASF";
+    } else if (/kyndryl|kyndry|kyn|kst/i.test(secondPart)) {
+      normalizedAccount = "KYNDRYL";
+    }
     return {
       carrierName: parts[0],
-      accountName: parts.slice(1).join(" "),
+      accountName: normalizedAccount,
     };
   }
 
@@ -59,8 +72,11 @@ export function resolveCarrierAndAccount(row: TrackingRow): {
   if (coUpper.startsWith("BRITM") || poUpper.startsWith("BASF")) {
     return { carrierName: rawCarrier || "ESTAFETAREST", accountName: "BASF" };
   }
+  if (coUpper.startsWith("RITM") || poUpper.startsWith("KYNDRYL")) {
+    return { carrierName: rawCarrier || "ESTAFETAREST", accountName: "KYNDRYL" };
+  }
 
-  return { carrierName: rawCarrier || "ESTAFETAREST", accountName: "KYNDRYL" };
+  return { carrierName: rawCarrier || "ESTAFETAREST", accountName: "" };
 }
 
 /**
@@ -336,13 +352,22 @@ export function buildTrackingPdf(
 
   const tableBody = activeRows.map((r, idx) => {
     const { carrierName, accountName } = resolveCarrierAndAccount(r);
-    const defaultPickPrefix = accountName.toUpperCase() === "BASF" ? "BASF_" : "KYNDRYL_";
+    const rawPickBase = (r.pick_order || r.customer_order || "").trim();
+    const cleanPick = rawPickBase.replace(/^(KYNDRYL_|BASF_)+/i, "").trim();
+
+    let formattedPickOrder = cleanPick;
+    if (/kyndryl|kyndry|kyn|kst/i.test(accountName)) {
+      formattedPickOrder = cleanPick ? `KYNDRYL_${cleanPick}` : "KYNDRYL_";
+    } else if (/basf/i.test(accountName)) {
+      formattedPickOrder = cleanPick ? `BASF_${cleanPick}` : "BASF_";
+    }
+
     return [
       String(idx + 1),
       carrierName,
       accountName,
       r.tracking_number ? r.tracking_number : "Sin guía",
-      r.pick_order || (r.customer_order ? `${defaultPickPrefix}${r.customer_order}` : ""),
+      formattedPickOrder,
       r.customer_order || "",
       String(r.boxes || 1),
     ];

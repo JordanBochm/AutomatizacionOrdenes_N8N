@@ -37,6 +37,7 @@ import {
   isUnknownClient,
   serializeToTsv,
   generateRowId,
+  stripClientPickPrefix,
 } from "@/lib/tableClipboard";
 import { useSheetGrid } from "@/hooks/useSheetGrid";
 import TrackingGrid, { GridValidationInfo } from "./TrackingGrid";
@@ -88,7 +89,7 @@ export default function TrackingGenerator({
   });
 
   // Filas de la hoja de cálculo (siempre termina con una fila vacía lista para escribir/pegar)
-  const [rows, setRows] = useState<TrackingRow[]>(() => ensureTrailingEmptyRow([], "BASF"));
+  const [rows, setRows] = useState<TrackingRow[]>(() => ensureTrailingEmptyRow([], ""));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Borrador en localStorage
@@ -135,7 +136,7 @@ export default function TrackingGenerator({
     setRows,
     triggerToast,
     onRequestDeleteRows: handleRequestDeleteRowsFromHook,
-    defaultClient: "BASF",
+    defaultClient: "",
   });
 
   // ---------------------------------------------------------------------------
@@ -171,7 +172,7 @@ export default function TrackingGenerator({
   const buildRowsFromBatch = useCallback(
     (orders: OrderItemLike[], trackingLookup: Record<string, string> = {}): TrackingRow[] => {
       if (!orders || orders.length === 0) {
-        return ensureTrailingEmptyRow([], "BASF");
+        return ensureTrailingEmptyRow([], "");
       }
 
       const filtered = orders.filter(
@@ -191,14 +192,14 @@ export default function TrackingGenerator({
           client,
           account: client,
           tracking_number: trk,
-          pick_order: `${client}_${o.order_id}`,
+          pick_order: stripClientPickPrefix(o.order_id),
           customer_order: o.order_id,
           boxes: 1,
           manual: false,
         };
       });
 
-      return ensureTrailingEmptyRow(mapped, "BASF");
+      return ensureTrailingEmptyRow(mapped, "");
     },
     []
   );
@@ -216,8 +217,9 @@ export default function TrackingGenerator({
               ...r,
               id: r.id || generateRowId(),
               carrier: carrierName,
-              client: r.client || accountName || "BASF",
-              account: r.client || accountName || "BASF",
+              client: r.client ?? accountName ?? "",
+              account: r.client ?? accountName ?? "",
+              pick_order: stripClientPickPrefix(r.pick_order || ""),
               boxes: Math.max(1, Number(r.boxes) || 1),
             };
           });
@@ -225,7 +227,7 @@ export default function TrackingGenerator({
           if (nonBlankCount > 0) {
             setDraftDataToRestore({
               ...parsed,
-              rows: ensureTrailingEmptyRow(normalizedRows, "BASF"),
+              rows: ensureTrailingEmptyRow(normalizedRows, ""),
             });
             setDraftPrompt(true);
             return;
@@ -275,7 +277,7 @@ export default function TrackingGenerator({
           ? draftDataToRestore.header?.clients || "KYNDRYL & BASF"
           : "KYNDRYL & BASF",
       });
-      setRows(ensureTrailingEmptyRow(draftDataToRestore.rows || [], "BASF"));
+      setRows(ensureTrailingEmptyRow(draftDataToRestore.rows || [], ""));
       triggerToast("Borrador del día restaurado correctamente.", "success");
     }
     setDraftPrompt(false);

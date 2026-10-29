@@ -8,6 +8,7 @@ import {
   detectAndMapHeaders,
   applyPastedMatrixToRows,
   createEmptyTrackingRow,
+  formatPickOrderWithClientPrefix,
   // @ts-expect-error Extensión .ts para ejecución directa con node --test
 } from "../tableClipboard.ts";
 
@@ -73,7 +74,11 @@ describe("tableClipboard - Parser TSV, Normalizadores y Mapeo de Encabezados", (
     assert.equal(pastedRow.client, "KYNDRYL");
     assert.equal(pastedRow.tracking_number, "8793 8866 3139");
     assert.equal(pastedRow.customer_order, "RITM0525572");
-    assert.equal(pastedRow.pick_order, "KYNDRYL_RITM0525572");
+    assert.equal(pastedRow.pick_order, "RITM0525572");
+    assert.equal(
+      formatPickOrderWithClientPrefix(pastedRow.client, pastedRow.pick_order, pastedRow.customer_order),
+      "KYNDRYL_RITM0525572"
+    );
     assert.equal(pastedRow.boxes, 3);
 
     const serialized = serializeToTsv([
