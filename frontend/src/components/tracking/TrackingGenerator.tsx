@@ -293,23 +293,21 @@ export default function TrackingGenerator({
   };
 
   const handleToggleCustomMode = () => {
-    setIsCustomMode((prev) => {
-      const next = !prev;
-      if (!next) {
-        setHeaderInfo((h) => ({
-          ...h,
-          title: "GUÍAS PARA LAS ÓRDENES DEL DÍA",
-          clients: "KYNDRYL & BASF",
-        }));
-        triggerToast("Modo Oficial KYNDRYL & BASF activado.", "info");
-      } else {
-        triggerToast(
-          "Modo Tracking Ajeno activado: puedes personalizar el encabezado del reporte libremente.",
-          "success"
-        );
-      }
-      return next;
-    });
+    const next = !isCustomMode;
+    setIsCustomMode(next);
+    if (!next) {
+      setHeaderInfo((h) => ({
+        ...h,
+        title: "GUÍAS PARA LAS ÓRDENES DEL DÍA",
+        clients: "KYNDRYL & BASF",
+      }));
+      triggerToast("Modo Oficial KYNDRYL & BASF activado.", "info");
+    } else {
+      triggerToast(
+        "Modo Tracking Ajeno activado: puedes personalizar el encabezado del reporte libremente.",
+        "success"
+      );
+    }
   };
 
   // ---------------------------------------------------------------------------

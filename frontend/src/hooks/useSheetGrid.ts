@@ -119,10 +119,12 @@ export function useSheetGrid({
         ? ensureTrailingEmptyRow(nextRowsRaw, defaultClient)
         : nextRowsRaw;
 
-      setUndoStack((prev) => {
-        const updated = [...prev, prevRows];
-        return updated.length > MAX_HISTORY ? updated.slice(updated.length - MAX_HISTORY) : updated;
-      });
+      const appended = [...undoStackRef.current, prevRows];
+      const nextUndo =
+        appended.length > MAX_HISTORY ? appended.slice(appended.length - MAX_HISTORY) : appended;
+      undoStackRef.current = nextUndo;
+      redoStackRef.current = [];
+      setUndoStack(nextUndo);
       setRedoStack([]);
       setRows(nextRows);
     },
@@ -132,17 +134,30 @@ export function useSheetGrid({
   /**
    * Deshacer (Ctrl+Z)
    */
+  // Refs sincronizadas con las pilas para leerlas fuera de los updaters (evita setState durante render)
+  const undoStackRef = useRef<TrackingRow[][]>([]);
+  const redoStackRef = useRef<TrackingRow[][]>([]);
+  useEffect(() => {
+    undoStackRef.current = undoStack;
+  }, [undoStack]);
+  useEffect(() => {
+    redoStackRef.current = redoStack;
+  }, [redoStack]);
+
   const undo = useCallback(() => {
     setEditingCell(null);
-    setUndoStack((prevUndo) => {
-      if (prevUndo.length === 0) return prevUndo;
-      const previousState = prevUndo[prevUndo.length - 1];
-      const currentRows = rowsRef.current;
-      setRedoStack((prevRedo) => [...prevRedo, currentRows]);
-      setRows(previousState);
-      triggerToast("Acción deshecha (Ctrl+Z).", "info");
-      return prevUndo.slice(0, -1);
-    });
+    const prevUndo = undoStackRef.current;
+    if (prevUndo.length === 0) return;
+    const previousState = prevUndo[prevUndo.length - 1];
+    const currentRows = rowsRef.current;
+    const nextUndo = prevUndo.slice(0, -1);
+    const nextRedo = [...redoStackRef.current, currentRows];
+    undoStackRef.current = nextUndo;
+    redoStackRef.current = nextRedo;
+    setUndoStack(nextUndo);
+    setRedoStack(nextRedo);
+    setRows(previousState);
+    triggerToast("Acción deshecha (Ctrl+Z).", "info");
   }, [setRows, triggerToast]);
 
   /**
@@ -150,18 +165,20 @@ export function useSheetGrid({
    */
   const redo = useCallback(() => {
     setEditingCell(null);
-    setRedoStack((prevRedo) => {
-      if (prevRedo.length === 0) return prevRedo;
-      const nextState = prevRedo[prevRedo.length - 1];
-      const currentRows = rowsRef.current;
-      setUndoStack((prevUndo) => {
-        const updated = [...prevUndo, currentRows];
-        return updated.length > MAX_HISTORY ? updated.slice(updated.length - MAX_HISTORY) : updated;
-      });
-      setRows(nextState);
-      triggerToast("Acción rehecha (Ctrl+Y).", "info");
-      return prevRedo.slice(0, -1);
-    });
+    const prevRedo = redoStackRef.current;
+    if (prevRedo.length === 0) return;
+    const nextState = prevRedo[prevRedo.length - 1];
+    const currentRows = rowsRef.current;
+    const nextRedo = prevRedo.slice(0, -1);
+    const appended = [...undoStackRef.current, currentRows];
+    const nextUndo =
+      appended.length > MAX_HISTORY ? appended.slice(appended.length - MAX_HISTORY) : appended;
+    undoStackRef.current = nextUndo;
+    redoStackRef.current = nextRedo;
+    setUndoStack(nextUndo);
+    setRedoStack(nextRedo);
+    setRows(nextState);
+    triggerToast("Acción rehecha (Ctrl+Y).", "info");
   }, [setRows, triggerToast]);
 
   /**
