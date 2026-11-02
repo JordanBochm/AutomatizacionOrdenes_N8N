@@ -31,6 +31,7 @@ import time
 import asyncio
 from typing import Any, Dict, List, Optional
 import httpx
+from dotenv import load_dotenv
 
 from src.tracking.base import (
     CarrierAdapter,
@@ -172,7 +173,7 @@ class EstafetaAdapter(CarrierAdapter):
         self.track_url = (
             track_url
             if track_url is not None
-            else os.getenv("ESTAFETA_TRACK_URL", "https://apiqa.estafeta.com/v1/waybillTrack")
+            else os.getenv("ESTAFETA_TRACK_URL", "")
         ).strip()
         self.oauth_scope = (
             oauth_scope if oauth_scope is not None else os.getenv("ESTAFETA_OAUTH_SCOPE", "execute")
@@ -191,12 +192,43 @@ class EstafetaAdapter(CarrierAdapter):
         self._token_expires_at: float = 0.0
         self._token_lock = asyncio.Lock()
 
-    def is_configured(self) -> bool:
-        """
-        Verifica si las credenciales OAuth2 (client_id + client_secret) o API Key están configuradas.
-        Nota: Si el usuario solo usa client_id como apikey en Apigee, tomamos client_id como fallback de api_key.
-        """
+    def has_credentials(self) -> bool:
+        """True si las credenciales OAuth2 (client_id + client_secret) están presentes."""
         return bool(self.client_id and self.client_secret)
+
+    @staticmethod
+    def _is_label_endpoint(url: str) -> bool:
+        """
+        Protección: el WS labelrest (/wayBills) GENERA guías reales con costo.
+        Nunca se debe usar como endpoint de rastreo.
+        """
+        u = (url or "").lower()
+        return "labelrest" in u or "waybills" in u
+
+    def missing_config_reason(self) -> Optional[str]:
+        """Devuelve un mensaje en español explicando qué falta para rastrear en vivo, o None si está completo."""
+        if not self.has_credentials():
+            return "Las credenciales OAuth2 de Estafeta (ESTAFETA_CLIENT_ID / ESTAFETA_CLIENT_SECRET) no están configuradas en .env."
+        if not self.track_url:
+            return (
+                "Credenciales de Estafeta válidas, pero falta la URL del servicio de RASTREO (ESTAFETA_TRACK_URL). "
+                "Las credenciales recibidas corresponden al WS labelrest (generación de guías); solicita a Estafeta "
+                "habilitar el WS de Tracking para este mismo ClientId."
+            )
+        if self._is_label_endpoint(self.track_url):
+            return (
+                "ESTAFETA_TRACK_URL apunta al WS labelrest (/wayBills), que genera guías reales con costo. "
+                "Configura la URL del servicio de rastreo de Estafeta."
+            )
+        return None
+
+    def is_configured(self) -> bool:
+        """True solo si hay credenciales y una URL de rastreo válida (distinta de labelrest)."""
+        load_dotenv(override=True)
+        env_track = os.getenv("ESTAFETA_TRACK_URL", "").strip()
+        if env_track and env_track != self.track_url:
+            self.track_url = env_track
+        return self.missing_config_reason() is None
 
     def invalidate_token(self) -> None:
         self._access_token = None
@@ -215,7 +247,7 @@ class EstafetaAdapter(CarrierAdapter):
             if self._access_token and now < self._token_expires_at:
                 return self._access_token
 
-            if not self.is_configured():
+            if not self.has_credentials():
                 raise CarrierAuthError(
                     "ESTAFETA", "ESTAFETA_CLIENT_ID o ESTAFETA_CLIENT_SECRET no configurados en .env"
                 )
@@ -314,6 +346,9 @@ class EstafetaAdapter(CarrierAdapter):
         Consulta el rastreo de una guía en la API REST de Estafeta.
         Envía `Authorization: Bearer <token>` y `apikey: <ESTAFETA_API_KEY>`.
         """
+        if self._is_label_endpoint(self.track_url):
+            raise CarrierAuthError("ESTAFETA", "ESTAFETA_TRACK_URL apunta a labelrest (generación de guías); se bloqueó la consulta.")
+
         token = await self.autenticar(client)
         effective_api_key = self.api_key or self.client_id
         payload = self._build_request_payload(guia)

@@ -191,15 +191,16 @@ class TrackingService:
                 )
                 return build_simulated_tracking(guia, carrier_name.upper())
 
+            reason_fn = getattr(adapter, "missing_config_reason", None)
+            reason = reason_fn() if callable(reason_fn) else None
             return TrackingResult(
                 carrier=carrier_name.upper(),
                 guia=guia,
                 estatus_general=UnifiedTrackingStatus.DESCONOCIDO,
                 ultima_actualizacion=now_iso_mx(),
                 candidatos_carrier=[carrier_name.upper()],
-                error=(
-                    f"Las credenciales de API para {carrier_name} no están configuradas en el archivo .env."
-                ),
+                error=reason
+                or f"Las credenciales de API para {carrier_name} no están configuradas en el archivo .env.",
                 codigo_error="AUTH_ERROR",
             )
 
