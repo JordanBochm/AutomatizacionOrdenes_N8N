@@ -222,6 +222,24 @@ class TestEstafetaNormalization(unittest.TestCase):
         self.assertEqual(res.eventos[0].estatus, UnifiedTrackingStatus.EN_REPARTO)
 
 
+class TestEstafetaSafetyGuard(unittest.TestCase):
+    """El WS labelrest (/wayBills) genera guías reales: nunca debe usarse para rastrear."""
+
+    def test_bloquea_endpoint_labelrest(self):
+        adapter = EstafetaAdapter(
+            client_id="id",
+            client_secret="secret",
+            track_url="https://apimlabelrest.estafeta.com/labelrest/v1/wayBills",
+        )
+        self.assertFalse(adapter.is_configured())
+        self.assertIn("labelrest", adapter.missing_config_reason() or "")
+
+    def test_sin_url_de_rastreo_explica_que_falta(self):
+        adapter = EstafetaAdapter(client_id="id", client_secret="secret", track_url="")
+        adapter.track_url = ""
+        self.assertIn("ESTAFETA_TRACK_URL", adapter.missing_config_reason() or "")
+
+
 class TestTrackingCache(unittest.TestCase):
     """Pruebas de caché en memoria y TTL diferenciado."""
 
