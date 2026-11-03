@@ -27,6 +27,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatLongDate } from "@/lib/trackingPdf";
+import { useHistoryCapture } from "@/hooks/useHistoryCapture";
 
 export type UnifiedTrackingStatus =
   | "RECOLECTADO"
@@ -550,6 +551,9 @@ export default function TransportTracker({
   // Historial reciente en localStorage
   const [recentGuides, setRecentGuides] = useState<RecentGuideItem[]>([]);
 
+  // Captura del historial de Asset Management (trackings del día)
+  const { captureTrackings } = useHistoryCapture(userEmail);
+
   // Estado de configuración de carriers en el backend
   const [carrierConfig, setCarrierConfig] = useState<{
     FEDEX: boolean;
@@ -739,6 +743,7 @@ export default function TransportTracker({
         });
 
         saveToRecentHistory(incoming);
+        void captureTrackings(incoming);
         triggerToast(
           `Rastreo completado: ${incoming.length} ${incoming.length === 1 ? "guía actualizada" : "guías actualizadas"}.`,
           "success"
@@ -749,7 +754,7 @@ export default function TransportTracker({
         setIsBatchLoading(false);
       }
     },
-    [apiBase, saveToRecentHistory, triggerToast, userEmail, userRole]
+    [apiBase, saveToRecentHistory, captureTrackings, triggerToast, userEmail, userRole]
   );
 
   // Actualizar una sola guía
@@ -775,6 +780,7 @@ export default function TransportTracker({
       const updated: TrackingResultItem = await res.json();
       setResults((prev) => prev.map((item) => (item.guia === guia ? updated : item)));
       saveToRecentHistory([updated]);
+      void captureTrackings([updated]);
       triggerToast(`Guía ${guia} actualizada desde ${updated.carrier}.`, "success");
     } catch (err: any) {
       triggerToast(err.message || "Error al actualizar la guía.", "error");
