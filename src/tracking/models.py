@@ -75,6 +75,10 @@ class TrackingResult(BaseModel):
         default=False,
         description="True si la respuesta fue generada por el simulador (cuando faltan credenciales en .env)",
     )
+    simulated: bool = Field(
+        default=False,
+        description="True si la respuesta proviene de datos simulados/mock",
+    )
     desde_cache: bool = Field(
         default=False,
         description="True si la respuesta provino de la caché en memoria",

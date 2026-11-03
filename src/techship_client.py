@@ -25,10 +25,36 @@ import re
 import io
 import datetime
 import argparse
+import logging
 from pathlib import Path
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from dotenv import load_dotenv
+
+logger = logging.getLogger("techship_client")
+
+STATUS_EXISTS = "exists"
+STATUS_NOT_EXISTS = "not_exists"
+STATUS_UNKNOWN = "unknown"
+
+def _get_get_session(retries=3, backoff_factor=0.5):
+    """Crea una sesión con reintentos exponenciales y backoff para consultas GET únicamente."""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "HEAD"],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -89,18 +115,24 @@ def verificar_orden_existente(customer_order, client_code=CLIENT_CODE_KST, timeo
     Revisa tanto la orden tal como viene como con/sin prefijo 'KYNDRYL_'.
     
     Retorna:
-        (existe_activa: bool, detalle: str, shipment_data: dict o None)
+        (estado: str ["exists" | "not_exists" | "unknown"], detalle: str, shipment_data: dict o None)
     """
-    headers = get_auth_headers()
+    try:
+        headers = get_auth_headers()
+    except Exception as exc:
+        return STATUS_UNKNOWN, f"Error al obtener credenciales de Techship: {exc}", None
+
     order_str = str(customer_order).strip()
-    
-    # Probar candidatos (con y sin prefijo KYNDRYL_)
     candidatos = [order_str]
     if order_str.startswith("KYNDRYL_"):
         candidatos.append(order_str.replace("KYNDRYL_", ""))
     else:
         candidatos.append(f"KYNDRYL_{order_str}")
         
+    session = _get_get_session()
+    had_error = False
+    last_error = ""
+
     for cand in candidatos:
         url = f"{TECHSHIP_BASE_URL}/api/v3/shipments"
         params = {
@@ -108,7 +140,7 @@ def verificar_orden_existente(customer_order, client_code=CLIENT_CODE_KST, timeo
             "customerOrder": cand
         }
         try:
-            r = requests.get(url, headers=headers, params=params, timeout=timeout)
+            r = session.get(url, headers=headers, params=params, timeout=timeout)
             if r.status_code == 200:
                 shipments = r.json()
                 if isinstance(shipments, list) and len(shipments) > 0:
@@ -116,19 +148,29 @@ def verificar_orden_existente(customer_order, client_code=CLIENT_CODE_KST, timeo
                         tracking = s.get("TrackingNumber")
                         status = s.get("Status")
                         shipment_id = s.get("Id")
-                        # Si tiene guía asignada o está procesada, se bloquea por duplicado
                         if tracking or status in ["Processed", "Shipped"]:
                             if tracking:
                                 desc = f"Ya existe en Techship procesada con Guía '{tracking}' (ID {shipment_id})"
                             else:
                                 desc = f"Ya existe en Techship registrada con estatus '{status}' (ID {shipment_id})"
-                            return True, desc, s
+                            return STATUS_EXISTS, desc, s
                         elif status in ["Unprocessed", "Failed"]:
-                            return False, f"Existe registro previo en borrador/fallido (ID {shipment_id}, Estatus: {status})", s
+                            return STATUS_NOT_EXISTS, f"Existe registro previo en borrador/fallido (ID {shipment_id}, Estatus: {status})", s
+            elif r.status_code in (404,):
+                pass
+            else:
+                had_error = True
+                last_error = f"HTTP {r.status_code}: {r.text[:200]}"
+                logger.warning("Fallo al verificar duplicado para '%s': %s", cand, last_error)
         except Exception as e:
-            print(f"  [AVISO] No se pudo verificar duplicado para '{cand}': {e}")
-            
-    return False, "No existe en Techship", None
+            had_error = True
+            last_error = str(e)
+            logger.warning("Excepción al verificar duplicado para '%s': %s", cand, e)
+
+    if had_error:
+        return STATUS_UNKNOWN, f"Error de comunicación con Techship API: {last_error}", None
+
+    return STATUS_NOT_EXISTS, "No existe en Techship", None
 
 
 def convertir_fila_excel_a_payload(row):
@@ -285,15 +327,32 @@ def verificar_calidad_direccion(row, audit_dict=None):
     customer_order = str(row.get('CustomerOrder', '')).strip()
     
     # 1. Verificar si viene catalogado con ERROR en la hoja de Auditoría
-    if audit_dict and customer_order in audit_dict:
-        estatus = str(audit_dict[customer_order]).upper()
-        if "ERROR" in estatus:
-            return False, f"Bloqueada por semáforo de auditoría: {audit_dict[customer_order]}"
+    if audit_dict:
+        candidatos_clave = [customer_order]
+        if customer_order.endswith("-1"):
+            base_order = customer_order[:-2]
+            candidatos_clave.extend([
+                f"{customer_order} [RETORNO]",
+                f"{base_order} [RETORNO]",
+                base_order,
+            ])
+        else:
+            candidatos_clave.append(f"{customer_order} [RETORNO]")
+            
+        for clave in candidatos_clave:
+            if clave in audit_dict:
+                estatus = str(audit_dict[clave]).upper()
+                if "ERROR" in estatus:
+                    return False, f"Bloqueada por semáforo de auditoría ({clave}): {audit_dict[clave]}"
             
     # 2. Verificar valores internos en la fila
-    for campo in ['Zip', 'ShipToPhone', 'ShipToAddress1', 'ShipFromZip', 'ShipFromPhone', 'ShipFromAddress1']:
-        val = str(row.get(campo, '')).strip()
-        if val.startswith("ERROR:"):
+    campos_a_verificar = [
+        'Zip', 'ShipToPhone', 'ShipToAddress1', 'ShipToAddress2', 'City', 'State',
+        'ShipFromZip', 'ShipFromPhone', 'ShipFromAddress1', 'ShipFromAddress2', 'ShipFromCity', 'ShipFromState'
+    ]
+    for campo in campos_a_verificar:
+        val = str(row.get(campo, '') or '').strip()
+        if "ERROR" in val.upper() or val.startswith("ERROR:"):
             return False, f"Dato inválido detectado en campo '{campo}': {val}"
             
     return True, "Dirección válida"
@@ -384,11 +443,16 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
             bloqueadas_error.append((customer_order, dir_motivo))
             continue
             
-        # 2. Detección anti-duplicados contra Techship
-        ya_existe, detalle_dup, _ = verificar_orden_existente(customer_order)
-        if ya_existe:
+        # 2. Detección anti-duplicados contra Techship (Tri-estado: exists/not_exists/unknown)
+        estado_dup, detalle_dup, _ = verificar_orden_existente(customer_order)
+        if estado_dup == STATUS_EXISTS or estado_dup is True:
             print(f"  --> [OMITIDA POR DUPLICADO] {detalle_dup}")
             ya_existentes.append((customer_order, detalle_dup))
+            continue
+        elif estado_dup == STATUS_UNKNOWN:
+            motivo_bloqueo = f"No verificable ante Techship (error de comunicación o servicio): {detalle_dup}"
+            print(f"  --> [BLOQUEADA - NO VERIFICABLE] {motivo_bloqueo}")
+            bloqueadas_error.append((customer_order, motivo_bloqueo))
             continue
             
         listas_para_envio.append((customer_order, payload))
@@ -443,7 +507,8 @@ def procesar_archivo_techship(input_path, dry_run=True, audit_path=None):
             ok, msg, res = crear_shipment_api(p, dry_run=False)
             if ok:
                 exitos += 1
-                trk = res.get('Packages', [{}])[0].get('TrackingNumber') or res.get('TrackingNumber') or 'Generada'
+                packages = res.get('Packages') or []
+                trk = (packages[0].get('TrackingNumber') if isinstance(packages, list) and len(packages) > 0 and isinstance(packages[0], dict) else None) or res.get('TrackingNumber') or 'Generada'
                 detalles.append({"order": co, "status": "TIMBRADA", "message": "Guía generada exitosamente", "tracking": trk, "shipment_id": res.get("ShipmentId") if res else None})
                 print(f"  [TIMBRADA] {co} -> Guía: {trk}")
             else:
@@ -553,11 +618,11 @@ def obtener_tracking_api(customer_order, client_code=CLIENT_CODE_KST, timeout=10
         url = f"{TECHSHIP_BASE_URL}/api/v3/shipments"
         params = {"clientCode": client_code, "customerOrder": cand}
         try:
-            r = requests.get(url, headers=headers, params=params, timeout=timeout)
+            session = _get_get_session()
+            r = session.get(url, headers=headers, params=params, timeout=timeout)
             if r.status_code == 200:
                 shipments = r.json()
                 if isinstance(shipments, list) and len(shipments) > 0:
-                    # Priorizar envíos procesados o que ya cuenten con tracking
                     target = None
                     for s in shipments:
                         if s.get("TrackingNumber") or s.get("Status") in ["Processed", "Shipped"]:
@@ -567,8 +632,7 @@ def obtener_tracking_api(customer_order, client_code=CLIENT_CODE_KST, timeout=10
                         target = shipments[0]
                     s_id = target.get("Id")
                     status = target.get("Status")
-                    # Consultar detalle completo solicitando conversión a PDF
-                    r_det = requests.get(f"{TECHSHIP_BASE_URL}/api/v3/shipments/{s_id}?labelPdfConversion=Enabled", headers=headers, timeout=timeout)
+                    r_det = session.get(f"{TECHSHIP_BASE_URL}/api/v3/shipments/{s_id}?labelPdfConversion=Enabled", headers=headers, timeout=timeout)
                     if r_det.status_code == 200:
                         det = r_det.json()
                         packages = det.get("Packages", [])
@@ -593,21 +657,28 @@ def obtener_tracking_api(customer_order, client_code=CLIENT_CODE_KST, timeout=10
                                                 m = re.search(r'CODIGO DE RASTREO:\s*(\d{10})', t)
                                                 if m:
                                                     trk10 = m.group(1)
-                                        except Exception:
-                                            pass
+                                        except Exception as pe:
+                                            logger.debug("No se pudo extraer texto de página PDF para %s: %s", cand, pe)
                                     elif lbl_type == "ZPL" or b"^XA" in raw_bytes:
                                         zpl = raw_bytes.decode("utf-8", errors="ignore")
                                         m = re.search(r'CODIGO DE RASTREO.*?\^FD(\d{10})\^FS', zpl, re.DOTALL)
                                         if m:
                                             trk10 = m.group(1)
-                                except Exception:
-                                    pass
+                                except Exception as de:
+                                    logger.debug("Error al decodificar etiqueta de %s: %s", cand, de)
                         cp_dest = det.get("ShipToAddress", {}).get("Postal")
                         return trk22, trk10, cp_dest, status, s_id, pdf_bytes
-        except Exception:
-            pass
+                    else:
+                        logger.warning("Fallo al obtener detalle de shipment ID %s: HTTP %s", s_id, r_det.status_code)
+                        return None, None, None, "api_error", s_id, None
+            elif r.status_code not in (404,):
+                logger.warning("Fallo en consulta Techship para %s: HTTP %s", cand, r.status_code)
+                return None, None, None, "api_error", None, None
+        except Exception as e:
+            logger.warning("Excepción en consulta de tracking para %s: %s", cand, e)
+            return None, None, None, "api_error", None, None
             
-    return None, None, None, None, None, None
+    return None, None, None, "not_found", None, None
 
 
 def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_code=CLIENT_CODE_KST):
@@ -717,11 +788,15 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
                 cp_dudosos.append((parent, esperado, cp_dest))
                 print(f"    [ALERTA CP] {parent}: CP SCTASK ({esperado}) vs CP Techship ({cp_dest})")
         else:
-            celda_trk.value = "ERROR: Tracking no encontrado en Techship"
+            if status == "api_error":
+                celda_trk.value = "ERROR: Fallo de conexión con API Techship"
+                print(f"  [ERROR API] Fila {r-1}: {parent} -> Caída o error de red con Techship API")
+            else:
+                celda_trk.value = "ERROR: Tracking no encontrado en Techship"
+                print(f"  [ERROR] Fila {r-1}: {parent} -> No se encontró en Techship")
             celda_trk.fill = RELLENO_ERROR
             celda_trk.font = FUENTE_ERROR
             sin_match.append(parent)
-            print(f"  [ERROR] Fila {r-1}: {parent} -> No se encontró en Techship")
 
     # Renombrar columnas clave
     ws.cell(1, col_serial).value = "Serial Number"
@@ -743,7 +818,14 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
             ws.delete_cols(c, 1)
             
     # Limpiar reglas y tablas
-    ws.conditional_formatting._cf_rules.clear()
+    try:
+        from openpyxl.formatting.formatting import ConditionalFormattingList
+        ws.conditional_formatting = ConditionalFormattingList()
+    except Exception:
+        try:
+            ws.conditional_formatting._cf_rules.clear()
+        except Exception:
+            pass
     for t in list(ws.tables.values()):
         t.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
         if t.autoFilter:
@@ -779,7 +861,14 @@ def sincronizar_tracking_desde_api(sctask_path=None, output_path=None, client_co
         
     # Guardar PDF consolidado de etiquetas en el orden exacto de empaque
     nombre_pdf = f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}.pdf"
-    salida_pdf = str(PROJECT_ROOT / "data" / "output" / nombre_pdf)
+    if output_path:
+        out_pdf_dir = Path(output_path) if os.path.isdir(output_path) else Path(output_path).parent
+        out_pdf_dir.mkdir(parents=True, exist_ok=True)
+        salida_pdf = str(out_pdf_dir / nombre_pdf)
+    else:
+        out_pdf_dir = PROJECT_ROOT / "data" / "output"
+        out_pdf_dir.mkdir(parents=True, exist_ok=True)
+        salida_pdf = str(out_pdf_dir / nombre_pdf)
     if paginas_pdf > 0:
         try:
             with open(salida_pdf, "wb") as f_pdf:

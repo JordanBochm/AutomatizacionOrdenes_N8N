@@ -257,7 +257,13 @@ def process_excel(input_path, output_path, default_declared_value=None):
         
     print(f"Registros cargados para procesar: {len(df_raw)}")
     
+    columnas_obligatorias = ['Parent', 'Street', 'Zip / Postal code', 'Contact number']
+    columnas_faltantes = [c for c in columnas_obligatorias if c not in df_raw.columns]
+    if columnas_faltantes:
+        raise ValueError(f"El reporte de ServiceNow no contiene las columnas obligatorias: {', '.join(columnas_faltantes)}")
+
     validador = ValidadorPostal()
+    validador.verificar_catalogo_disponible()
     incidencias = []
     resumen_direcciones = []
 
@@ -501,13 +507,21 @@ def process_excel(input_path, output_path, default_declared_value=None):
         first_name = clean_text_encoding(row.get('Recipient first name'))
         last_name = clean_text_encoding(row.get('Recipient last name'))
         full_name = f"{first_name} {last_name}".strip() if pd.notna(first_name) or pd.notna(last_name) else ""
-        email = str(row.get('Email') or row.get('Contact Email Address ') or "").strip()
+        raw_email1 = row.get('Email')
+        raw_email2 = row.get('Contact Email Address ')
+        email1 = str(raw_email1).strip() if pd.notna(raw_email1) and str(raw_email1).strip().lower() not in ('nan', 'none', '') else ""
+        email2 = str(raw_email2).strip() if pd.notna(raw_email2) and str(raw_email2).strip().lower() not in ('nan', 'none', '') else ""
+        email = email1 or email2 or ""
         
         service_code = map_service_code(row.get('State'), is_return=is_return)
         
         # ── Estructura del registro Techship (49 columnas A–AW) ──
         tech_row = {col: None for col in techship_columns}
-        tech_row['ClientCode'] = 11
+        techship_client_code_env = os.getenv("TECHSHIP_CLIENT_CODE", "11")
+        try:
+            tech_row['ClientCode'] = int(techship_client_code_env)
+        except (ValueError, TypeError):
+            tech_row['ClientCode'] = techship_client_code_env
         tech_row['CustomerOrder'] = parent
         tech_row['CustomerPO'] = parent
         

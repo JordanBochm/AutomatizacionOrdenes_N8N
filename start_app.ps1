@@ -10,11 +10,21 @@ Write-Host "====================================================================
 $ROOT_DIR = $PSScriptRoot
 Set-Location $ROOT_DIR
 
-# Blindaje de PATH: Inyectar Node.js explicitamente en la sesion actual
-$nodePath = "C:\Program Files\nodejs"
-if (Test-Path $nodePath) {
-    $env:Path = "$nodePath;$env:Path"
+# Blindaje de PATH: Deteccion dinamica de Node.js (PATH, nvm, fnm o ruta estandar)
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeCmd) {
+    $fallbackNode = "C:\Program Files\nodejs"
+    if (Test-Path $fallbackNode) {
+        $env:Path = "$fallbackNode;$env:Path"
+        $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    }
 }
+if (-not $nodeCmd) {
+    Write-Error "ERROR: Node.js no fue encontrado en el sistema. Por favor instala Node.js o agregalo al PATH."
+    exit 1
+}
+$nodeDir = Split-Path $nodeCmd.Source -Parent
+$env:Path = "$nodeDir;$env:Path"
 
 # 1. Iniciar FastAPI en segundo plano
 Write-Host "[1/3] Iniciando Backend FastAPI en http://localhost:8000 ..." -ForegroundColor Cyan
@@ -22,7 +32,7 @@ $backendProcess = Start-Process -FilePath "python" -ArgumentList "-m uvicorn src
 
 # 2. Iniciar Next.js en segundo plano usando npm.cmd con PATH inyectado
 Write-Host "[2/3] Iniciando Frontend Next.js en http://localhost:3000 ..." -ForegroundColor Cyan
-$frontendCmd = "set PATH=C:\Program Files\nodejs;%PATH% && cd /d `"$ROOT_DIR\frontend`" && npm.cmd run dev"
+$frontendCmd = "cd /d `"$ROOT_DIR\frontend`" && npm.cmd run dev"
 $frontendProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $frontendCmd" -PassThru -WindowStyle Hidden
 
 # 3. Esperar 3 segundos y abrir navegador

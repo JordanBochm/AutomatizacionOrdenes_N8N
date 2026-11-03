@@ -7,6 +7,7 @@ import sqlite3
 import unicodedata
 import re
 import time
+import math
 import urllib.request
 import urllib.parse
 import json
@@ -14,6 +15,11 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "sepomex.db"
+
+
+class SepomexNotAvailableError(Exception):
+    """Lanzada cuando el catálogo local SEPOMEX (data/sepomex.db) falta, está vacío o corrupto."""
+    pass
 
 # Diccionario de abreviaturas logísticas mexicanas (estrictas con límite de palabra)
 ABREVIATURAS_DIRECCION = [
@@ -160,7 +166,7 @@ def validar_y_limpiar_telefono(raw_phone):
     
     # Manejo robusto de floats numéricos y strings
     if isinstance(raw_phone, float):
-        if pd.isna(raw_phone):
+        if math.isnan(raw_phone):
             return "", False, "Teléfono ausente o vacío (se requieren 10 dígitos reales para contacto del chofer)"
         if raw_phone.is_integer():
             phone_str = str(int(raw_phone))
@@ -354,6 +360,12 @@ def formatear_direccion_inteligente(
 
 
 
+def verificar_catalogo_disponible(db_path=None):
+    """Valida que el catalogo SEPOMEX este disponible y sea valido."""
+    validador = ValidadorPostal(db_path=db_path)
+    return validador.verificar_catalogo_disponible()
+
+
 class ValidadorPostal:
     # Nombre de estado con el que se escribe en la plantilla (acorta nombres oficiales largos)
     ESTADO_PLANTILLA = {
@@ -385,6 +397,38 @@ class ValidadorPostal:
         self._conn = None
         self._last_osm_call = 0.0
         self._init_cache_table()
+
+    def verificar_catalogo_disponible(self):
+        """
+        Valida que la base de datos local SQLite de SEPOMEX exista, sea legible y contenga registros.
+        Lanza SepomexNotAvailableError si no está disponible o su esquema es inválido.
+        """
+        if not self.db_path.exists() or self.db_path.stat().st_size == 0:
+            raise SepomexNotAvailableError(
+                f"Catálogo SEPOMEX no disponible: el archivo '{self.db_path}' no existe o está vacío. "
+                "Ejecute scripts/descargar_sepomex.py para inicializar la base de datos."
+            )
+        try:
+            conn = sqlite3.connect(str(self.db_path))
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='sepomex'")
+            if not cur.fetchone():
+                conn.close()
+                raise SepomexNotAvailableError(
+                    f"Catálogo SEPOMEX no disponible: la tabla 'sepomex' no existe en '{self.db_path}'."
+                )
+            cur.execute("SELECT COUNT(*) FROM sepomex")
+            count = cur.fetchone()[0]
+            conn.close()
+            if count == 0:
+                raise SepomexNotAvailableError(
+                    f"Catálogo SEPOMEX no disponible: la tabla 'sepomex' en '{self.db_path}' tiene 0 registros."
+                )
+            return True
+        except sqlite3.Error as e:
+            raise SepomexNotAvailableError(
+                f"Catálogo SEPOMEX no disponible o corrupto ({self.db_path}): {e}"
+            )
 
     def _get_conn(self):
         if not self._conn:
@@ -543,6 +587,7 @@ class ValidadorPostal:
         }
         conn = self._get_conn()
         if not conn:
+            self.verificar_catalogo_disponible()
             return base
 
         digits = re.sub(r"[^\d]", "", str(cp).split(".")[0])

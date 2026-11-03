@@ -148,8 +148,8 @@ class TrackingService:
 
         self._explicit_mock_fallback = mock_fallback
         if mock_fallback is None:
-            env_mock = os.getenv("TRACKING_MOCK_FALLBACK", "true").strip().lower()
-            self.mock_fallback = env_mock in ("1", "true", "yes", "si", "auto")
+            env_mock = os.getenv("TRACKING_MOCK_FALLBACK", "false").strip().lower()
+            self.mock_fallback = env_mock in ("1", "true", "yes", "si")
         else:
             self.mock_fallback = mock_fallback
 
@@ -159,8 +159,8 @@ class TrackingService:
     def _is_mock_fallback_active(self) -> bool:
         if self._explicit_mock_fallback is not None:
             return self._explicit_mock_fallback
-        env_mock = os.getenv("TRACKING_MOCK_FALLBACK", "true").strip().lower()
-        self.mock_fallback = env_mock in ("1", "true", "yes", "si", "auto")
+        env_mock = os.getenv("TRACKING_MOCK_FALLBACK", "false").strip().lower()
+        self.mock_fallback = env_mock in ("1", "true", "yes", "si")
         return self.mock_fallback
 
     async def _query_single_carrier(
@@ -403,6 +403,16 @@ def build_tracking_excel_bytes(resultados: List[TrackingResult]) -> bytes:
     línea bicolor oficial (`#233762` / `#CE3A39`), fecha en cursiva, bloque de
     resumen con cajas `#D9E2F3`, tabla estandarizada y pie de página.
     """
+    simulados = [
+        item for item in resultados
+        if getattr(item, "simulated", False) or getattr(item, "modo_simulacion", False)
+    ]
+    if simulados:
+        raise ValueError(
+            f"No se permite exportar reportes Excel/PDF con datos simulados ({len(simulados)} guías simuladas detectadas). "
+            "Configure credenciales reales de paquetería en .env y deshabilite TRACKING_MOCK_FALLBACK."
+        )
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Rastreo de Envíos"

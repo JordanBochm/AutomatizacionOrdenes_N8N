@@ -346,7 +346,14 @@ def asignar_tracking(excel_path=None, pdf_paths=None, carpeta=None, output_path=
         if nombre_col not in COLUMNAS_DESEADAS:
             ws.delete_cols(c, 1)
 
-    ws.conditional_formatting._cf_rules.clear()
+    try:
+        from openpyxl.formatting.formatting import ConditionalFormattingList
+        ws.conditional_formatting = ConditionalFormattingList()
+    except Exception:
+        try:
+            ws.conditional_formatting._cf_rules.clear()
+        except Exception:
+            pass
 
     for t in list(ws.tables.values()):
         t.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"

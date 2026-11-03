@@ -55,7 +55,8 @@ if sys.stderr is not None:
 
 import openpyxl
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body, Depends
+import secrets
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
@@ -135,7 +136,27 @@ class DeleteOrdersRequest(BaseModel):
 
 
 class TechshipProcessRequest(BaseModel):
-    dry_run: bool = Field(default=False, description="True para simulación segura, False para timbrado real en Estafeta")
+    dry_run: bool = Field(default=True, description="True para simulación segura (default), False para timbrado real en Estafeta")
+    confirm_live: bool = Field(default=False, description="Confirmación explícita requerida para timbrado real en producción (dry_run=False)")
+
+def require_api_key(x_api_key: Optional[str] = Header(default=None, alias="X-API-Key")):
+    """
+    Valida la cabecera X-API-Key contra la variable de entorno API_KEY con tiempo constante.
+    Si API_KEY no está configurada en el servidor, falla cerrado con HTTP 503.
+    Si la clave falta o es incorrecta, responde con HTTP 401.
+    """
+    api_key_env = os.getenv("API_KEY")
+    if not api_key_env:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio no disponible: API Key de backend no configurada en el servidor (API_KEY ausente)."
+        )
+    if not x_api_key or not secrets.compare_digest(x_api_key, api_key_env):
+        raise HTTPException(
+            status_code=401,
+            detail="No autorizado: API Key inválida o no proporcionada (requiere header X-API-Key)."
+        )
+    return x_api_key
 
 
 class TechshipSyncRequest(BaseModel):
@@ -254,7 +275,11 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             phone = str(row.get("ShipToPhone", "")).strip().split(".")[0]
             email = str(row.get("ShipToEmail", "")).strip() if pd.notna(row.get("ShipToEmail")) else ""
             
-        declared_val = float(row.get("DeclaredValue", 0.0)) if pd.notna(row.get("DeclaredValue")) else 0.0
+        raw_dec = row.get("DeclaredValue", 0.0)
+        try:
+            declared_val = float(str(raw_dec).replace("$", "").replace(",", "").strip()) if pd.notna(raw_dec) and str(raw_dec).strip() else 0.0
+        except (ValueError, TypeError):
+            declared_val = 0.0
         service_code = str(row.get("SelectedServiceCode", "70")).strip().split(".")[0]
         
         # Determinar estatus del semáforo
@@ -358,19 +383,32 @@ def get_current_batch():
     return data
 
 
-@app.post("/api/batches/upload")
+@app.post("/api/batches/upload", dependencies=[Depends(require_api_key)])
 async def upload_batch(file: UploadFile = File(...)):
     """
     Recibe el reporte Excel de ServiceNow (SCTASK_*.xlsx), ejecuta el motor
     postal SEPOMEX y genera la estructura oficial de 61 columnas con auditoría.
     """
-    if not file.filename.endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="Solo se permiten archivos de Excel (.xlsx)")
-        
-    input_save_path = DATA_INPUT / file.filename
+    raw_name = Path(file.filename or "").name
+    if not raw_name.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos de Excel con extensión .xlsx")
+
+    MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25 MB
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="El archivo excede el tamaño máximo permitido de 25 MB.")
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="El archivo subido está vacío.")
+
+    stem = Path(raw_name).stem
+    safe_stem = re.sub(r'[^a-zA-Z0-9_\-]', '_', stem)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"{safe_stem}_{timestamp}.xlsx"
+    input_save_path = DATA_INPUT / safe_filename
+
     try:
         with open(input_save_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            buffer.write(contents)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"No se pudo guardar el archivo: {str(e)}")
         
@@ -390,7 +428,7 @@ async def upload_batch(file: UploadFile = File(...)):
     return data
 
 
-@app.patch("/api/batches/order/{pick_order}")
+@app.patch("/api/batches/order/{pick_order}", dependencies=[Depends(require_api_key)])
 def patch_order(pick_order: str, updates: OrderPatchRequest):
     """
     Permite corregir en caliente cualquier campo de una orden (ej. teléfono de 9 dígitos
@@ -426,7 +464,7 @@ def patch_order(pick_order: str, updates: OrderPatchRequest):
     # Procesar teléfono si se actualizó
     nuevo_tel_limpio = None
     if updates.phone is not None:
-        nuevo_tel_limpio = validar_y_limpiar_telefono(updates.phone)
+        nuevo_tel_limpio, tel_valido, tel_alerta = validar_y_limpiar_telefono(updates.phone)
         
     for r, is_retorno_counterpart in filas_afectadas:
         # Actualizar teléfono
@@ -540,7 +578,7 @@ def patch_order(pick_order: str, updates: OrderPatchRequest):
     }
 
 
-@app.post("/api/batches/delete-orders")
+@app.post("/api/batches/delete-orders", dependencies=[Depends(require_api_key)])
 def delete_orders(req: DeleteOrdersRequest):
     """
     Elimina una o más órdenes del lote activo en 'Guias_Techship_Importada_*.xlsx'
@@ -609,19 +647,28 @@ def delete_orders(req: DeleteOrdersRequest):
     }
 
 
-@app.delete("/api/batches/order/{order_id}")
+@app.delete("/api/batches/order/{order_id}", dependencies=[Depends(require_api_key)])
 def delete_single_order(order_id: str, delete_counterpart: bool = Query(default=True)):
     """Elimina una orden individual y opcionalmente su par de retorno."""
     return delete_orders(DeleteOrdersRequest(order_ids=[order_id], delete_counterparts=delete_counterpart))
 
 
-@app.post("/api/techship/process")
-def process_techship(req: TechshipProcessRequest):
+@app.post("/api/techship/process", dependencies=[Depends(require_api_key)])
+def process_techship(
+    req: TechshipProcessRequest,
+    x_confirm_live: Optional[str] = Header(default=None, alias="X-Confirm-Live"),
+):
     """
     Ejecuta el procesamiento en Techship API v3:
-      - dry_run=True: Simulación segura (valida payloads y duplicados sin timbrar cobro)
-      - dry_run=False: Timbrado oficial real con Estafeta
+      - dry_run=True: Simulación segura (default)
+      - dry_run=False: Timbrado oficial real con Estafeta (requiere confirm_live=True y header X-Confirm-Live: CONFIRM)
     """
+    if not req.dry_run:
+        if not req.confirm_live or (x_confirm_live or "").strip().upper() != "CONFIRM":
+            raise HTTPException(
+                status_code=400,
+                detail="Para timbrado real en producción (dry_run=False) se requiere confirm_live=True en el body y la cabecera 'X-Confirm-Live: CONFIRM'."
+            )
     guias_path, audit_path, _ = _encontrar_archivos_lote_activo()
     if not guias_path or not guias_path.is_file():
         raise HTTPException(status_code=404, detail="No hay lote activo para procesar en Techship.")
@@ -649,7 +696,7 @@ def process_techship(req: TechshipProcessRequest):
     }
 
 
-@app.post("/api/techship/sync-closing")
+@app.post("/api/techship/sync-closing", dependencies=[Depends(require_api_key)])
 def sync_closing(req: TechshipSyncRequest = Body(default_factory=TechshipSyncRequest)):
     """
     Sincroniza los trackings de Techship API y genera:
@@ -837,7 +884,7 @@ def _fecha_de_archivo(path: Path) -> datetime.date:
     return datetime.date.fromtimestamp(path.stat().st_mtime)
 
 
-@app.post("/api/batches/archive-previous")
+@app.post("/api/batches/archive-previous", dependencies=[Depends(require_api_key)])
 def archive_previous(req: ArchiveRequest = Body(default_factory=ArchiveRequest)):
     """
     Mueve (NO borra) los archivos de data/input y data/output a data/archive/AAAA-MM-DD/{input|output}/.
@@ -948,7 +995,10 @@ async def export_tracking_excel(
     Genera y descarga un archivo Excel (.xlsx) con el diseño institucional de
     SupplyChain México (#233762 / #CE3A39) a partir de los resultados de rastreo.
     """
-    excel_bytes = build_tracking_excel_bytes(req.resultados)
+    try:
+        excel_bytes = build_tracking_excel_bytes(req.resultados)
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
     filename = get_standardized_tracking_excel_filename()
     return Response(
         content=excel_bytes,

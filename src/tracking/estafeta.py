@@ -169,12 +169,12 @@ class EstafetaAdapter(CarrierAdapter):
         self.auth_url = (
             auth_url
             if auth_url is not None
-            else os.getenv("ESTAFETA_AUTH_URL", "https://apiqa.estafeta.com/auth/oauth/v2/token")
+            else os.getenv("ESTAFETA_AUTH_URL", "")
         ).strip()
         self.track_url = (
             track_url
             if track_url is not None
-            else os.getenv("ESTAFETA_TRACK_URL", "https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status")
+            else os.getenv("ESTAFETA_TRACK_URL", "")
         ).strip()
         self.oauth_scope = (
             oauth_scope if oauth_scope is not None else os.getenv("ESTAFETA_OAUTH_SCOPE", "execute")
@@ -210,6 +210,10 @@ class EstafetaAdapter(CarrierAdapter):
         """Devuelve un mensaje en español explicando qué falta para rastrear en vivo, o None si está completo."""
         if not self.has_credentials():
             return "Las credenciales OAuth2 de Estafeta (ESTAFETA_CLIENT_ID / ESTAFETA_CLIENT_SECRET) no están configuradas en .env."
+        if not self.api_key:
+            return "Falta ESTAFETA_API_KEY en .env requerida por el API Gateway de Estafeta."
+        if not self.auth_url:
+            return "Falta ESTAFETA_AUTH_URL en .env para la autenticación OAuth2 de Estafeta."
         if not self.track_url:
             return (
                 "Credenciales de Estafeta válidas, pero falta la URL del servicio de RASTREO (ESTAFETA_TRACK_URL). "
@@ -251,6 +255,8 @@ class EstafetaAdapter(CarrierAdapter):
                 raise CarrierAuthError(
                     "ESTAFETA", "ESTAFETA_CLIENT_ID o ESTAFETA_CLIENT_SECRET no configurados en .env"
                 )
+            if not self.auth_url:
+                raise CarrierAuthError("ESTAFETA", "Falta ESTAFETA_AUTH_URL para autenticación OAuth2.")
 
             form_data = {
                 "grant_type": "client_credentials",
@@ -319,14 +325,18 @@ class EstafetaAdapter(CarrierAdapter):
         if self._is_label_endpoint(self.track_url):
             raise CarrierAuthError("ESTAFETA", "ESTAFETA_TRACK_URL apunta a labelrest (generación de guías); se bloqueó la consulta.")
 
+        if not self.track_url:
+            raise CarrierAuthError("ESTAFETA", "Falta ESTAFETA_TRACK_URL para consultar el rastreo.")
+        if not self.api_key:
+            raise CarrierAuthError("ESTAFETA", "Falta ESTAFETA_API_KEY para consultar el rastreo.")
+
         token = await self.autenticar(client)
-        effective_api_key = self.api_key or self.client_id
         payload = self._build_request_payload(guia)
 
         for attempt in range(2):
             headers = {
                 "Authorization": f"Bearer {token}",
-                "apikey": effective_api_key,
+                "apikey": self.api_key,
                 "Content-Type": "application/json",
                 "Accept": "application/json",
             }

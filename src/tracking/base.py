@@ -288,6 +288,7 @@ def build_simulated_tracking(guia: str, carrier: str) -> TrackingResult:
         candidatos_carrier=[carrier],
         retrasado=evaluate_is_delayed(estatus, est_date),
         modo_simulacion=True,
+        simulated=True,
         desde_cache=False,
     )
 

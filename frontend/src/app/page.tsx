@@ -55,6 +55,20 @@ const LOGISTICS_IMAGES = [
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+/**
+ * Obtiene cabeceras de autenticación requeridas por el backend.
+ * El backend exige 'X-API-Key' para cualquier operación de escritura o modificación de datos.
+ */
+const getAuthHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = {};
+  const apiKey = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_KEY) ||
+                 (typeof window !== "undefined" ? localStorage.getItem("sc_api_key") : null);
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
+  }
+  return headers;
+};
+
 // ==============================================================================
 // 1. SISTEMA RBAC (ROLES, USUARIOS Y PERMISOS 100% FRONTEND)
 // ==============================================================================
@@ -511,11 +525,17 @@ export default function DashboardPage() {
   // Manejador del Selector Rápido de Cuentas Demo
   const handleSelectDemoAccount = (demo: (typeof DEMO_ACCOUNTS)[number]) => {
     setUserEmail(demo.email);
-    setLoginPassword("Seko2026*");
-    triggerToast(`Cuenta ${demo.label} lista: ${demo.email}`, "info");
+    setLoginPassword("");
+    triggerToast(`Cuenta ${demo.label} seleccionada: ${demo.email}`, "info");
   };
 
-  // Iniciar sesión con validación de usuarios y auto-asignación Seko
+  /**
+   * NOTA DE SEGURIDAD CRÍTICA:
+   * La sesión en el cliente (sessionStorage) y los roles del frontend son exclusivamente
+   * informativos para la interfaz de usuario (UX) y NO constituyen un control de acceso seguro.
+   * La única fuente de verdad y barrera de autorización reside en el backend de FastAPI,
+   * el cual exige la cabecera 'X-API-Key' (validada con tiempo constante) en todos los endpoints de escritura.
+   */
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = userEmail.trim();
@@ -548,43 +568,8 @@ export default function DashboardPage() {
       return;
     }
 
-    if (cleanEmail.toLowerCase().endsWith("@sekologistics.com")) {
-      const nameParts = (cleanEmail.split("@")[0] || "")
-        .split(/[._-]+/)
-        .filter(Boolean)
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
-      const formattedName = nameParts.join(" ") || "Usuario Seko";
-
-      const autoUser: UserAccount = {
-        id: `usr-${Date.now()}`,
-        name: formattedName,
-        email: cleanEmail,
-        role: "ASSET_MANAGER",
-        password: "••••••••••••",
-        isActive: true,
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-
-      const updated = [...usersList, autoUser];
-      setUsersList(updated);
-      saveUsersToStorage(updated);
-
-      const userSession: CurrentUser = {
-        name: autoUser.name,
-        email: autoUser.email,
-        role: autoUser.role,
-      };
-      setCurrentUser(userSession);
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userSession));
-        sessionStorage.setItem("sc_user_email", userSession.email);
-      }
-      setActiveModule("hub");
-      triggerToast(`Cuenta corporativa creada e iniciada como ${autoUser.name} (Asset Management)`, "success");
-      return;
-    }
-
-    triggerToast("Acceso restringido: Solo se permiten correos @sekologistics.com", "error");
+    // Eliminada auto-creación insegura de cuentas ASSET_MANAGER sin validación ni credenciales.
+    triggerToast("Acceso no autorizado: Usuario no registrado. Contacta a un Administrador.", "error");
   };
 
   // Cerrar sesión
@@ -770,6 +755,7 @@ export default function DashboardPage() {
       setActionLoading("upload");
       const res = await fetch(`${API_BASE}/api/batches/upload`, {
         method: "POST",
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -871,7 +857,10 @@ export default function DashboardPage() {
       setActionLoading("delete_order");
       const res = await fetch(`${API_BASE}/api/batches/delete-orders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({
           order_ids: dialogData.targetOrderIds,
           delete_counterparts: dialogData.includeCounterparts,
@@ -932,7 +921,10 @@ export default function DashboardPage() {
       setActionLoading("patch");
       const res = await fetch(`${API_BASE}/api/batches/order/${editingOrder.order_id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({
           phone: editFormData.phone.trim(),
           address1: editFormData.address1.trim(),
@@ -970,8 +962,12 @@ export default function DashboardPage() {
       setActionLoading("live");
       const res = await fetch(`${API_BASE}/api/techship/process`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dry_run: false }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Confirm-Live": "CONFIRM",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ dry_run: false, confirm_live: true }),
       });
 
       if (!res.ok) {
@@ -995,7 +991,10 @@ export default function DashboardPage() {
       setActionLoading("sync");
       const res = await fetch(`${API_BASE}/api/techship/sync-closing`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({}),
       });
 
@@ -1033,7 +1032,10 @@ export default function DashboardPage() {
   const callArchive = async (dryRun: boolean, cleanAll: boolean = true) => {
     const res = await fetch(`${API_BASE}/api/batches/archive-previous`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
       body: JSON.stringify({ dry_run: dryRun, clean_all: cleanAll }),
     });
     if (!res.ok) {
