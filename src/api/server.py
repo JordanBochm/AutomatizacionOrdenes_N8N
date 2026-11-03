@@ -55,9 +55,9 @@ if sys.stderr is not None:
 
 import openpyxl
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 # Directorio raíz del proyecto
@@ -76,6 +76,18 @@ from src.techship_client import (
     sincronizar_tracking_desde_api,
     CLIENT_CODE_KST,
     TECHSHIP_BASE_URL,
+)
+from src.tracking.models import (
+    BatchTrackingRequest,
+    ExportTrackingRequest,
+    TrackingResult,
+)
+from src.tracking.service import (
+    SlidingWindowRateLimiter,
+    TrackingService,
+    build_tracking_excel_bytes,
+    get_standardized_tracking_excel_filename,
+    verify_tracking_auth,
 )
 
 app = FastAPI(
@@ -112,6 +124,14 @@ class OrderPatchRequest(BaseModel):
     zip: Optional[str] = None
     service_code: Optional[str] = None
     declared_value: Optional[float] = None
+
+
+class DeleteOrdersRequest(BaseModel):
+    order_ids: List[str]
+    delete_counterparts: bool = Field(
+        default=True,
+        description="Si es True, elimina también la orden par (-1 o su outbound original) para que no se procese",
+    )
 
 
 class TechshipProcessRequest(BaseModel):
@@ -520,6 +540,81 @@ def patch_order(pick_order: str, updates: OrderPatchRequest):
     }
 
 
+@app.post("/api/batches/delete-orders")
+def delete_orders(req: DeleteOrdersRequest):
+    """
+    Elimina una o más órdenes del lote activo en 'Guias_Techship_Importada_*.xlsx'
+    y del reporte de auditoría 'Auditoria_Direcciones_*.xlsx' para que NO sean procesadas en Techship.
+    """
+    guias_path, audit_path, _ = _encontrar_archivos_lote_activo()
+    if not guias_path or not guias_path.is_file():
+        raise HTTPException(status_code=404, detail="No hay lote activo para modificar.")
+
+    if not req.order_ids:
+        raise HTTPException(status_code=400, detail="Debe especificar al menos una orden para eliminar.")
+
+    target_ids = set(str(o).strip() for o in req.order_ids if str(o).strip())
+    if req.delete_counterparts:
+        extras = set()
+        for oid in target_ids:
+            if oid.endswith("-1"):
+                extras.add(oid[:-2])
+            else:
+                extras.add(f"{oid}-1")
+        target_ids.update(extras)
+
+    wb_guias = openpyxl.load_workbook(guias_path)
+    ws_guias = wb_guias["Import Orders"]
+
+    headers_guias = {str(ws_guias.cell(1, c).value).strip(): c for c in range(1, ws_guias.max_column + 1)}
+    col_co = headers_guias.get("CustomerOrder")
+    if not col_co:
+        raise HTTPException(status_code=500, detail="Columna 'CustomerOrder' no encontrada en Import Orders.")
+
+    deleted_count = 0
+    for r in range(ws_guias.max_row, 1, -1):
+        val = str(ws_guias.cell(r, col_co).value or "").strip()
+        if val in target_ids:
+            ws_guias.delete_rows(r, 1)
+            deleted_count += 1
+
+    wb_guias.save(guias_path)
+
+    # También actualizar archivo de auditoría si existe
+    if audit_path and audit_path.is_file():
+        try:
+            wb_audit = openpyxl.load_workbook(audit_path)
+            if "Resumen Direcciones" in wb_audit.sheetnames:
+                ws_res = wb_audit["Resumen Direcciones"]
+                for r in range(ws_res.max_row, 1, -1):
+                    val = str(ws_res.cell(r, 1).value or "").strip()
+                    if val in target_ids:
+                        ws_res.delete_rows(r, 1)
+            if "Incidencias" in wb_audit.sheetnames:
+                ws_inc = wb_audit["Incidencias"]
+                for r in range(ws_inc.max_row, 1, -1):
+                    val = str(ws_inc.cell(r, 2).value or "").strip()
+                    if val in target_ids:
+                        ws_inc.delete_rows(r, 1)
+            wb_audit.save(audit_path)
+        except Exception as e:
+            print(f"[AVISO] No se pudo actualizar el archivo de auditoría al eliminar órdenes: {e}")
+
+    estado_lote = _parsear_estado_lote(guias_path, audit_path)
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"Se eliminaron {deleted_count} fila(s) del lote correctamente.",
+        "batch": estado_lote,
+    }
+
+
+@app.delete("/api/batches/order/{order_id}")
+def delete_single_order(order_id: str, delete_counterpart: bool = Query(default=True)):
+    """Elimina una orden individual y opcionalmente su par de retorno."""
+    return delete_orders(DeleteOrdersRequest(order_ids=[order_id], delete_counterparts=delete_counterpart))
+
+
 @app.post("/api/techship/process")
 def process_techship(req: TechshipProcessRequest):
     """
@@ -789,6 +884,104 @@ def archive_previous(req: ArchiveRequest = Body(default_factory=ArchiveRequest))
         "moved": movidos,
         "skipped": omitidos,
     }
+
+
+# -------------------------------------------------------------
+# 7. MÓDULO DE RASTREO DE ENVÍOS MULTI-CARRIER (FEDEX Y ESTAFETA)
+# -------------------------------------------------------------
+
+tracking_service = TrackingService()
+tracking_rate_limiter = SlidingWindowRateLimiter(max_requests=120, window_seconds=60)
+
+
+@app.get("/api/tracking/config-status")
+async def get_tracking_config_status(
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Informa al frontend si las credenciales de FedEx y Estafeta están configuradas
+    en el backend (.env) y el estado de la caché, sin exponer ninguna llave sensible.
+    """
+    fedex_adapter = tracking_service.adapters.get("FEDEX")
+    estafeta_adapter = tracking_service.adapters.get("ESTAFETA")
+    return {
+        "carriers": {
+            "FEDEX": {
+                "configured": bool(fedex_adapter and fedex_adapter.is_configured()),
+            },
+            "ESTAFETA": {
+                "configured": bool(estafeta_adapter and estafeta_adapter.is_configured()),
+            },
+        },
+        "mock_fallback_enabled": tracking_service.mock_fallback,
+        "cache": tracking_service.cache.stats(),
+    }
+
+
+@app.post("/api/tracking/batch")
+async def track_shipments_batch(
+    req: BatchTrackingRequest,
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Rastrea un lote de hasta 50 guías de forma asíncrona y concurrente (FedEx / Estafeta).
+    Autodetecta el carrier por formato de guía si `carrier` no se especifica.
+    """
+    tracking_rate_limiter.check(auth_ctx.get("ip") or "127.0.0.1")
+    results = await tracking_service.track_batch(
+        guias=req.guias,
+        carrier=req.carrier,
+        force_refresh=req.force_refresh,
+    )
+    return {
+        "total": len(results),
+        "results": results,
+    }
+
+
+@app.post("/api/tracking/export-excel")
+async def export_tracking_excel(
+    req: ExportTrackingRequest,
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Genera y descarga un archivo Excel (.xlsx) con el diseño institucional de
+    SupplyChain México (#233762 / #CE3A39) a partir de los resultados de rastreo.
+    """
+    excel_bytes = build_tracking_excel_bytes(req.resultados)
+    filename = get_standardized_tracking_excel_filename()
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@app.get("/api/tracking/{guia}", response_model=TrackingResult)
+async def track_single_shipment(
+    guia: str,
+    carrier: Optional[str] = Query(
+        default=None,
+        description="Carrier opcional (FEDEX o ESTAFETA). Si se omite, se autodetecta por formato.",
+    ),
+    force_refresh: bool = Query(
+        default=False,
+        description="Si es True, ignora la caché de 10 minutos y consulta directamente al carrier.",
+    ),
+    auth_ctx: Dict[str, Optional[str]] = Depends(verify_tracking_auth),
+):
+    """
+    Rastrea una guía individual en FedEx o Estafeta y devuelve la respuesta normalizada.
+    """
+    tracking_rate_limiter.check(auth_ctx.get("ip") or "127.0.0.1")
+    result = await tracking_service.track_single(
+        raw_guia=guia,
+        carrier=carrier,
+        force_refresh=force_refresh,
+    )
+    return result
 
 
 # -------------------------------------------------------------

@@ -5,6 +5,7 @@ import SplashScreen from "@/components/layout/SplashScreen";
 import AnimatedLogo from "@/components/layout/AnimatedLogo";
 import SupplyChainLoader from "@/components/layout/SupplyChainLoader";
 import TrackingGenerator from "@/components/tracking/TrackingGenerator";
+import TransportTracker from "@/components/tracking/TransportTracker";
 import {
   UploadCloud,
   CheckCircle2,
@@ -24,7 +25,6 @@ import {
   X,
   Truck,
   ArrowUpDown,
-  Building2,
   HelpCircle,
   AlertCircle,
   Archive,
@@ -269,7 +269,7 @@ function loadCurrentUserFromSession(): CurrentUser | null {
     if (raw) {
       return JSON.parse(raw);
     }
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -350,6 +350,18 @@ export default function DashboardPage() {
     sync_counterpart: true,
   });
 
+  // Selección de órdenes para eliminación por bloque (Automatizador)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+
+  // Modal de confirmación para eliminar órdenes del lote
+  const [deleteOrderDialog, setDeleteOrderDialog] = useState<{
+    mode: "single" | "selected";
+    targetOrderIds: string[];
+    targetLabel?: string;
+    count: number;
+    includeCounterparts: boolean;
+  } | null>(null);
+
   // Modales de Techship y Archivo
   const [showLiveModal, setShowLiveModal] = useState<boolean>(false);
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
@@ -359,7 +371,7 @@ export default function DashboardPage() {
   // Vista activa:
   // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'operacion_dia' | 'generador_tracking' | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
   const [activeModule, setActiveModule] = useState<
-    "login" | "hub" | "modules" | "operacion_dia" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
+    "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
   >("login");
 
   // Estado de Autenticación y RBAC
@@ -768,6 +780,7 @@ export default function DashboardPage() {
 
       const data = await res.json();
       setBatchData(data);
+      setSelectedOrderIds(new Set());
       triggerToast(`Lote procesado exitosamente: ${file.name}`, "success");
     } catch (err: any) {
       triggerToast(err.message || "Error al cargar archivo", "error");
@@ -775,6 +788,124 @@ export default function DashboardPage() {
       setUploading(false);
       setActionLoading(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleToggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllOrders = () => {
+    setSelectedOrderIds((prev) => {
+      if (prev.size === filteredOrders.length && filteredOrders.length > 0) {
+        return new Set();
+      }
+      return new Set(filteredOrders.map((o) => o.order_id));
+    });
+  };
+
+  const handleRequestDeleteSingleOrder = (order: OrderItem) => {
+    const isReturn = order.order_id.endsWith("-1");
+    const baseId = isReturn ? order.order_id.slice(0, -2) : order.order_id;
+    const counterpartId = isReturn ? baseId : `${baseId}-1`;
+    const hasCounterpart = batchData?.orders.some((o) => o.order_id === counterpartId);
+
+    setDeleteOrderDialog({
+      mode: "single",
+      targetOrderIds: [order.order_id],
+      targetLabel: `${order.order_id} (${order.recipient_name})`,
+      count: 1,
+      includeCounterparts: Boolean(hasCounterpart),
+    });
+  };
+
+  const handleRequestDeleteSelectedOrders = () => {
+    if (selectedOrderIds.size === 0) return;
+    setDeleteOrderDialog({
+      mode: "selected",
+      targetOrderIds: Array.from(selectedOrderIds),
+      count: selectedOrderIds.size,
+      includeCounterparts: true,
+    });
+  };
+
+  const removeOrdersLocally = (orderIds: string[], includeCounterparts: boolean) => {
+    if (!batchData) return;
+    const targetSet = new Set(orderIds);
+    if (includeCounterparts) {
+      orderIds.forEach((id) => {
+        if (id.endsWith("-1")) targetSet.add(id.slice(0, -2));
+        else targetSet.add(`${id}-1`);
+      });
+    }
+    const remaining = batchData.orders.filter((o) => !targetSet.has(o.order_id));
+    let conf = 0, rev = 0, err = 0;
+    remaining.forEach((o) => {
+      if (o.status_semaphore === "VERDE") conf++;
+      else if (o.status_semaphore === "AMARILLO") rev++;
+      else err++;
+    });
+    setBatchData({
+      ...batchData,
+      metrics: {
+        total_orders: remaining.length,
+        confirmed_100: conf,
+        review: rev,
+        error_blocked: err,
+      },
+      orders: remaining,
+    });
+  };
+
+  const handleConfirmDeleteOrders = async () => {
+    if (!deleteOrderDialog || deleteOrderDialog.targetOrderIds.length === 0) return;
+    const dialogData = { ...deleteOrderDialog };
+    setDeleteOrderDialog(null);
+
+    try {
+      setActionLoading("delete_order");
+      const res = await fetch(`${API_BASE}/api/batches/delete-orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_ids: dialogData.targetOrderIds,
+          delete_counterparts: dialogData.includeCounterparts,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.batch) {
+          setBatchData(data.batch);
+        } else {
+          removeOrdersLocally(dialogData.targetOrderIds, dialogData.includeCounterparts);
+        }
+        triggerToast(
+          dialogData.mode === "single"
+            ? `Orden ${dialogData.targetLabel || ""} eliminada del lote.`
+            : `${dialogData.count} orden(es) eliminada(s) del lote.`,
+          "info"
+        );
+      } else {
+        removeOrdersLocally(dialogData.targetOrderIds, dialogData.includeCounterparts);
+        triggerToast("Orden(es) omitida(s) de la vista del lote.", "info");
+      }
+
+      setSelectedOrderIds((prev) => {
+        const next = new Set(prev);
+        dialogData.targetOrderIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } catch (err: any) {
+      removeOrdersLocally(dialogData.targetOrderIds, dialogData.includeCounterparts);
+      triggerToast("Orden(es) removida(s) localmente.", "info");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -833,6 +964,8 @@ export default function DashboardPage() {
   };
 
   const handleTechshipProcess = async () => {
+    // Cerrar modal de confirmación de inmediato para que se aprecie la animación oficial de carga
+    setShowLiveModal(false);
     try {
       setActionLoading("live");
       const res = await fetch(`${API_BASE}/api/techship/process`, {
@@ -848,7 +981,6 @@ export default function DashboardPage() {
 
       const data = await res.json();
       setSimResults(data);
-      setShowLiveModal(false);
       triggerToast("Timbrado oficial completado en Techship.", "success");
       fetchHealthAndBatch();
     } catch (err: any) {
@@ -874,6 +1006,18 @@ export default function DashboardPage() {
 
       const data = await res.json();
       triggerToast(data.message || "Cierre y PDF de etiquetas sincronizados correctamente.", "success");
+      setBatchData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          files_available: {
+            ...prev.files_available,
+            cierre_excel: true,
+            etiquetas_pdf: Boolean(data.etiquetas_pdf_filename || prev.files_available?.etiquetas_pdf || true),
+          },
+        };
+      });
+      await fetchHealthAndBatch();
     } catch (err: any) {
       triggerToast(err.message || "Error en sincronización de cierre", "error");
     } finally {
@@ -916,14 +1060,15 @@ export default function DashboardPage() {
   };
 
   const handleArchiveConfirm = async () => {
+    setArchivePreview(null);
     try {
       setActionLoading("archive");
       const data = await callArchive(false, true);
-      setArchivePreview(null);
       setBatchData(null);
       setSearchTerm("");
       setActiveTab("ALL");
       setEditingOrder(null);
+      setSelectedOrderIds(new Set());
 
       if (data.skipped?.length) {
         triggerToast(
@@ -978,8 +1123,8 @@ export default function DashboardPage() {
     currentHour >= 5 && currentHour < 12
       ? "Buenos días"
       : currentHour >= 12 && currentHour < 19
-      ? "Buenas tardes"
-      : "Buenas noches";
+        ? "Buenas tardes"
+        : "Buenas noches";
 
   const userInitials = useMemo(() => {
     const name = currentUser?.name || "Seko User";
@@ -990,30 +1135,27 @@ export default function DashboardPage() {
     return (name[0] || "U").toUpperCase();
   }, [currentUser?.name]);
 
-  // Catálogo de módulos de Asset Management (cuadrícula de 3x3)
+  // Catálogo de módulos de Asset Management (6 módulos operativos)
   const hubModules: {
     name: string;
     description: string;
     Icon: React.ElementType;
-    target?: "operacion_dia";
+    target?: "operacion_dia" | "transporte";
     tone: "navy" | "red";
   }[] = [
-    {
-      name: "Operación del día",
-      description: "Automatización operativa, generación de tracking e historial de cierres.",
-      Icon: Zap,
-      target: "operacion_dia",
-      tone: "navy",
-    },
-    { name: "Transporte", description: "Planeación de rutas, flotilla y operadores.", Icon: Truck, tone: "red" },
-    { name: "Facturación", description: "Conciliación de servicios y emisión de documentos.", Icon: FileText, tone: "navy" },
-    { name: "Reportes", description: "Indicadores operativos y exportación de métricas.", Icon: FileSpreadsheet, tone: "red" },
-    { name: "Inventario", description: "Existencias, movimientos y conteos cíclicos.", Icon: Package, tone: "navy" },
-    { name: "Proveedores", description: "Catálogo de proveedores y evaluación de desempeño.", Icon: Building2, tone: "red" },
-    { name: "Auditoría", description: "Bitácora de cambios y control de cumplimiento.", Icon: ShieldAlert, tone: "navy" },
-    { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "red" },
-    { name: "Mesa de ayuda", description: "Incidencias, soporte y preguntas frecuentes.", Icon: HelpCircle, tone: "navy" },
-  ];
+      {
+        name: "Operación del día",
+        description: "Automatización operativa, generación de tracking e historial de cierres.",
+        Icon: Zap,
+        target: "operacion_dia",
+        tone: "navy",
+      },
+      { name: "Transporte", description: "Rastreo de envios.", Icon: Truck, target: "transporte", tone: "red" },
+      { name: "Facturación", description: "Facturación mensual.", Icon: FileText, tone: "navy" },
+      { name: "Reportes", description: "Reportes de entrada, salidas, devoluciones y arreglo de computadoras.", Icon: FileSpreadsheet, tone: "red" },
+      { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "navy" },
+      { name: "Mesa de ayuda (SOP)", description: "Manuales, ayuda manuales técnicos acerca de la operación.", Icon: HelpCircle, tone: "red" },
+    ];
 
   // Submódulos de Operación del día (3 opciones solicitadas)
   const operacionDiaModules: {
@@ -1024,30 +1166,30 @@ export default function DashboardPage() {
     tone: "navy" | "red";
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
-    {
-      name: "Automatizador de operación",
-      description: "Órdenes KST / Kyndryl, validación SEPOMEX y timbrado de guías Techship.",
-      Icon: Zap,
-      target: "asset_management",
-      tone: "navy",
-      statusBadge: "Activo",
-    },
-    {
-      name: "Generador tracking",
-      description: "Generación y vista previa en vivo del PDF de guías y trazabilidad de envíos.",
-      Icon: Truck,
-      target: "generador_tracking",
-      tone: "red",
-      statusBadge: "Activo",
-    },
-    {
-      name: "Historial de cierres",
-      description: "Consulta y auditoría de archivos de cierre diarios y lotes históricos.",
-      Icon: Archive,
-      tone: "navy",
-      statusBadge: "En desarrollo",
-    },
-  ];
+      {
+        name: "Automatizador de operación",
+        description: "Órdenes KST / Kyndryl, validación SEPOMEX y timbrado de guías Techship.",
+        Icon: Zap,
+        target: "asset_management",
+        tone: "navy",
+        statusBadge: "Activo",
+      },
+      {
+        name: "Generador tracking",
+        description: "Generación y vista previa en vivo del PDF de guías y trazabilidad de envíos.",
+        Icon: Truck,
+        target: "generador_tracking",
+        tone: "red",
+        statusBadge: "Activo",
+      },
+      {
+        name: "Historial",
+        description: "Consulta de archivos de cierre diarios, trackings.",
+        Icon: Archive,
+        tone: "navy",
+        statusBadge: "En desarrollo",
+      },
+    ];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
@@ -1066,13 +1208,12 @@ export default function DashboardPage() {
       {/* Toast Notification (Reubicado en bottom-6 right-8 para no tapar el header) */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all ${
-            toast.type === "success"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-              : toast.type === "error"
+          className={`fixed bottom-6 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all ${toast.type === "success"
+            ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+            : toast.type === "error"
               ? "bg-red-50 border-red-300 text-red-800"
               : "bg-blue-50 border-blue-300 text-blue-900"
-          }`}
+            }`}
         >
           {toast.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
           {toast.type === "error" && <XCircle className="w-5 h-5 text-red-600" />}
@@ -1171,11 +1312,10 @@ export default function DashboardPage() {
                           key={demo.label}
                           type="button"
                           onClick={() => handleSelectDemoAccount(demo)}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border text-left transition-all flex items-center justify-between cursor-pointer ${
-                            isSelected
-                              ? "bg-[#EFF3F9] border-[#233762] text-[#233762] font-bold shadow-2xs"
-                              : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900"
-                          }`}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border text-left transition-all flex items-center justify-between cursor-pointer ${isSelected
+                            ? "bg-[#EFF3F9] border-[#233762] text-[#233762] font-bold shadow-2xs"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900"
+                            }`}
                         >
                           <span className="truncate">{demo.label}</span>
                           <span className="text-[9px] px-1 py-0.5 rounded bg-white border border-slate-200 text-slate-500 font-mono">
@@ -1216,9 +1356,8 @@ export default function DashboardPage() {
             {LOGISTICS_IMAGES.map((imgSrc, idx) => (
               <div
                 key={idx}
-                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                  idx === currentImageIndex ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
-                }`}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === currentImageIndex ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
+                  }`}
                 style={{ transitionProperty: "opacity, transform", transitionDuration: "1000ms" }}
               >
                 <img
@@ -1246,9 +1385,8 @@ export default function DashboardPage() {
                 <button
                   key={dotIdx}
                   onClick={() => setCurrentImageIndex(dotIdx)}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    dotIdx === currentImageIndex ? "w-8 bg-[#CE3A39]" : "w-2 bg-white/60 hover:bg-white"
-                  }`}
+                  className={`h-2 rounded-full transition-all duration-300 ${dotIdx === currentImageIndex ? "w-8 bg-[#CE3A39]" : "w-2 bg-white/60 hover:bg-white"
+                    }`}
                   aria-label={`Ir a foto ${dotIdx + 1}`}
                 />
               ))}
@@ -1378,18 +1516,16 @@ export default function DashboardPage() {
               {/* TARJETA 1: ASSET MANAGEMENT (Activo para ADMIN y ASSET_MANAGER) */}
               <div
                 onClick={() => handleHubNavigation("asset")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
-                  canEnterAsset
-                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
-                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
-                }`}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAsset
+                  ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                  : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                  }`}
               >
                 <div
-                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                    canEnterAsset
-                      ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                      : "bg-slate-300"
-                  }`}
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${canEnterAsset
+                    ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                    : "bg-slate-300"
+                    }`}
                 />
 
                 {/* Badge de Estado / Candado */}
@@ -1406,28 +1542,26 @@ export default function DashboardPage() {
 
                 <div className="flex flex-col items-center w-full">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
-                      canEnterAsset
-                        ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
-                        : "bg-slate-100 text-slate-400"
-                    }`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAsset
+                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                      : "bg-slate-100 text-slate-400"
+                      }`}
                   >
                     {canEnterAsset ? <Laptop className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
                   </div>
                   <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                     {canEnterAsset
-                      ? "Automatización de órdenes, validación SEPOMEX y guías Techship."
+                      ? "Operación del día, historial de cierres y generación de trackings."
                       : "Área exclusiva para Asset Management y Administrador."}
                   </p>
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                    canEnterAsset
-                      ? "text-[#233762] group-hover:text-[#CE3A39]"
-                      : "text-slate-400"
-                  }`}
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAsset
+                    ? "text-[#233762] group-hover:text-[#CE3A39]"
+                    : "text-slate-400"
+                    }`}
                 >
                   {canEnterAsset ? (
                     <>
@@ -1443,18 +1577,16 @@ export default function DashboardPage() {
               {/* TARJETA 2: CSM (Activo para ADMIN y CSM) */}
               <div
                 onClick={() => handleHubNavigation("csm")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
-                  canEnterCSM
-                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
-                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
-                }`}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterCSM
+                  ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                  : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                  }`}
               >
                 <div
-                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                    canEnterCSM
-                      ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                      : "bg-slate-300"
-                  }`}
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${canEnterCSM
+                    ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                    : "bg-slate-300"
+                    }`}
                 />
 
                 {/* Badge de Estado / Candado */}
@@ -1471,11 +1603,10 @@ export default function DashboardPage() {
 
                 <div className="flex flex-col items-center w-full">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
-                      canEnterCSM
-                        ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
-                        : "bg-slate-100 text-slate-400"
-                    }`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterCSM
+                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                      : "bg-slate-100 text-slate-400"
+                      }`}
                   >
                     {canEnterCSM ? <Headset className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
                   </div>
@@ -1488,11 +1619,10 @@ export default function DashboardPage() {
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                    canEnterCSM
-                      ? "text-[#233762] group-hover:text-[#CE3A39]"
-                      : "text-slate-400"
-                  }`}
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterCSM
+                    ? "text-[#233762] group-hover:text-[#CE3A39]"
+                    : "text-slate-400"
+                    }`}
                 >
                   {canEnterCSM ? (
                     <>
@@ -1508,18 +1638,16 @@ export default function DashboardPage() {
               {/* TARJETA 3: ALMACÉN (Activo para ADMIN y ALMACEN) */}
               <div
                 onClick={() => handleHubNavigation("almacen")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${
-                  canEnterAlmacen
-                    ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
-                    : "opacity-60 cursor-not-allowed hover:border-slate-300"
-                }`}
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAlmacen
+                  ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                  : "opacity-60 cursor-not-allowed hover:border-slate-300"
+                  }`}
               >
                 <div
-                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                    canEnterAlmacen
-                      ? "bg-[#CE3A39] group-hover:bg-[#233762]"
-                      : "bg-slate-300"
-                  }`}
+                  className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${canEnterAlmacen
+                    ? "bg-[#CE3A39] group-hover:bg-[#233762]"
+                    : "bg-slate-300"
+                    }`}
                 />
 
                 {/* Badge de Estado / Candado */}
@@ -1536,11 +1664,10 @@ export default function DashboardPage() {
 
                 <div className="flex flex-col items-center w-full">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${
-                      canEnterAlmacen
-                        ? "bg-[#FDF2F2] text-[#CE3A39] group-hover:scale-110 group-hover:bg-[#CE3A39] group-hover:text-white"
-                        : "bg-slate-100 text-slate-400"
-                    }`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAlmacen
+                      ? "bg-[#FDF2F2] text-[#CE3A39] group-hover:scale-110 group-hover:bg-[#CE3A39] group-hover:text-white"
+                      : "bg-slate-100 text-slate-400"
+                      }`}
                   >
                     {canEnterAlmacen ? <Warehouse className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
                   </div>
@@ -1553,11 +1680,10 @@ export default function DashboardPage() {
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                    canEnterAlmacen
-                      ? "text-[#CE3A39] group-hover:text-[#233762]"
-                      : "text-slate-400"
-                  }`}
+                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAlmacen
+                    ? "text-[#CE3A39] group-hover:text-[#233762]"
+                    : "text-slate-400"
+                    }`}
                 >
                   {canEnterAlmacen ? (
                     <>
@@ -1650,11 +1776,10 @@ export default function DashboardPage() {
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[200px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                        isActive
-                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                          : "bg-transparent group-hover:bg-[#233762]/30"
-                      }`}
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                        : "bg-transparent group-hover:bg-[#233762]/30"
+                        }`}
                     />
                     {isActive && (
                       <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1671,9 +1796,8 @@ export default function DashboardPage() {
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
                     </div>
                     <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                        isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
-                      }`}
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                        }`}
                     >
                       {isActive ? (
                         <>
@@ -1789,11 +1913,10 @@ export default function DashboardPage() {
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[220px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                        isActive
-                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                          : "bg-transparent group-hover:bg-[#233762]/30"
-                      }`}
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                        : "bg-transparent group-hover:bg-[#233762]/30"
+                        }`}
                     />
                     {statusBadge === "Activo" ? (
                       <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1814,9 +1937,8 @@ export default function DashboardPage() {
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
                     </div>
                     <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                        isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
-                      }`}
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                        }`}
                     >
                       {isActive ? (
                         <>
@@ -1922,6 +2044,98 @@ export default function DashboardPage() {
             apiBase={API_BASE}
             triggerToast={triggerToast}
             userName={currentUser?.name || "Usuario Seko"}
+          />
+        </div>
+      ) : activeModule === "transporte" ? (
+        /* ==================================================================== */
+        /* VISTA TRANSPORTE - RASTREO DE ENVÍOS MULTI-CARRIER (FEDEX / ESTAFETA) */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
+            <div className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {/* Botón para volver a Asset Management */}
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("modules")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs group cursor-pointer"
+                  title="Regresar a Asset Management"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="hidden sm:inline">Regresar</span>
+                </button>
+
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  {!logoError ? (
+                    <img
+                      src="/logo-supplychain.png"
+                      alt="SupplyChain México"
+                      className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 drop-shadow-xs"
+                      onError={() => setLogoError(true)}
+                    />
+                  ) : (
+                    <AnimatedLogo className="h-10 sm:h-12 w-auto" cycleDuration={8} />
+                  )}
+                </button>
+
+                <div className="h-9 w-px bg-slate-200 hidden md:block" />
+
+                <div className="hidden sm:flex items-center gap-2.5">
+                  <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                    Transporte · Rastreo de Envíos
+                  </h1>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                    FEDEX & ESTAFETA
+                  </span>
+                </div>
+              </div>
+
+              {/* Botones de navegación y sesión */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer"
+                  title="Ir al Hub Principal"
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hub</span>
+                </button>
+
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                    {roleConfig.code}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cerrar sesión</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Componente Modular TransportTracker */}
+          <TransportTracker
+            batchData={batchData}
+            apiBase={API_BASE}
+            triggerToast={triggerToast}
+            userEmail={currentUser?.email || "operador@supplychain.mx"}
+            userRole={roleConfig.code}
           />
         </div>
       ) : activeModule === "csm" ? (
@@ -2214,15 +2428,14 @@ export default function DashboardPage() {
 
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
-                                usr.role === "ADMIN"
-                                  ? "bg-red-50 text-[#CE3A39] border-[#CE3A39]/30"
-                                  : usr.role === "ASSET_MANAGER"
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${usr.role === "ADMIN"
+                                ? "bg-red-50 text-[#CE3A39] border-[#CE3A39]/30"
+                                : usr.role === "ASSET_MANAGER"
                                   ? "bg-blue-50 text-[#233762] border-[#233762]/30"
                                   : usr.role === "CSM"
-                                  ? "bg-amber-50 text-amber-800 border-amber-300"
-                                  : "bg-slate-100 text-slate-700 border-slate-300"
-                              }`}
+                                    ? "bg-amber-50 text-amber-800 border-amber-300"
+                                    : "bg-slate-100 text-slate-700 border-slate-300"
+                                }`}
                             >
                               {ROLES_CONFIG[usr.role]?.label || usr.role}
                             </span>
@@ -2247,16 +2460,14 @@ export default function DashboardPage() {
                               onClick={() => handleToggleUserActive(usr.id)}
                               disabled={isSelf}
                               title={isSelf ? "No puedes desactivar tu cuenta" : "Alternar estado"}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${
-                                usr.isActive
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                                  : "bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200"
-                              } ${isSelf ? "opacity-70 cursor-not-allowed" : ""}`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${usr.isActive
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                                : "bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200"
+                                } ${isSelf ? "opacity-70 cursor-not-allowed" : ""}`}
                             >
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  usr.isActive ? "bg-emerald-500" : "bg-slate-400"
-                                }`}
+                                className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-emerald-500" : "bg-slate-400"
+                                  }`}
                               />
                               <span>{usr.isActive ? "Activo" : "Inactivo"}</span>
                             </button>
@@ -2268,9 +2479,8 @@ export default function DashboardPage() {
                               onClick={() => handleDeleteUser(usr.id)}
                               disabled={isSelf}
                               title={isSelf ? "No puedes eliminarte a ti mismo" : "Eliminar usuario"}
-                              className={`p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer ${
-                                isSelf ? "opacity-30 cursor-not-allowed" : ""
-                              }`}
+                              className={`p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer ${isSelf ? "opacity-30 cursor-not-allowed" : ""
+                                }`}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -2422,9 +2632,8 @@ export default function DashboardPage() {
                     className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition p-6 flex flex-col justify-between relative overflow-hidden"
                   >
                     <div
-                      className={`absolute top-0 left-0 w-full h-1.5 ${
-                        isRed ? "bg-[#CE3A39]" : "bg-[#233762]"
-                      }`}
+                      className={`absolute top-0 left-0 w-full h-1.5 ${isRed ? "bg-[#CE3A39]" : "bg-[#233762]"
+                        }`}
                     />
 
                     <div>
@@ -2853,7 +3062,7 @@ export default function DashboardPage() {
                     disabled={batchData.files_available?.etiquetas_pdf === false}
                     title={
                       batchData.files_available?.etiquetas_pdf === false
-                        ? "Disponible tras ejecutar '3. Sincronizar Cierre y Etiquetas'"
+                        ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
                         : "Descargar o imprimir PDF consolidado de etiquetas"
                     }
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -2871,16 +3080,6 @@ export default function DashboardPage() {
                     <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
                     <span>Techship.xlsx</span>
                   </button>
-
-                  <button
-                    onClick={() => handleDownload("auditoria_excel")}
-                    disabled={batchData.files_available?.auditoria_excel === false}
-                    title="Descargar Auditoria_Direcciones_*.xlsx con bitácora"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Auditoría.xlsx</span>
-                  </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-4 text-xs text-slate-400 italic">
@@ -2894,33 +3093,30 @@ export default function DashboardPage() {
             <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
               <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80">
                 <div
-                  className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${
-                    !hasOrders ? "opacity-50" : ""
-                  }`}
+                  className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${!hasOrders ? "opacity-50" : ""
+                    }`}
                 >
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("ALL")}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "ALL"
+                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "ALL"
                         ? "bg-[#233762] text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Todas ({batchData?.orders.length || 0})
                   </button>
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("ISSUES")}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "ISSUES"
+                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "ISSUES"
                         ? "bg-[#CE3A39] text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Solo Errores / Revisar (
                     {(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
@@ -2928,49 +3124,64 @@ export default function DashboardPage() {
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("CONFIRMED")}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "CONFIRMED"
+                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "CONFIRMED"
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Confirmadas ({batchData?.metrics.confirmed_100 || 0})
                   </button>
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("OUTBOUND")}
-                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "OUTBOUND"
+                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "OUTBOUND"
                         ? "bg-slate-700 text-white"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Solo Ida ({outboundCount})
                   </button>
                   <button
                     disabled={!hasOrders}
                     onClick={() => setActiveTab("RETURN")}
-                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${
-                      !hasOrders
-                        ? "text-slate-400 cursor-not-allowed"
-                        : activeTab === "RETURN"
+                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${!hasOrders
+                      ? "text-slate-400 cursor-not-allowed"
+                      : activeTab === "RETURN"
                         ? "bg-slate-700 text-white"
                         : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                    }`}
+                      }`}
                   >
                     Solo Retorno ({returnCount})
                   </button>
                 </div>
 
+                {/* Botón para eliminar órdenes seleccionadas */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRequestDeleteSelectedOrders}
+                    disabled={!hasOrders || selectedOrderIds.size === 0}
+                    title="Eliminar órdenes seleccionadas del lote para que no se procesen"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-2xs ${selectedOrderIds.size > 0
+                      ? "border-red-200 bg-red-50 text-[#CE3A39] hover:bg-red-100 cursor-pointer"
+                      : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                      }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      Eliminar seleccionadas {selectedOrderIds.size > 0 ? `(${selectedOrderIds.size})` : ""}
+                    </span>
+                  </button>
+                </div>
+
                 <div className="relative flex-1 max-w-xs">
                   <Search
-                    className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
-                      !hasOrders ? "text-slate-300" : "text-slate-400"
-                    }`}
+                    className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${!hasOrders ? "text-slate-300" : "text-slate-400"
+                      }`}
                   />
                   <input
                     type="text"
@@ -2989,6 +3200,19 @@ export default function DashboardPage() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-3 w-10 text-center select-none">
+                        <input
+                          type="checkbox"
+                          disabled={!hasOrders || filteredOrders.length === 0}
+                          checked={
+                            filteredOrders.length > 0 &&
+                            filteredOrders.every((o) => selectedOrderIds.has(o.order_id))
+                          }
+                          onChange={handleToggleSelectAllOrders}
+                          className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
+                          aria-label="Seleccionar todas las órdenes"
+                        />
+                      </th>
                       <th className="py-3 px-4">Tipo</th>
                       <th className="py-3 px-4">Orden (RITM)</th>
                       <th className="py-3 px-4">Semáforo</th>
@@ -3002,7 +3226,7 @@ export default function DashboardPage() {
                   <tbody className="divide-y divide-slate-200">
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
+                        <td colSpan={9} className="py-12 text-center text-slate-400 font-medium">
                           {batchData
                             ? "No hay órdenes que coincidan con los filtros seleccionados."
                             : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
@@ -3014,13 +3238,29 @@ export default function DashboardPage() {
                         const isWarning = order.status_semaphore === "AMARILLO";
                         const isGreen = order.status_semaphore === "VERDE";
 
+                        const isSelected = selectedOrderIds.has(order.order_id);
+
                         return (
                           <tr
                             key={order.order_id}
-                            className={`hover:bg-slate-50 transition-colors ${
-                              isError ? "bg-red-50/50" : isWarning ? "bg-amber-50/30" : ""
-                            }`}
+                            className={`transition-colors ${isSelected
+                              ? "bg-blue-50/70 hover:bg-blue-100/60"
+                              : isError
+                                ? "bg-red-50/50 hover:bg-red-50/80"
+                                : isWarning
+                                  ? "bg-amber-50/30 hover:bg-amber-50/60"
+                                  : "hover:bg-slate-50"
+                              }`}
                           >
+                            <td className="py-3 px-3 text-center select-none">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleSelectOrder(order.order_id)}
+                                className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
+                                aria-label={`Seleccionar orden ${order.order_id}`}
+                              />
+                            </td>
                             <td className="py-3 px-4 whitespace-nowrap">
                               {order.type === "RETURN" ? (
                                 <span className="px-2 py-0.5 rounded-md bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 font-mono text-[10px] font-bold">
@@ -3090,13 +3330,25 @@ export default function DashboardPage() {
                             </td>
 
                             <td className="py-3 px-4 text-center whitespace-nowrap">
-                              <button
-                                onClick={() => handleOpenEdit(order)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs cursor-pointer"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                                <span>Corregir</span>
-                              </button>
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(order)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs cursor-pointer"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Corregir</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRequestDeleteSingleOrder(order)}
+                                  title="Eliminar fila del lote (no procesar)"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-500 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 text-xs font-semibold transition shadow-2xs cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-[#CE3A39]" />
+                                  <span>Eliminar</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -3107,6 +3359,85 @@ export default function DashboardPage() {
               </div>
             </section>
           </main>
+
+          {/* MODAL DE CONFIRMACIÓN: ELIMINAR FILAS DEL LOTE OPERATIVO */}
+          {deleteOrderDialog && (
+            <div
+              className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+              onClick={() => setDeleteOrderDialog(null)}
+            >
+              <div
+                className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-11 h-11 rounded-2xl bg-red-50 border border-red-100 text-[#CE3A39] flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-extrabold text-slate-900">
+                        {deleteOrderDialog.mode === "single"
+                          ? "¿Estás seguro de eliminar esta orden del lote?"
+                          : `¿Estás seguro de eliminar ${deleteOrderDialog.count} orden(es) del lote?`}
+                      </h3>
+                      <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                        {deleteOrderDialog.mode === "single" ? (
+                          <>
+                            Se excluirá la orden{" "}
+                            <span className="font-bold font-mono text-slate-900">{deleteOrderDialog.targetLabel}</span>{" "}
+                            del lote operativo para que no sea timbrada ni procesada en Techship.
+                          </>
+                        ) : (
+                          <>
+                            Estás a punto de excluir{" "}
+                            <span className="font-bold text-slate-900">{deleteOrderDialog.count} orden(es)</span> del lote
+                            operativo para que no sean timbradas ni procesadas en Techship.
+                          </>
+                        )}
+                      </p>
+
+                      {/* Opción de eliminar contraparte (-1) */}
+                      <label className="flex items-start gap-2.5 mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 cursor-pointer hover:bg-slate-100/70 transition">
+                        <input
+                          type="checkbox"
+                          checked={deleteOrderDialog.includeCounterparts}
+                          onChange={(e) =>
+                            setDeleteOrderDialog({
+                              ...deleteOrderDialog,
+                              includeCounterparts: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300 mt-0.5 cursor-pointer"
+                        />
+                        <span className="leading-snug">
+                          Eliminar también su orden par de Retorno (<span className="font-mono font-bold">-1</span>) para evitar envíos huérfanos.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-end gap-2.5 border-t border-slate-100 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteOrderDialog(null)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading === "delete_order"}
+                      onClick={handleConfirmDeleteOrders}
+                      className="px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer disabled:opacity-50"
+                    >
+                      {actionLoading === "delete_order" ? "Eliminando..." : "Sí, eliminar del lote"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* MODAL DE EDICIÓN EN CALIENTE */}
           {editingOrder && (
