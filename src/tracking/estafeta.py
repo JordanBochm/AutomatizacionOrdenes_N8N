@@ -173,7 +173,7 @@ class EstafetaAdapter(CarrierAdapter):
         self.track_url = (
             track_url
             if track_url is not None
-            else os.getenv("ESTAFETA_TRACK_URL", "")
+            else os.getenv("ESTAFETA_TRACK_URL", "https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status")
         ).strip()
         self.oauth_scope = (
             oauth_scope if oauth_scope is not None else os.getenv("ESTAFETA_OAUTH_SCOPE", "execute")
@@ -296,50 +296,20 @@ class EstafetaAdapter(CarrierAdapter):
 
     def _build_request_payload(self, guia: str) -> Dict[str, Any]:
         """
-        Construye el payload JSON para la consulta de rastreo en Estafeta.
-        - Si la guía tiene 22 caracteres -> waybillType = "G" (Guía completa de 22 posiciones)
-        - Si la guía tiene 10 dígitos -> waybillType = "R" (Código de rastreo de 10 posiciones)
-        
-        TODO: Confirmar en la documentación de tu endpoint Apigee de Estafeta si el nodo raíz
-        requiere exactamente `inputType` / `searchType` / `waybillList` como se estructura aquí.
+        Construye el payload JSON oficial según la Guía Técnica WS Pull Tracking de Estafeta:
+        - searchType:
+            0 = Búsqueda por número de guía (22 caracteres)
+            1 = Búsqueda por código de rastreo (10 dígitos)
+        - inputType: 0 (Lista)
+        - itemsSearch: [guia]
         """
-        waybill_type = "G" if len(guia) == 22 else "R"
-        payload: Dict[str, Any] = {
+        clean_g = guia.strip()
+        search_type = 1 if len(clean_g) == 10 and clean_g.isdigit() else 0
+        return {
+            "searchType": search_type,
             "inputType": 0,
-            "itemsSearch": [guia],
-            "searchType": {
-                "type": "L",
-                "waybillList": {
-                    "waybillType": waybill_type,
-                    "waybills": [guia],
-                },
-            },
-            "searchConfiguration": {
-                "includeDimensions": False,
-                "includeWaybillReplaceData": False,
-                "includeReturnDocumentData": False,
-                "includeMultipleServiceData": False,
-                "includeInternationalData": False,
-                "includeSignature": False,
-                "includeCustomerInfo": True,
-                "historyConfiguration": {
-                    "includeHistory": True,
-                    "historyType": "ALL",
-                },
-                "filterType": {
-                    "filterInformation": False,
-                },
-            },
+            "itemsSearch": [clean_g],
         }
-
-        if self.subscriber_id:
-            payload["suscriberId"] = self.subscriber_id
-        if self.login_user:
-            payload["login"] = self.login_user
-        if self.login_password:
-            payload["password"] = self.login_password
-
-        return payload
 
     async def rastrear(self, guia: str, client: httpx.AsyncClient) -> TrackingResult:
         """
@@ -399,22 +369,40 @@ class EstafetaAdapter(CarrierAdapter):
 
     def normalizar_respuesta(self, guia: str, payload: Dict[str, Any]) -> TrackingResult:
         """
-        Normaliza la respuesta JSON de Estafeta (soportando tanto el esquema
-        `ExecuteQueryResult.trackingData` como el esquema `result.items` / `trackingData`)
-        al modelo unificado `TrackingResult`.
+        Normaliza la respuesta JSON de Estafeta al modelo unificado `TrackingResult`.
+        Soporta:
+          1. WS Pull Tracking Oficial (método /tracking-item-status con `result.items`).
+          2. WS Pull Tracking Oficial (método /tracking-items-History con `result.itemHistories`).
+          3. Esquemas legacy (ExecuteQueryResult.trackingData / waybills).
         """
         root = payload.get("ExecuteQueryResult") or payload.get("result") or payload
 
-        # Localizar el arreglo de envíos (`trackingData` o `items` o `waybills`)
+        # Verificar código de error global en result
+        result_meta = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+        if result_meta.get("success") is False:
+            err_desc = result_meta.get("description") or "Error reportado por Estafeta"
+            return TrackingResult(
+                carrier="ESTAFETA",
+                guia=guia,
+                estatus_general=UnifiedTrackingStatus.DESCONOCIDO,
+                ultima_actualizacion=now_iso_mx(),
+                candidatos_carrier=["ESTAFETA"],
+                error=err_desc,
+                codigo_error=str(result_meta.get("code") or "ERROR"),
+            )
+
+        # Localizar el arreglo de envíos (items, itemHistories, trackingData, waybills)
         tracking_list = (
-            root.get("trackingData")
-            or root.get("TrackingData")
+            payload.get("items")
             or root.get("items")
+            or payload.get("itemHistories")
+            or root.get("itemHistories")
+            or root.get("trackingData")
+            or root.get("TrackingData")
             or root.get("waybills")
             or []
         )
         if isinstance(tracking_list, dict):
-            # Cuando viene envuelto en {"TrackingData": [...]}
             inner = tracking_list.get("TrackingData") or tracking_list.get("item")
             tracking_list = inner if isinstance(inner, list) else [tracking_list]
 
@@ -437,25 +425,44 @@ class EstafetaAdapter(CarrierAdapter):
 
         item = tracking_list[0] if isinstance(tracking_list, list) else tracking_list
 
+        # Verificar error a nivel de item particular (ej. Error 1005: waybill does not have info)
+        item_err = item.get("error")
+        if isinstance(item_err, dict) and item_err.get("code"):
+            desc = item_err.get("description") or "Guía sin información en Estafeta"
+            return TrackingResult(
+                carrier="ESTAFETA",
+                guia=guia,
+                estatus_general=UnifiedTrackingStatus.DESCONOCIDO,
+                ultima_actualizacion=now_iso_mx(),
+                candidatos_carrier=["ESTAFETA"],
+                error=desc,
+                codigo_error=str(item_err.get("code")),
+            )
+
         # 1. Estatus general
+        status_current = item.get("statusCurrent") or {}
         raw_status = (
-            item.get("statusSPA")
+            status_current.get("spanishName")
+            or status_current.get("englishName")
+            or item.get("statusSPA")
             or item.get("status")
             or item.get("statusENG")
             or item.get("currentStatus")
             or ""
         )
-        raw_code = item.get("statusCode") or item.get("code")
+        raw_code = status_current.get("code") or item.get("statusCode") or item.get("code")
         estatus_general = map_estafeta_status(str(raw_status), str(raw_code) if raw_code else None)
 
         # 2. Origen y Destino
-        pickup_data = item.get("pickupData") or item.get("origin") or {}
-        delivery_data = item.get("deliveryData") or item.get("destination") or {}
+        pickup_data = item.get("pickupDetails") or item.get("pickupData") or item.get("origin") or {}
+        delivery_data = item.get("deliveryDetails") or item.get("deliveryData") or item.get("destination") or {}
+        service_data = item.get("service") or {}
         customer_info = item.get("customerInfo") or {}
 
         origen = (
-            pickup_data.get("originAcronym")
+            pickup_data.get("warehouseName")
             or pickup_data.get("originName")
+            or pickup_data.get("originAcronym")
             or pickup_data.get("city")
             or item.get("origin")
             or customer_info.get("origin")
@@ -463,15 +470,17 @@ class EstafetaAdapter(CarrierAdapter):
         if isinstance(origen, dict):
             origen = origen.get("city") or origen.get("name")
 
-        destino = (
-            delivery_data.get("destinationAcronym")
-            or delivery_data.get("destinationName")
+        dest_postal = service_data.get("destinationPostalCode")
+        dest_name = (
+            delivery_data.get("destinationName")
+            or delivery_data.get("destinationAcronym")
             or delivery_data.get("city")
             or item.get("destination")
             or customer_info.get("destination")
         )
-        if isinstance(destino, dict):
-            destino = destino.get("city") or destino.get("name")
+        if isinstance(dest_name, dict):
+            dest_name = dest_name.get("city") or dest_name.get("name")
+        destino = f"C.P. {dest_postal}" if dest_postal and not dest_name else dest_name
 
         # 3. Fechas (estimada y real de entrega)
         fecha_estimada: Optional[str] = (
@@ -491,8 +500,15 @@ class EstafetaAdapter(CarrierAdapter):
         if fecha_real:
             fecha_real = str(fecha_real).replace("T", " ")[:19]
 
-        # 4. Historial de eventos (`history` o `events`)
-        raw_history = item.get("history") or item.get("events") or item.get("movements") or []
+        # 4. Historial de eventos (status list de tracking-item-status o histories de tracking-items-History)
+        raw_history = (
+            item.get("status")
+            or item.get("histories")
+            or item.get("history")
+            or item.get("events")
+            or item.get("movements")
+            or []
+        )
         if isinstance(raw_history, dict):
             raw_history = raw_history.get("History") or raw_history.get("event") or [raw_history]
 
@@ -502,29 +518,33 @@ class EstafetaAdapter(CarrierAdapter):
                 continue
             ev_dt = (
                 ev.get("eventDateTime")
+                or ev.get("localDateTime")
                 or ev.get("dateTime")
                 or ev.get("date")
                 or ""
             )
             ev_dt_str = str(ev_dt).replace("T", " ")[:19] or now_iso_mx()
             ev_place = (
-                ev.get("eventPlaceName")
+                ev.get("warehouseName")
+                or ev.get("eventPlaceName")
                 or ev.get("placeName")
                 or ev.get("location")
-                or ev.get("eventPlaceAcronym")
-                or "Plaza Estafeta"
+                or ev.get("warehouseCode")
+                or "Estafeta"
             )
             ev_desc = (
-                ev.get("eventDescriptionSPA")
+                ev.get("spanishName")
+                or ev.get("spanishDescription")
+                or ev.get("eventDescriptionSPA")
                 or ev.get("description")
-                or ev.get("eventDescriptionENG")
+                or ev.get("englishDescription")
                 or "Movimiento registrado"
             )
-            exception_reason = ev.get("exceptionDescriptionSPA") or ev.get("reason")
-            if exception_reason and exception_reason not in ev_desc:
-                ev_desc = f"{ev_desc} ({exception_reason})"
+            reason_desc = ev.get("reasonCodeDescription") or ev.get("reasonCode") or ev.get("exceptionDescriptionSPA")
+            if reason_desc and str(reason_desc).strip() and str(reason_desc).strip() not in ev_desc:
+                ev_desc = f"{ev_desc} ({reason_desc})"
 
-            ev_code = ev.get("eventId") or ev.get("eventCode") or ev.get("code")
+            ev_code = ev.get("code") or ev.get("eventId") or ev.get("eventCode")
             ev_status = map_estafeta_status(ev_desc, str(ev_code) if ev_code else None)
 
             eventos.append(

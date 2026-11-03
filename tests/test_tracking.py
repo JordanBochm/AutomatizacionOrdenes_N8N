@@ -221,6 +221,88 @@ class TestEstafetaNormalization(unittest.TestCase):
         self.assertEqual(len(res.eventos), 2)
         self.assertEqual(res.eventos[0].estatus, UnifiedTrackingStatus.EN_REPARTO)
 
+    def test_normaliza_pull_tracking_status_oficial(self):
+        # Payload oficial del Manual Técnico WS Pull Tracking (Método tracking-item-status)
+        payload = {
+            "result": {"success": True, "code": 0, "description": "Ok"},
+            "items": [
+                {
+                    "information": {"waybillCode": "0010000000112300016901", "trackingCode": "4241800860"},
+                    "service": {"code": "30", "spanishName": "09:30", "destinationPostalCode": "81400"},
+                    "pickupDetails": {"warehouseName": "TOLUCA MATRIZ", "pickupDateTime": "2023-06-16 08:30:00"},
+                    "statusCurrent": {
+                        "code": "7",
+                        "spanishName": "Entregado en sucursal Estafeta",
+                        "localDateTime": "2023-06-16 11:13:00",
+                        "warehouseName": "EBANO",
+                    },
+                    "status": [
+                        {
+                            "code": "01",
+                            "spanishName": "Recibido en oficina",
+                            "eventDateTime": "2023-06-16 09:48:00",
+                            "warehouseName": "TOLUCA MATRIZ",
+                        },
+                        {
+                            "code": "7",
+                            "spanishName": "Entregado en sucursal Estafeta",
+                            "eventDateTime": "2023-06-16 11:13:00",
+                            "warehouseName": "EBANO",
+                        },
+                    ],
+                }
+            ],
+        }
+        res = self.adapter.normalizar_respuesta("0010000000112300016901", payload)
+        self.assertEqual(res.carrier, "ESTAFETA")
+        self.assertEqual(res.estatus_general, UnifiedTrackingStatus.ENTREGADO)
+        self.assertEqual(res.origen, "TOLUCA MATRIZ")
+        self.assertIn("81400", res.destino or "")
+        self.assertEqual(len(res.eventos), 2)
+        self.assertEqual(res.eventos[0].estatus, UnifiedTrackingStatus.ENTREGADO)
+
+    def test_normaliza_pull_tracking_history_oficial(self):
+        # Payload oficial del Manual Técnico WS Pull Tracking (Método tracking-items-History)
+        payload = {
+            "result": {"success": True, "code": 0, "description": "Ok"},
+            "itemHistories": [
+                {
+                    "information": {"waybillCode": "3015021297537D00034145"},
+                    "histories": [
+                        {
+                            "code": "01",
+                            "spanishDescription": "Recibido por estafeta",
+                            "eventDateTime": "2023-06-16 09:48:00",
+                            "warehouseName": "Huajuapan",
+                        },
+                        {
+                            "code": "06",
+                            "spanishDescription": "Entregado",
+                            "eventDateTime": "2023-06-16 11:13:00",
+                            "warehouseName": "Cd. Camargo",
+                        },
+                    ],
+                }
+            ],
+        }
+        res = self.adapter.normalizar_respuesta("3015021297537D00034145", payload)
+        self.assertEqual(res.carrier, "ESTAFETA")
+        self.assertEqual(res.estatus_general, UnifiedTrackingStatus.ENTREGADO)
+        self.assertEqual(len(res.eventos), 2)
+
+    def test_build_request_payload_segun_manual_oficial(self):
+        # 22 caracteres -> searchType = 0
+        p22 = self.adapter._build_request_payload("0010000000112300016901")
+        self.assertEqual(p22["searchType"], 0)
+        self.assertEqual(p22["inputType"], 0)
+        self.assertEqual(p22["itemsSearch"], ["0010000000112300016901"])
+
+        # 10 dígitos -> searchType = 1
+        p10 = self.adapter._build_request_payload("1854667537")
+        self.assertEqual(p10["searchType"], 1)
+        self.assertEqual(p10["inputType"], 0)
+        self.assertEqual(p10["itemsSearch"], ["1854667537"])
+
 
 class TestEstafetaSafetyGuard(unittest.TestCase):
     """El WS labelrest (/wayBills) genera guías reales: nunca debe usarse para rastrear."""
