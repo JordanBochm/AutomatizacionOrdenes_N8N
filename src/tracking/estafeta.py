@@ -160,6 +160,7 @@ class EstafetaAdapter(CarrierAdapter):
         login_user: Optional[str] = None,
         login_password: Optional[str] = None,
     ):
+        load_dotenv(override=True)
         self.client_id = (client_id if client_id is not None else os.getenv("ESTAFETA_CLIENT_ID", "")).strip()
         self.client_secret = (
             client_secret if client_secret is not None else os.getenv("ESTAFETA_CLIENT_SECRET", "")
@@ -225,9 +226,8 @@ class EstafetaAdapter(CarrierAdapter):
     def is_configured(self) -> bool:
         """True solo si hay credenciales y una URL de rastreo válida (distinta de labelrest)."""
         load_dotenv(override=True)
-        env_track = os.getenv("ESTAFETA_TRACK_URL", "").strip()
-        if env_track and env_track != self.track_url:
-            self.track_url = env_track
+        if not self.track_url:
+            self.track_url = os.getenv("ESTAFETA_TRACK_URL", "").strip()
         return self.missing_config_reason() is None
 
     def invalidate_token(self) -> None:
