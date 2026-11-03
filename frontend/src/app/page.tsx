@@ -6,6 +6,9 @@ import AnimatedLogo from "@/components/layout/AnimatedLogo";
 import SupplyChainLoader from "@/components/layout/SupplyChainLoader";
 import TrackingGenerator from "@/components/tracking/TrackingGenerator";
 import TransportTracker from "@/components/tracking/TransportTracker";
+import CalendarPlanner from "@/components/calendar/CalendarPlanner";
+import HistoryView from "@/components/history/HistoryView";
+import { useHistoryCapture } from "@/hooks/useHistoryCapture";
 import {
   UploadCloud,
   CheckCircle2,
@@ -42,6 +45,7 @@ import {
   Users,
   Plus,
   Trash2,
+  Calendar,
 } from "lucide-react";
 
 // ==============================================================================
@@ -371,7 +375,7 @@ export default function DashboardPage() {
   // Vista activa:
   // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'operacion_dia' | 'generador_tracking' | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
   const [activeModule, setActiveModule] = useState<
-    "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile"
+    "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile" | "calendario" | "historial"
   >("login");
 
   // Estado de Autenticación y RBAC
@@ -429,6 +433,9 @@ export default function DashboardPage() {
       setToast(null);
     }, 4500);
   };
+
+  // Captura automática del historial local (trackings y cierres del día)
+  const { captureBatch, captureClosing, captureArchive } = useHistoryCapture(currentUser?.email);
 
   // Cargar salud de la API y lote actual al inicio
   const fetchHealthAndBatch = async () => {
@@ -781,6 +788,15 @@ export default function DashboardPage() {
       const data = await res.json();
       setBatchData(data);
       setSelectedOrderIds(new Set());
+      void captureBatch({
+        batch_filename: data.batch_filename || file.name,
+        metrics: {
+          total_orders: Number(data.metrics?.total_orders) || 0,
+          confirmed: Number(data.metrics?.confirmed_100) || 0,
+          review: Number(data.metrics?.review) || 0,
+          error_blocked: Number(data.metrics?.error_blocked) || 0,
+        },
+      });
       triggerToast(`Lote procesado exitosamente: ${file.name}`, "success");
     } catch (err: any) {
       triggerToast(err.message || "Error al cargar archivo", "error");
@@ -981,6 +997,20 @@ export default function DashboardPage() {
 
       const data = await res.json();
       setSimResults(data);
+      const summary = data.summary || {};
+      void captureBatch({
+        metrics: {
+          total_orders: Number(summary.total) || 0,
+          confirmed: Math.max(
+            0,
+            (Number(summary.total) || 0) - (Number(summary.blocked) || 0) - (Number(summary.duplicates) || 0)
+          ),
+          review: 0,
+          error_blocked: Number(summary.blocked) || 0,
+          ready: Number(summary.ready) || 0,
+          duplicates: Number(summary.duplicates) || 0,
+        },
+      });
       triggerToast("Timbrado oficial completado en Techship.", "success");
       fetchHealthAndBatch();
     } catch (err: any) {
@@ -1005,6 +1035,17 @@ export default function DashboardPage() {
       }
 
       const data = await res.json();
+      void captureClosing(
+        {
+          cierre_file: data.cierre_excel_filename,
+          etiquetas_file: data.etiquetas_pdf_filename || undefined,
+          total_orders: Number(batchData?.metrics.total_orders) || 0,
+          assigned: batchData?.orders.filter((order) => Boolean(order.tracking_number)).length || 0,
+          errors: 0,
+          cp_alerts: 0,
+        },
+        { batch_filename: batchData?.batch_filename }
+      );
       triggerToast(data.message || "Cierre y PDF de etiquetas sincronizados correctamente.", "success");
       setBatchData((prev) => {
         if (!prev) return prev;
@@ -1069,6 +1110,7 @@ export default function DashboardPage() {
       setActiveTab("ALL");
       setEditingOrder(null);
       setSelectedOrderIds(new Set());
+      void captureArchive();
 
       if (data.skipped?.length) {
         triggerToast(
@@ -1140,7 +1182,7 @@ export default function DashboardPage() {
     name: string;
     description: string;
     Icon: React.ElementType;
-    target?: "operacion_dia" | "transporte";
+    target?: "operacion_dia" | "transporte" | "calendario" | "historial";
     tone: "navy" | "red";
   }[] = [
       {
@@ -1153,7 +1195,8 @@ export default function DashboardPage() {
       { name: "Transporte", description: "Rastreo de envios.", Icon: Truck, target: "transporte", tone: "red" },
       { name: "Facturación", description: "Facturación mensual.", Icon: FileText, tone: "navy" },
       { name: "Reportes", description: "Reportes de entrada, salidas, devoluciones y arreglo de computadoras.", Icon: FileSpreadsheet, tone: "red" },
-      { name: "Historial de lotes", description: "Consulta de lotes archivados y cierres anteriores.", Icon: Archive, tone: "navy" },
+      { name: "Calendario", description: "Planificación de operaciones, agenda de entregas, citas y recolecciones programadas.", Icon: Calendar, target: "calendario", tone: "navy" },
+      { name: "Historial de lotes", description: "Trackings rastreados, cierres del día y movimientos recientes.", Icon: Archive, target: "historial", tone: "red" },
       { name: "Mesa de ayuda (SOP)", description: "Manuales, ayuda manuales técnicos acerca de la operación.", Icon: HelpCircle, tone: "red" },
     ];
 
@@ -1162,7 +1205,7 @@ export default function DashboardPage() {
     name: string;
     description: string;
     Icon: React.ElementType;
-    target?: "asset_management" | "generador_tracking";
+    target?: "asset_management" | "generador_tracking" | "historial";
     tone: "navy" | "red";
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
@@ -1186,8 +1229,9 @@ export default function DashboardPage() {
         name: "Historial",
         description: "Consulta de archivos de cierre diarios, trackings.",
         Icon: Archive,
+        target: "historial",
         tone: "navy",
-        statusBadge: "En desarrollo",
+        statusBadge: "Activo",
       },
     ];
 
@@ -2136,6 +2180,29 @@ export default function DashboardPage() {
             triggerToast={triggerToast}
             userEmail={currentUser?.email || "operador@supplychain.mx"}
             userRole={roleConfig.code}
+          />
+        </div>
+      ) : activeModule === "historial" ? (
+        /* ==================================================================== */
+        /* VISTA HISTORIAL - TRACKINGS Y CIERRES DEL DÍA (LOCAL)                */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
+          <HistoryView
+            apiBase={API_BASE}
+            onBack={() => setActiveModule("operacion_dia")}
+            onNavigateHome={() => setActiveModule("hub")}
+            triggerToast={triggerToast}
+            userEmail={currentUser?.email}
+          />
+        </div>
+      ) : activeModule === "calendario" ? (
+        /* ==================================================================== */
+        /* VISTA CALENDARIO - PLANIFICACIONES, CITAS Y RECOLECCIONES            */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
+          <CalendarPlanner
+            onBack={() => setActiveModule("modules")}
+            onNavigateHome={() => setActiveModule("hub")}
           />
         </div>
       ) : activeModule === "csm" ? (
