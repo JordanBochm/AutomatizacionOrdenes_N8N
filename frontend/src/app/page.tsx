@@ -3800,30 +3800,48 @@ export default function DashboardPage() {
                       Detalle por Orden
                     </div>
                     <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto font-mono text-xs">
-                      {simResults.details?.map((item: any, idx: number) => (
-                        <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-50">
-                          <div>
-                            <span className="font-bold text-[#233762]">{item.order}</span>
-                            <span className="text-[11px] text-slate-500 ml-2">({item.type})</span>
-                            <div className="text-[11px] text-slate-600 font-sans mt-0.5">{item.message}</div>
+                      {simResults.details?.map((item: any, idx: number) => {
+                        const isSuccess =
+                          item.status === "OK" ||
+                          item.status === "LISTA" ||
+                          item.status === "TIMBRADA" ||
+                          item.status === "SIMULACION_OK";
+                        const isDuplicate = item.status === "DUPLICADO";
+
+                        return (
+                          <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-[#233762]">{item.order}</span>
+                                {item.type && (
+                                  <span className="text-[11px] text-slate-500 font-normal">({item.type})</span>
+                                )}
+                                {item.tracking && item.tracking !== "Generada" && (
+                                  <span className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                    Guía: {item.tracking}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-600 font-sans mt-0.5">{item.message}</div>
+                            </div>
+                            <div>
+                              {isSuccess ? (
+                                <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                                  {item.status === "TIMBRADA" ? "TIMBRADA" : "ACEPTADA"}
+                                </span>
+                              ) : isDuplicate ? (
+                                <span className="px-2 py-0.5 rounded bg-[#EFF3F9] text-[#233762] font-bold text-[10px]">
+                                  YA EXISTE {item.shipment_id ? `(ID ${item.shipment_id})` : ""}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded bg-red-100 text-[#CE3A39] font-bold text-[10px]">
+                                  BLOQUEADA
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            {item.status === "OK" || item.status === "LISTA" ? (
-                              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                                ACEPTADA
-                              </span>
-                            ) : item.status === "DUPLICADO" ? (
-                              <span className="px-2 py-0.5 rounded bg-[#EFF3F9] text-[#233762] font-bold text-[10px]">
-                                YA EXISTE (ID {item.shipment_id})
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded bg-red-100 text-[#CE3A39] font-bold text-[10px]">
-                                BLOQUEADA
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
