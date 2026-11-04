@@ -934,8 +934,13 @@ export default function DashboardPage() {
     setEditingOrder(order);
     setSepomexColonias(order.colonias_sepomex || []);
     const cleanZip = order.zip.replace("ERROR:", "").trim();
+    const cleanPhone = order.phone
+      .replace(/[()',]/g, "")
+      .replace(/True|None|False/g, "")
+      .replace("ERROR:", "")
+      .trim();
     setEditFormData({
-      phone: order.phone.replace("ERROR:", "").trim(),
+      phone: cleanPhone,
       address1: order.address1.replace("ERROR:", "").trim(),
       address2: order.address2 || "",
       address3: order.address3 || "",

@@ -181,6 +181,17 @@ def _encontrar_archivos_lote_activo():
     return guias_path, audit_path, sctask_path
 
 
+def _sanear_telefono(val: Any) -> str:
+    s = str(val or "").strip()
+    if s.startswith("(") and ("True" in s or "None" in s or "False" in s):
+        m = re.search(r"'(\d+)'", s)
+        if m:
+            s = m.group(1)
+    if "." in s and not s.startswith("ERROR"):
+        s = s.split(".")[0]
+    return s
+
+
 def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
     """Lee y estructura los datos de un lote para enviarlos al frontend."""
     if not guias_path.is_file():
@@ -254,7 +265,7 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             city = str(row.get("ShipFromCity", "")).strip() if pd.notna(row.get("ShipFromCity")) else str(row.get("City", "")).strip()
             state = str(row.get("ShipFromState", "")).strip() if pd.notna(row.get("ShipFromState")) else str(row.get("State", "")).strip()
             zip_val = str(row.get("ShipFromZip", "")).strip().split(".")[0].zfill(5) if pd.notna(row.get("ShipFromZip")) else str(row.get("Zip", "")).strip().split(".")[0].zfill(5)
-            phone = str(row.get("ShipFromPhone", "")).strip().split(".")[0] if pd.notna(row.get("ShipFromPhone")) else str(row.get("ShipToPhone", "")).strip().split(".")[0]
+            phone = _sanear_telefono(row.get("ShipFromPhone")) if pd.notna(row.get("ShipFromPhone")) else _sanear_telefono(row.get("ShipToPhone"))
             email = str(row.get("ShipFromEmail", "")).strip() if pd.notna(row.get("ShipFromEmail")) else str(row.get("ShipToEmail", "")).strip()
         else:
             name = str(row.get("ShipToName", "")).strip()
@@ -266,7 +277,7 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             city = str(row.get("City", "")).strip()
             state = str(row.get("State", "")).strip()
             zip_val = str(row.get("Zip", "")).strip().split(".")[0].zfill(5)
-            phone = str(row.get("ShipToPhone", "")).strip().split(".")[0]
+            phone = _sanear_telefono(row.get("ShipToPhone"))
             email = str(row.get("ShipToEmail", "")).strip() if pd.notna(row.get("ShipToEmail")) else ""
 
         if addr2.lower() == "nan":
@@ -469,10 +480,17 @@ def patch_order(pick_order: str, updates: OrderPatchRequest):
         
     validador = _get_validador_postal()
     
-    # Procesar teléfono si se actualizó
+    # Procesar teléfono si se actualizó (desempaquetando la tupla de validar_y_limpiar_telefono)
     nuevo_tel_limpio = None
     if updates.phone is not None:
-        nuevo_tel_limpio = validar_y_limpiar_telefono(updates.phone)
+        p_raw = str(updates.phone).replace("ERROR:", "").strip()
+        tel_val, es_valido, _ = validar_y_limpiar_telefono(p_raw)
+        if es_valido and len(tel_val) == 10:
+            nuevo_tel_limpio = tel_val
+        elif len(tel_val) == 10:
+            nuevo_tel_limpio = tel_val
+        else:
+            nuevo_tel_limpio = f"ERROR: {tel_val or p_raw}"
         
     zip_fmt = format_zip_code(updates.zip) if updates.zip is not None else None
 
