@@ -156,6 +156,7 @@ def convertir_fila_excel_a_payload(row):
         comp_emp = str(row.get('ShipFromCompany', '')).strip() if pd.notna(row.get('ShipFromCompany')) else name_emp
         addr1_emp = str(row.get('ShipFromAddress1', '')).strip() if pd.notna(row.get('ShipFromAddress1')) else str(row.get('ShipToAddress1', '')).strip()
         addr2_emp = str(row.get('ShipFromAddress2', '')).strip() if pd.notna(row.get('ShipFromAddress2')) else str(row.get('ShipToAddress2', '')).strip()
+        addr3_emp = str(row.get('ShipFromAddress3', '')).strip() if pd.notna(row.get('ShipFromAddress3')) else (str(row.get('ShipToAddress3', '')).strip() if pd.notna(row.get('ShipToAddress3')) else "")
         city_emp = str(row.get('ShipFromCity', '')).strip() if pd.notna(row.get('ShipFromCity')) else str(row.get('City', '')).strip()
         state_emp = str(row.get('ShipFromState', '')).strip() if pd.notna(row.get('ShipFromState')) else str(row.get('State', '')).strip()
         zip_emp = str(row.get('ShipFromZip', '')).strip().split('.')[0].zfill(5) if pd.notna(row.get('ShipFromZip')) else str(row.get('Zip', '')).strip().split('.')[0].zfill(5)
@@ -167,7 +168,7 @@ def convertir_fila_excel_a_payload(row):
             "Company": comp_emp,
             "Address1": addr1_emp[:50],
             "Address2": addr2_emp[:50] if addr2_emp and addr2_emp.lower() != 'nan' else "",
-            "Address3": None,
+            "Address3": addr3_emp[:50] if addr3_emp and addr3_emp.lower() != 'nan' else None,
             "City": city_emp,
             "StateProvince": state_emp,
             "Postal": zip_emp,
@@ -184,6 +185,7 @@ def convertir_fila_excel_a_payload(row):
         comp_emp = str(row.get('ShipToCompany', '')).strip() if pd.notna(row.get('ShipToCompany')) else name_emp
         addr1_emp = str(row.get('ShipToAddress1', '')).strip()
         addr2_emp = str(row.get('ShipToAddress2', '')).strip() if pd.notna(row.get('ShipToAddress2')) else ""
+        addr3_emp = str(row.get('ShipToAddress3', '')).strip() if pd.notna(row.get('ShipToAddress3')) else ""
         city_emp = str(row.get('City', '')).strip()
         state_emp = str(row.get('State', '')).strip()
         zip_emp = str(row.get('Zip', '')).strip().split('.')[0].zfill(5)
@@ -195,7 +197,7 @@ def convertir_fila_excel_a_payload(row):
             "Company": comp_emp,
             "Address1": addr1_emp[:50],
             "Address2": addr2_emp[:50] if addr2_emp and addr2_emp.lower() != 'nan' else "",
-            "Address3": None,
+            "Address3": addr3_emp[:50] if addr3_emp and addr3_emp.lower() != 'nan' else None,
             "City": city_emp,
             "StateProvince": state_emp,
             "Postal": zip_emp,
