@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   X,
@@ -23,6 +24,8 @@ import {
   AlertCircle,
   HelpCircle,
   ExternalLink,
+  Wrench,
+  Truck,
 } from "lucide-react";
 import {
   DevolucionRecord,
@@ -31,7 +34,11 @@ import {
   ReportesFilters,
   ReportesKPIs,
   UploadPreviewResult,
+  ReportesSubmodulo,
 } from "@/lib/reportes/types";
+import ReparacionView from "./submodulos/ReparacionView";
+import OutboundView from "./submodulos/OutboundView";
+import RefurbView from "./submodulos/RefurbView";
 import { STATUS_CONFIG } from "@/lib/reportes/status-map";
 
 interface ReportesViewProps {
@@ -58,6 +65,16 @@ export default function ReportesView({
   const [kpis, setKpis] = useState<ReportesKPIs>(initialKpis);
   const [total, setTotal] = useState<number>(initialTotal);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Submódulo Activo (devoluciones | reparacion | outbound | refurb)
+  const [activeSubmodulo, setActiveSubmodulo] = useState<ReportesSubmodulo | null>(
+    (searchParams.get("submodulo") as ReportesSubmodulo) || null
+  );
+
+  const handleSubmoduloChange = (sub: ReportesSubmodulo | null) => {
+    setActiveSubmodulo(sub);
+    updateUrlParams({ submodulo: sub || undefined });
+  };
 
   // Estados de filtros
   const [page, setPage] = useState<number>(
@@ -444,69 +461,224 @@ export default function ReportesView({
         </div>
       )}
 
-      {/* Header Institucional */}
-      <header className="mb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <Link
-                href="/"
-                className="text-xs font-semibold text-[#233762] hover:underline flex items-center gap-1"
-              >
-                ← Volver al Hub Principal
-              </Link>
-              <span className="text-slate-300">/</span>
-              <span className="text-xs font-bold text-[#CE3A39] uppercase tracking-wider">
-                Asset Management
-              </span>
+      {/* Submódulos de Reportes: Vista HUB Inicial (cuando no hay submódulo seleccionado) */}
+      {activeSubmodulo === null && (
+        <div className="w-full max-w-6xl mx-auto space-y-8 py-2">
+          {/* Barra Superior con Navegación al Hub Principal */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#233762] hover:border-slate-300 shadow-2xs transition-all group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
+              <span>Volver al Hub Principal</span>
+            </Link>
+            <span className="text-xs font-mono text-slate-400">Seko Supply Chain México</span>
+          </div>
+
+          {/* Header Centralizado */}
+          <div className="text-center max-w-2xl mx-auto pt-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-3">
+              <span>Asset Management</span>
+              <span className="text-slate-400">/</span>
+              <span className="text-[#CE3A39] font-bold">Reportes</span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-[#233762] flex items-center gap-3">
-              <FileSpreadsheet className="w-8 h-8 text-[#CE3A39]" />
-              Reportes de Devoluciones de Equipos
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#233762] tracking-tight">
+              Módulos de Reportes y Trazabilidad
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Conciliación semanal Kyndryl / Seko, estatus ServiceNow y trazabilidad de retornos.
+            <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+              Selecciona un submódulo operativo para consultar reportes, métricas en tiempo real, conciliación de garantías y estatus de equipos.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleBatchWarrantyCheck}
-              disabled={isCheckingBatch}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-700 disabled:opacity-50 transition-all"
-              title="Consultar en los servidores de Lenovo y Dell las garantías de los equipos mostrados"
+          {/* Grid de 4 Módulos Individuales */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
+            {/* Módulo 1: Devoluciones */}
+            <div
+              onClick={() => handleSubmoduloChange("devoluciones")}
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
             >
-              {isCheckingBatch ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-200" />
-                  <span>Consultando Garantías...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-emerald-200" />
-                  <span>Verificar Garantías del Lote</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#233762] text-white text-sm font-semibold shadow hover:bg-[#1b2b4d] transition-all"
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {total.toLocaleString()} Equipos
+              </span>
+              <div className="flex flex-col items-center w-full">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-[#EFF3F9] text-[#233762]">
+                  <FileSpreadsheet className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-[#233762] mt-4">Devoluciones</h3>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  Conciliación semanal Kyndryl / Seko, estatus ServiceNow, garantías Lenovo / Dell y trazabilidad de retornos.
+                </p>
+              </div>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                <span>Ingresar al módulo</span>
+                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+              </span>
+            </div>
+
+            {/* Módulo 2: Equipos en Reparación */}
+            <div
+              onClick={() => handleSubmoduloChange("reparacion")}
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
             >
-              <Upload className="w-4 h-4 text-emerald-300" />
-              Actualizar / Cargar Excel
-            </button>
-            <button
-              onClick={handleExportFiltered}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-semibold shadow-sm hover:bg-slate-50 hover:text-[#233762] transition-all"
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-amber-500 transition-colors duration-300" />
+              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                Taller y Banco
+              </span>
+              <div className="flex flex-col items-center w-full">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-amber-50 text-amber-600">
+                  <Wrench className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-[#233762] mt-4">Equipos en Reparación</h3>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  Monitoreo de diagnósticos técnicos, piezas solicitadas, garantías RMA Lenovo/Dell y dictámenes.
+                </p>
+              </div>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-amber-600 transition-colors">
+                <span>Ingresar al módulo</span>
+                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+              </span>
+            </div>
+
+            {/* Módulo 3: Outbound */}
+            <div
+              onClick={() => handleSubmoduloChange("outbound")}
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
             >
-              <Download className="w-4 h-4 text-[#CE3A39]" />
-              Descargar Excel Filtrado
-            </button>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-blue-600 transition-colors duration-300" />
+              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                Despachos Courier
+              </span>
+              <div className="flex flex-col items-center w-full">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-blue-50 text-blue-600">
+                  <Truck className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-[#233762] mt-4">Outbound</h3>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  Trazabilidad de equipos asignados a usuarios, empaque, carriers, números de guía y confirmación de entrega.
+                </p>
+              </div>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-blue-600 transition-colors">
+                <span>Ingresar al módulo</span>
+                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+              </span>
+            </div>
+
+            {/* Módulo 4: Refurb */}
+            <div
+              onClick={() => handleSubmoduloChange("refurb")}
+              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+            >
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-purple-600 transition-colors duration-300" />
+              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                Línea NIST 800-88
+              </span>
+              <div className="flex flex-col items-center w-full">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-purple-50 text-purple-600">
+                  <RefreshCw className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-[#233762] mt-4">Refurb</h3>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  Borrado seguro de datos (NIST 800-88 / Blancco), reinstalación de imagen, auditoría cosmética y reingreso a almacén.
+                </p>
+              </div>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-purple-600 transition-colors">
+                <span>Ingresar al módulo</span>
+                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+              </span>
+            </div>
           </div>
         </div>
-      </header>
+      )}
 
-      {/* Tarjetas de KPIs */}
+      {/* Submódulo 2: Equipos en Reparación (Vista Individual) */}
+      {activeSubmodulo === "reparacion" && (
+        <ReparacionView onBack={() => handleSubmoduloChange(null)} />
+      )}
+
+      {/* Submódulo 3: Outbound (Vista Individual) */}
+      {activeSubmodulo === "outbound" && (
+        <OutboundView onBack={() => handleSubmoduloChange(null)} />
+      )}
+
+      {/* Submódulo 4: Refurb (Vista Individual) */}
+      {activeSubmodulo === "refurb" && (
+        <RefurbView onBack={() => handleSubmoduloChange(null)} />
+      )}
+
+      {/* Submódulo 1: Devoluciones de Equipos (Vista Individual) */}
+      {activeSubmodulo === "devoluciones" && (
+        <>
+          {/* Barra Superior con Navegación al Hub de Reportes */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 mb-6">
+            <button
+              onClick={() => handleSubmoduloChange(null)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#233762] hover:border-slate-300 shadow-2xs transition-all group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
+              <span>Volver a Módulos de Reportes</span>
+            </button>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold">
+              <span>Asset Management</span>
+              <span className="text-slate-400">/</span>
+              <span>Reportes</span>
+              <span className="text-slate-400">/</span>
+              <span className="text-[#CE3A39] font-bold">Devoluciones de Equipos</span>
+            </div>
+          </div>
+
+          {/* Header Institucional de Devoluciones */}
+          <header className="mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-extrabold text-[#233762] flex items-center gap-3">
+                  <FileSpreadsheet className="w-8 h-8 text-[#CE3A39]" />
+                  Reportes de Devoluciones de Equipos
+                </h1>
+                <p className="text-sm text-slate-500 mt-1">
+                  Conciliación semanal Kyndryl / Seko, estatus ServiceNow, garantías y trazabilidad de retornos.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={handleBatchWarrantyCheck}
+                  disabled={isCheckingBatch}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                  title="Consultar en los servidores de Lenovo y Dell las garantías de los equipos mostrados"
+                >
+                  {isCheckingBatch ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-200" />
+                      <span>Consultando Garantías...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                      <span>Verificar Garantías del Lote</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#233762] text-white text-sm font-semibold shadow hover:bg-[#1b2b4d] transition-all"
+                >
+                  <Upload className="w-4 h-4 text-emerald-300" />
+                  Actualizar / Cargar Excel
+                </button>
+                <button
+                  onClick={handleExportFiltered}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-semibold shadow-sm hover:bg-slate-50 hover:text-[#233762] transition-all"
+                >
+                  <Download className="w-4 h-4 text-[#CE3A39]" />
+                  Descargar Excel Filtrado
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Tarjetas de KPIs */}
       <section className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
         {/* Total Devueltos */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -1120,6 +1292,9 @@ export default function ReportesView({
             </div>
           </div>
         </div>
+      )}
+
+      </>
       )}
 
       {/* Modal Carga de Excel (Actualizar / Cargar) */}

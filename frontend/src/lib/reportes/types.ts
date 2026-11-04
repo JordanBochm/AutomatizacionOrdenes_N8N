@@ -139,3 +139,116 @@ export interface UploadPreviewResult {
   resumenEstatus: Record<EstatusDevolucion, number>;
   muestras: DevolucionRecord[];
 }
+
+
+export type ReportesSubmodulo = "devoluciones" | "reparacion" | "outbound" | "refurb";
+
+// ==========================================
+// TIPOS SUBMÓDULO: EQUIPOS EN REPARACIÓN
+// ==========================================
+export type EstatusReparacion =
+  | "DIAGNOSTICO"
+  | "ESPERA_PARTES"
+  | "EN_REPARACION"
+  | "GARANTIA_LENOVO"
+  | "GARANTIA_DELL"
+  | "LISTO_QC"
+  | "SCRAP";
+
+export interface ReparacionRecord {
+  id: string;
+  serialNumber: string;
+  modelo: string;
+  ticketInc: string;
+  fallaReportada: string;
+  tecnicoAsignado: string;
+  fechaIngreso: string;
+  estatusReparacion: EstatusReparacion;
+  garantiaAplica: boolean;
+  proveedorGarantia: "LENOVO" | "DELL" | "APPLE" | "INTERNO";
+  piezasRequeridas?: string;
+  costoEstimado?: number;
+  comentarios: string;
+}
+
+export interface ReparacionKPIs {
+  totalEnTaller: number;
+  enDiagnostico: number;
+  esperaPartes: number;
+  enGarantiaFabricante: number;
+  listosQC: number;
+  scrap: number;
+}
+
+// ==========================================
+// TIPOS SUBMÓDULO: OUTBOUND (SALIDAS Y ENVÍOS)
+// ==========================================
+export type EstatusOutbound =
+  | "PREPARANDO"
+  | "LISTO_RECOLECCION"
+  | "EN_TRANSITO"
+  | "EN_REPARTO"
+  | "ENTREGADO"
+  | "INCIDENCIA";
+
+export interface OutboundRecord {
+  id: string;
+  ordenId: string;
+  serialNumber: string;
+  modelo: string;
+  destinatario: string;
+  departamento: string;
+  ciudadDestino: string;
+  estadoDestino: string;
+  carrier: "FEDEX" | "ESTAFETA" | "DHL" | "99MINUTOS";
+  trackingNumber: string;
+  fechaDespacho: string;
+  fechaEstimadaEntrega: string;
+  estatusOutbound: EstatusOutbound;
+  notas: string;
+}
+
+export interface OutboundKPIs {
+  totalOutbound: number;
+  preparando: number;
+  enTransito: number;
+  entregados: number;
+  incidencias: number;
+}
+
+// ==========================================
+// TIPOS SUBMÓDULO: REFURB (REACONDICIONAMIENTO)
+// ==========================================
+export type GradoCosmetico = "GRADO_A" | "GRADO_B" | "GRADO_C" | "SCRAP";
+export type EstatusRefurb =
+  | "RECEPCION"
+  | "BORRADO_DISCO"
+  | "CARGA_IMAGEN"
+  | "AUDITORIA_QC"
+  | "LISTO_STOCK";
+
+export interface RefurbRecord {
+  id: string;
+  serialNumber: string;
+  modelo: string;
+  gradoCosmetico: GradoCosmetico;
+  borradoDisco: "NIST_800_88_COMPLETO" | "CERTIFICADO_BLANCCO" | "PENDIENTE" | "FALLIDO";
+  imagenSO: "WINDOWS_11_PRO_KYNDRYL" | "MACOS_SONOMA_SEKO" | "PENDIENTE";
+  saludBateria: number;
+  limpiezaDetallada: boolean;
+  pruebasHardware: "APROBADO_100" | "EN_PRUEBAS" | "FALLA_DETECTADA";
+  fechaIngreso: string;
+  fechaLiberacion?: string;
+  estatusRefurb: EstatusRefurb;
+  tecnico: string;
+}
+
+export interface RefurbKPIs {
+  totalEnRefurb: number;
+  enBorrado: number;
+  enCargaImagen: number;
+  enAuditoria: number;
+  listosStock: number;
+  gradoA_Count: number;
+  gradoB_Count: number;
+}
