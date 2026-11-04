@@ -103,7 +103,7 @@ export interface RoleConfig {
   permissions: RolePermissions;
 }
 
-export const ROLES_CONFIG: Record<UserRole, RoleConfig> = {
+const ROLES_CONFIG: Record<UserRole, RoleConfig> = {
   ADMIN: {
     code: "ADMIN",
     label: "Administrador General",
@@ -186,7 +186,7 @@ export const ROLES_CONFIG: Record<UserRole, RoleConfig> = {
   },
 };
 
-export const DEFAULT_USERS: UserAccount[] = [
+const DEFAULT_USERS: UserAccount[] = [
   {
     id: "usr-1",
     name: "Jordi Bochm",
@@ -377,6 +377,7 @@ export default function DashboardPage() {
   const [activeModule, setActiveModule] = useState<
     "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile" | "calendario" | "historial"
   >("login");
+  const [initialTracking, setInitialTracking] = useState<string>("");
 
   // Estado de Autenticación y RBAC
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -1194,7 +1195,13 @@ export default function DashboardPage() {
       },
       { name: "Transporte", description: "Rastreo de envios.", Icon: Truck, target: "transporte", tone: "red" },
       { name: "Facturación", description: "Facturación mensual.", Icon: FileText, tone: "navy" },
-      { name: "Reportes", description: "Reportes de entrada, salidas, devoluciones y arreglo de computadoras.", Icon: FileSpreadsheet, tone: "red" },
+      {
+        name: "Reportes",
+        description: "Reportes de devoluciones, estatus ServiceNow y conciliación KST.",
+        Icon: FileSpreadsheet,
+        target: "reportes" as any,
+        tone: "red",
+      },
       { name: "Calendario", description: "Planificación de operaciones, agenda de entregas, citas y recolecciones programadas.", Icon: Calendar, target: "calendario", tone: "navy" },
       { name: "Historial de lotes", description: "Trackings rastreados, cierres del día y movimientos recientes.", Icon: Archive, target: "historial", tone: "red" },
       { name: "Mesa de ayuda (SOP)", description: "Manuales, ayuda manuales técnicos acerca de la operación.", Icon: HelpCircle, tone: "red" },
@@ -1814,9 +1821,15 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={name}
-                    onClick={() =>
-                      target ? setActiveModule(target) : triggerToast(`Módulo ${name} en construcción`, "info")
-                    }
+                    onClick={() => {
+                      if (target === "reportes" as any) {
+                        window.location.href = "/reportes";
+                      } else if (target) {
+                        setActiveModule(target);
+                      } else {
+                        triggerToast(`Módulo ${name} en construcción`, "info");
+                      }
+                    }}
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[200px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
@@ -2175,6 +2188,7 @@ export default function DashboardPage() {
 
           {/* Componente Modular TransportTracker */}
           <TransportTracker
+            initialTracking={initialTracking}
             batchData={batchData}
             apiBase={API_BASE}
             triggerToast={triggerToast}

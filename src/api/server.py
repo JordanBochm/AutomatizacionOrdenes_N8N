@@ -985,6 +985,42 @@ async def track_single_shipment(
 
 
 # -------------------------------------------------------------
+# MÓDULO DE CONSULTA DE GARANTÍAS (LENOVO / DELL)
+# -------------------------------------------------------------
+WARRANTY_CACHE_FILE = Path("data/cache/warranties.json")
+
+def load_warranty_cache() -> Dict[str, Any]:
+    if WARRANTY_CACHE_FILE.exists():
+        try:
+            import json
+            with open(WARRANTY_CACHE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+@app.get("/api/warranty/{serial_number}")
+async def get_warranty_status(
+    serial_number: str,
+    modelo: Optional[str] = Query(default=None),
+    force_refresh: bool = Query(default=False)
+):
+    clean = serial_number.strip().upper().replace(" ", "")
+    cache = load_warranty_cache()
+    if not force_refresh and clean in cache:
+        return cache[clean]
+
+    return cache.get(clean, {
+        "serialNumber": clean,
+        "vigente": False,
+        "estado": "DESCONOCIDO",
+        "proveedor": "LENOVO" if clean.startswith(("PF", "PC", "MP")) else "OTRO",
+        "fechaFin": None,
+        "consultadoEn": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    })
+
+
+# -------------------------------------------------------------
 # EJECUCIÓN DIRECTA CON UVICORN
 # -------------------------------------------------------------
 

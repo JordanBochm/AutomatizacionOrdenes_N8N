@@ -1,0 +1,25 @@
+[
+  {
+    "id": "CARGA_INICIAL_KST_040326",
+    "archivo": "Devoluciones KST 040326.xlsx",
+    "fecha": "2026-11-03T23:08:53.732129Z",
+    "usuario": "Sistema (Script Ingesta)",
+    "filasLeidas": 1598,
+    "filasInsertadas": 1598,
+    "filasActualizadas": 0,
+    "filasRechazadas": 0,
+    "advertenciasCalidad": {
+      "serialesVacios": 24,
+      "serialesDuplicados": 391,
+      "ritmInvalidos": 98,
+      "sinTracking": 66,
+      "sinClasificar": 1034
+    },
+    "conteoEstatus": {
+      "En evaluación": 442,
+      "Pendiente de baja": 121,
+      "In Stock / Cerrado": 1,
+      "Sin clasificar": 1034
+    }
+  }
+]

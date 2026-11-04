@@ -91,6 +91,7 @@ interface TransportTrackerProps {
   triggerToast: (message: string, type: "success" | "error" | "info") => void;
   userEmail?: string;
   userRole?: string;
+  initialTracking?: string;
 }
 
 const RECENT_STORAGE_KEY = "sc_transport_recent_guides_v1";
@@ -524,9 +525,17 @@ export default function TransportTracker({
   triggerToast,
   userEmail = "operador@supplychain.mx",
   userRole = "ADMIN",
+  initialTracking,
 }: TransportTrackerProps) {
   // Entrada de búsqueda masiva / individual
-  const [rawInput, setRawInput] = useState<string>("");
+  const [rawInput, setRawInput] = useState<string>(initialTracking || "");
+
+  // Soporte para precargar tracking desde navegación cruzada (Reportes)
+  useEffect(() => {
+    if (initialTracking && initialTracking.trim()) {
+      setRawInput(initialTracking.trim());
+    }
+  }, [initialTracking]);
   const [forcedCarrier, setForcedCarrier] = useState<string>("AUTO");
 
   // Resultados de rastreo actuales
