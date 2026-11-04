@@ -295,6 +295,7 @@ interface OrderItem {
   company: string;
   address1: string;
   address2: string;
+  address3?: string;
   city: string;
   state: string;
   zip: string;
@@ -305,6 +306,7 @@ interface OrderItem {
   status_semaphore: "VERDE" | "AMARILLO" | "ROJO";
   status_text: string;
   incidents: string[];
+  colonias_sepomex?: string[];
   tracking_number?: string;
   carrier?: string;
 }
@@ -342,10 +344,12 @@ export default function DashboardPage() {
 
   // Estado para modal de edición en caliente
   const [editingOrder, setEditingOrder] = useState<OrderItem | null>(null);
+  const [sepomexColonias, setSepomexColonias] = useState<string[]>([]);
   const [editFormData, setEditFormData] = useState({
     phone: "",
     address1: "",
     address2: "",
+    address3: "",
     city: "",
     state: "",
     zip: "",
@@ -928,32 +932,72 @@ export default function DashboardPage() {
 
   const handleOpenEdit = (order: OrderItem) => {
     setEditingOrder(order);
+    setSepomexColonias(order.colonias_sepomex || []);
+    const cleanZip = order.zip.replace("ERROR:", "").trim();
     setEditFormData({
       phone: order.phone.replace("ERROR:", "").trim(),
       address1: order.address1.replace("ERROR:", "").trim(),
       address2: order.address2 || "",
+      address3: order.address3 || "",
       city: order.city || "",
       state: order.state || "",
-      zip: order.zip || "",
+      zip: cleanZip,
       service_code: order.service_code || "70",
       declared_value: order.declared_value || 0,
       sync_counterpart: true,
     });
+    if (cleanZip.length === 5 && (!order.colonias_sepomex || order.colonias_sepomex.length === 0)) {
+      void fetchSepomexByCp(cleanZip, false);
+    }
   };
 
-  const handleSavePatch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchSepomexByCp = async (cpValue: string, autoFillFields: boolean = true) => {
+    const clean = cpValue.replace(/\D/g, "").slice(0, 5);
+    if (clean.length !== 5) {
+      setSepomexColonias([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/sepomex/cp/${clean}`);
+      if (!res.ok) return;
+      const info = await res.json();
+      if (info.existe) {
+        setSepomexColonias(info.colonias || []);
+        if (autoFillFields) {
+          setEditFormData((prev) => ({
+            ...prev,
+            zip: clean,
+            city: info.municipio || prev.city,
+            state: info.estado || prev.state,
+            address2:
+              info.colonias && info.colonias.length === 1
+                ? info.colonias[0].slice(0, 50)
+                : prev.address2,
+          }));
+        }
+      } else {
+        setSepomexColonias([]);
+      }
+    } catch {
+      // ignore network error during typing
+    }
+  };
+
+  const submitOrderPatch = async (goNextIssue: boolean = false) => {
     if (!editingOrder) return;
+    const currentOrderId = editingOrder.order_id;
+    const baseOrderId = currentOrderId.endsWith("-1") ? currentOrderId.slice(0, -2) : currentOrderId;
 
     try {
       setActionLoading("patch");
-      const res = await fetch(`${API_BASE}/api/batches/order/${editingOrder.order_id}`, {
+      const res = await fetch(`${API_BASE}/api/batches/order/${currentOrderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: editFormData.phone.trim(),
           address1: editFormData.address1.trim(),
           address2: editFormData.address2.trim(),
+          address3: editFormData.address3.trim(),
           city: editFormData.city.trim(),
           state: editFormData.state.trim(),
           zip: editFormData.zip.trim(),
@@ -971,10 +1015,61 @@ export default function DashboardPage() {
       if (data.batch) {
         setBatchData(data.batch);
       }
-      triggerToast(`Orden ${editingOrder.order_id} corregida y revalidada con SEPOMEX.`, "success");
+
+      if (goNextIssue && data.batch?.orders) {
+        const pendingOrders: OrderItem[] = data.batch.orders.filter(
+          (o: OrderItem) =>
+            o.status_semaphore !== "VERDE" &&
+            o.order_id !== currentOrderId &&
+            o.order_id !== `${baseOrderId}-1`
+        );
+        if (pendingOrders.length > 0) {
+          triggerToast(
+            `Orden ${currentOrderId} corregida. Abriendo siguiente con incidencia (${pendingOrders.length} restantes)...`,
+            "success"
+          );
+          handleOpenEdit(pendingOrders[0]);
+          return;
+        } else {
+          triggerToast("¡Excelente! Todas las órdenes con incidencia han quedado corregidas.", "success");
+          setEditingOrder(null);
+          return;
+        }
+      }
+
+      triggerToast(`Orden ${currentOrderId} corregida y revalidada con SEPOMEX.`, "success");
       setEditingOrder(null);
     } catch (err: any) {
       triggerToast(err.message || "Error al actualizar", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSavePatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitOrderPatch(false);
+  };
+
+  const handleTechshipDryRun = async () => {
+    try {
+      setActionLoading("dry_run");
+      const res = await fetch(`${API_BASE}/api/techship/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dry_run: true }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Error al simular en Techship");
+      }
+
+      const data = await res.json();
+      setSimResults(data);
+      triggerToast("Simulación y verificación de duplicados en Techship completada.", "info");
+    } catch (err: any) {
+      triggerToast(err.message || "Fallo en simulación de Techship", "error");
     } finally {
       setActionLoading(null);
     }
@@ -3101,6 +3196,16 @@ export default function DashboardPage() {
                 </div>
 
                 <button
+                  onClick={handleTechshipDryRun}
+                  disabled={!hasOrders || actionLoading === "dry_run" || actionLoading === "live"}
+                  title="Verifica en Techship cuáles órdenes ya tienen guía (anti-duplicados) y cuáles están listas sin consumir guías reales"
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/25 text-xs sm:text-sm font-bold shadow-2xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4 text-[#233762]" />
+                  <span>{actionLoading === "dry_run" ? "Verificando..." : "Simular / Anti-Duplicados"}</span>
+                </button>
+
+                <button
                   onClick={() => setShowLiveModal(true)}
                   disabled={!hasOrders || actionLoading === "live"}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs sm:text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -3160,6 +3265,16 @@ export default function DashboardPage() {
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
                     <span>Techship.xlsx</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload("auditoria_excel")}
+                    disabled={batchData.files_available?.auditoria_excel === false}
+                    title="Descargar Auditoria_Direcciones_*.xlsx (Detalle SEPOMEX e Incidencias)"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Auditoría.xlsx</span>
                   </button>
                 </div>
               ) : (
@@ -3299,7 +3414,7 @@ export default function DashboardPage() {
                       <th className="py-3 px-4">Semáforo</th>
                       <th className="py-3 px-4">Destinatario / Empleado</th>
                       <th className="py-3 px-4">Teléfono</th>
-                      <th className="py-3 px-4">Dirección (Calle / Colonia)</th>
+                      <th className="py-3 px-4">Dirección (1: Calle / 2: Col / 3: Ref)</th>
                       <th className="py-3 px-4">CP / Ciudad</th>
                       <th className="py-3 px-4 text-center">Acciones</th>
                     </tr>
@@ -3354,12 +3469,21 @@ export default function DashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-[#233762]">
-                              {order.order_id}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="font-mono font-bold text-[#233762]">{order.order_id}</div>
+                              {order.tracking_number && (
+                                <div
+                                  className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-semibold"
+                                  title="Guía Estafeta asignada en Techship"
+                                >
+                                  <Truck className="w-2.5 h-2.5" />
+                                  <span>{order.tracking_number}</span>
+                                </div>
+                              )}
                             </td>
 
                             <td className="py-3 px-4 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex flex-col items-start gap-0.5">
                                 {isGreen && (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px]">
                                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -3369,13 +3493,21 @@ export default function DashboardPage() {
                                 {isWarning && (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
                                     <AlertTriangle className="w-3.5 h-3.5" />
-                                    Revisar Colonia
+                                    Revisar Dirección
                                   </span>
                                 )}
                                 {isError && (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-bold text-[11px]">
                                     <XCircle className="w-3.5 h-3.5" />
                                     Error / Bloqueada
+                                  </span>
+                                )}
+                                {!isGreen && order.incidents && order.incidents.length > 0 && (
+                                  <span
+                                    className="text-[10px] text-slate-500 max-w-[190px] truncate pl-1"
+                                    title={order.incidents.join(" | ")}
+                                  >
+                                    {order.incidents[0].replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/, "")}
                                   </span>
                                 )}
                               </div>
@@ -3397,10 +3529,23 @@ export default function DashboardPage() {
                             </td>
 
                             <td className="py-3 px-4 max-w-xs">
-                              <div className="text-slate-800 font-mono text-[11px] truncate font-medium">
+                              <div className="text-slate-800 font-mono text-[11px] truncate font-semibold" title={order.address1}>
+                                <span className="text-slate-400 font-normal mr-1">1:</span>
                                 {order.address1}
                               </div>
-                              <div className="text-[11px] text-slate-500 truncate">{order.address2 || "—"}</div>
+                              <div className="text-[11px] text-slate-600 truncate" title={order.address2}>
+                                <span className="text-slate-400 font-mono mr-1">2:</span>
+                                {order.address2 || "—"}
+                              </div>
+                              {order.address3 && (
+                                <div
+                                  className="text-[10px] text-[#233762] bg-[#EFF3F9] px-1.5 py-0.5 rounded mt-0.5 truncate font-mono border border-[#233762]/15"
+                                  title={`Dirección 3 (Referencias / Int): ${order.address3}`}
+                                >
+                                  <span className="font-bold mr-1">3:</span>
+                                  {order.address3}
+                                </div>
+                              )}
                             </td>
 
                             <td className="py-3 px-4 whitespace-nowrap">
@@ -3523,7 +3668,7 @@ export default function DashboardPage() {
           {/* MODAL DE EDICIÓN EN CALIENTE */}
           {editingOrder && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
                 <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-[#EFF3F9] text-[#233762]">
@@ -3532,43 +3677,94 @@ export default function DashboardPage() {
                     <div>
                       <h3 className="text-base font-extrabold text-[#233762] flex items-center gap-2">
                         Corregir Orden <span className="font-mono text-[#CE3A39]">{editingOrder.order_id}</span>
+                        <span className="text-xs font-medium text-slate-500">({editingOrder.recipient_name})</span>
                       </h3>
                       <p className="text-xs text-slate-500">
-                        Modifica los campos para re-evaluar con SEPOMEX y quitar el bloqueo en tiempo real.
+                        Edita las 3 líneas de dirección para la guía Estafeta y re-evalúa con SEPOMEX en tiempo real.
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => setEditingOrder(null)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <form onSubmit={handleSavePatch} className="p-6 space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-[#233762] mb-1">
-                      Teléfono de Contacto (Exactamente 10 dígitos)
-                    </label>
-                    <div className="relative">
-                      <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        required
-                        maxLength={10}
-                        value={editFormData.phone}
-                        onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
-                        className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
-                        placeholder="Ej. 5576682213"
-                      />
+                <form onSubmit={handleSavePatch} className="p-6 space-y-3.5 overflow-y-auto">
+                  {/* Banner de incidencias detectadas en la orden */}
+                  {editingOrder.incidents && editingOrder.incidents.length > 0 && (
+                    <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                        <AlertTriangle className="w-4 h-4 text-[#CE3A39] shrink-0" />
+                        <span>Diagnóstico SEPOMEX / Incidencias detectadas en esta orden:</span>
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-900/90 font-mono">
+                        {editingOrder.incidents.map((inc, i) => (
+                          <li key={i}>{inc}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-[#233762]">
+                          Teléfono de Contacto (10 dígitos)
+                        </label>
+                        <span
+                          className={`text-[10px] font-mono font-bold ${
+                            editFormData.phone.replace(/\D/g, "").length === 10
+                              ? "text-emerald-600"
+                              : "text-[#CE3A39]"
+                          }`}
+                        >
+                          {editFormData.phone.replace(/\D/g, "").length}/10 dígitos
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          maxLength={10}
+                          value={editFormData.phone}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })
+                          }
+                          className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
+                          placeholder="Ej. 5576682213"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#233762] mb-1">
+                        Servicio Estafeta (Techship)
+                      </label>
+                      <select
+                        value={editFormData.service_code}
+                        onChange={(e) => setEditFormData({ ...editFormData, service_code: e.target.value })}
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-semibold text-slate-800 focus:outline-none focus:border-[#233762]"
+                      >
+                        <option value="70">70 - Estafeta Express (Día Siguiente)</option>
+                        <option value="60">60 - Estafeta Terrestre (Estándar)</option>
+                      </select>
                     </div>
                   </div>
 
+                  {/* Línea 1: Address 1 */}
                   <div>
-                    <label className="block text-xs font-bold text-[#233762] mb-1">
-                      Calle y Número Exterior/Interior (Address 1, max 50 caracteres)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#233762]">
+                        Dirección 1: Calle y Número Exterior (Address 1)
+                      </label>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {editFormData.address1.length}/50 chars
+                      </span>
+                    </div>
                     <input
                       type="text"
                       required
@@ -3576,31 +3772,93 @@ export default function DashboardPage() {
                       value={editFormData.address1}
                       onChange={(e) => setEditFormData({ ...editFormData, address1: e.target.value })}
                       className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
+                      placeholder="Calle y número exterior..."
                     />
                   </div>
 
+                  {/* Línea 2: Address 2 (Colonia con Selector Oficial SEPOMEX) */}
                   <div>
-                    <label className="block text-xs font-bold text-[#233762] mb-1">
-                      Colonia / Asentamiento Oficial (Address 2, max 50 caracteres)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#233762]">
+                        Dirección 2: Colonia / Asentamiento Oficial SEPOMEX (Address 2)
+                      </label>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {editFormData.address2.length}/50 chars
+                      </span>
+                    </div>
+                    {sepomexColonias.length > 0 && (
+                      <div className="mb-1.5">
+                        <select
+                          value={sepomexColonias.includes(editFormData.address2) ? editFormData.address2 : ""}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setEditFormData({ ...editFormData, address2: e.target.value.slice(0, 50) });
+                            }
+                          }}
+                          className="w-full px-3 py-1.5 text-xs rounded-xl bg-[#EFF3F9] border border-[#233762]/25 text-[#233762] font-semibold focus:outline-none focus:border-[#233762] cursor-pointer"
+                        >
+                          <option value="">
+                            ✨ Seleccionar colonia oficial del CP {editFormData.zip} ({sepomexColonias.length} disponibles)...
+                          </option>
+                          {sepomexColonias.map((col, idx) => (
+                            <option key={idx} value={col}>
+                              {col}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <input
                       type="text"
                       maxLength={50}
                       value={editFormData.address2}
                       onChange={(e) => setEditFormData({ ...editFormData, address2: e.target.value })}
                       className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                      placeholder="Colonia oficial..."
+                    />
+                  </div>
+
+                  {/* Línea 3: Address 3 (Referencias, Edificio, Piso, Interior) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-[#233762] flex items-center gap-1.5">
+                        <span>Dirección 3: Referencias / Edificio / Piso / Interior (Address 3)</span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono">
+                          Impresa en Guía
+                        </span>
+                      </label>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {editFormData.address3.length}/50 chars
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={editFormData.address3}
+                      onChange={(e) => setEditFormData({ ...editFormData, address3: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
+                      placeholder="Ej. Edificio B Depto 302, Entre calles X y Y, Portón negro..."
                     />
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-[#233762] mb-1">Código Postal</label>
+                      <label className="block text-xs font-bold text-[#233762] mb-1">
+                        Código Postal (Auto-SEPOMEX)
+                      </label>
                       <input
                         type="text"
                         maxLength={5}
                         value={editFormData.zip}
-                        onChange={(e) => setEditFormData({ ...editFormData, zip: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                          setEditFormData({ ...editFormData, zip: val });
+                          if (val.length === 5) {
+                            void fetchSepomexByCp(val, true);
+                          }
+                        }}
                         className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-[#233762] font-bold focus:outline-none focus:border-[#233762]"
+                        placeholder="5 dígitos"
                       />
                     </div>
                     <div>
@@ -3624,7 +3882,7 @@ export default function DashboardPage() {
                   </div>
 
                   {!editingOrder.order_id.endsWith("-1") && (
-                    <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center gap-2 pt-1">
                       <input
                         type="checkbox"
                         id="syncCounterpart"
@@ -3639,21 +3897,31 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                  <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => setEditingOrder(null)}
-                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold transition cursor-pointer"
                     >
                       Cancelar
                     </button>
-                    <button
-                      type="submit"
-                      disabled={actionLoading === "patch"}
-                      className="px-5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-sm font-bold shadow-sm transition cursor-pointer"
-                    >
-                      {actionLoading === "patch" ? "Guardando..." : "Guardar y Revalidar"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={actionLoading === "patch"}
+                        onClick={() => void submitOrderPatch(true)}
+                        className="px-4 py-2 rounded-xl bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs sm:text-sm font-bold transition cursor-pointer disabled:opacity-50"
+                      >
+                        Guardar y Siguiente con Incidencia →
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={actionLoading === "patch"}
+                        className="px-5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs sm:text-sm font-bold shadow-sm transition cursor-pointer disabled:opacity-50"
+                      >
+                        {actionLoading === "patch" ? "Guardando..." : "Guardar y Revalidar"}
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>

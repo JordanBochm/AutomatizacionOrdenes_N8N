@@ -70,7 +70,16 @@ from src.validador_postal import (
     validar_y_limpiar_telefono,
     normalizar_texto,
     formatear_direccion_inteligente,
+    MAPEO_ESTADO_PLANTILLA,
 )
+
+_VALIDADOR_POSTAL_SINGLETON: Optional[ValidadorPostal] = None
+
+def _get_validador_postal() -> ValidadorPostal:
+    global _VALIDADOR_POSTAL_SINGLETON
+    if _VALIDADOR_POSTAL_SINGLETON is None:
+        _VALIDADOR_POSTAL_SINGLETON = ValidadorPostal()
+    return _VALIDADOR_POSTAL_SINGLETON
 from src.techship_client import (
     procesar_archivo_techship,
     sincronizar_tracking_desde_api,
@@ -119,6 +128,7 @@ class OrderPatchRequest(BaseModel):
     phone: Optional[str] = None
     address1: Optional[str] = None
     address2: Optional[str] = None
+    address3: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     zip: Optional[str] = None
@@ -223,6 +233,7 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
     revisar = 0
     error_bloqueadas = 0
     orders_list = []
+    validador = _get_validador_postal()
     
     for idx, row in df_orders.iterrows():
         co = str(row.get("CustomerOrder", "")).strip()
@@ -238,6 +249,8 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             comp = str(row.get("ShipFromCompany", "")).strip() if pd.notna(row.get("ShipFromCompany")) else name
             addr1 = str(row.get("ShipFromAddress1", "")).strip() if pd.notna(row.get("ShipFromAddress1")) else str(row.get("ShipToAddress1", "")).strip()
             addr2 = str(row.get("ShipFromAddress2", "")).strip() if pd.notna(row.get("ShipFromAddress2")) else str(row.get("ShipToAddress2", "")).strip()
+            addr3_raw = row.get("ShipFromAddress3") if pd.notna(row.get("ShipFromAddress3")) else row.get("ShipToAddress3")
+            addr3 = str(addr3_raw).strip() if pd.notna(addr3_raw) and str(addr3_raw).strip().lower() != "nan" else ""
             city = str(row.get("ShipFromCity", "")).strip() if pd.notna(row.get("ShipFromCity")) else str(row.get("City", "")).strip()
             state = str(row.get("ShipFromState", "")).strip() if pd.notna(row.get("ShipFromState")) else str(row.get("State", "")).strip()
             zip_val = str(row.get("ShipFromZip", "")).strip().split(".")[0].zfill(5) if pd.notna(row.get("ShipFromZip")) else str(row.get("Zip", "")).strip().split(".")[0].zfill(5)
@@ -248,11 +261,16 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             comp = str(row.get("ShipToCompany", "")).strip() if pd.notna(row.get("ShipToCompany")) else name
             addr1 = str(row.get("ShipToAddress1", "")).strip()
             addr2 = str(row.get("ShipToAddress2", "")).strip() if pd.notna(row.get("ShipToAddress2")) else ""
+            addr3_raw = row.get("ShipToAddress3")
+            addr3 = str(addr3_raw).strip() if pd.notna(addr3_raw) and str(addr3_raw).strip().lower() != "nan" else ""
             city = str(row.get("City", "")).strip()
             state = str(row.get("State", "")).strip()
             zip_val = str(row.get("Zip", "")).strip().split(".")[0].zfill(5)
             phone = str(row.get("ShipToPhone", "")).strip().split(".")[0]
             email = str(row.get("ShipToEmail", "")).strip() if pd.notna(row.get("ShipToEmail")) else ""
+
+        if addr2.lower() == "nan":
+            addr2 = ""
             
         declared_val = float(row.get("DeclaredValue", 0.0)) if pd.notna(row.get("DeclaredValue")) else 0.0
         service_code = str(row.get("SelectedServiceCode", "70")).strip().split(".")[0]
@@ -284,6 +302,9 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             parent_out = co[:-2]
             incidents = incidencias_por_orden.get(parent_out, [])
             
+        cp_info = validador.buscar_cp(zip_val) if zip_val and not str(zip_val).startswith("ERROR") else None
+        colonias_sepomex = cp_info["colonias"] if cp_info else []
+
         orders_list.append({
             "order_id": co,
             "type": "RETURN" if is_return else "OUTBOUND",
@@ -291,6 +312,7 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             "company": comp,
             "address1": addr1,
             "address2": addr2,
+            "address3": addr3,
             "city": city,
             "state": state,
             "zip": zip_val,
@@ -301,6 +323,7 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             "status_semaphore": semaphore,
             "status_text": status_text,
             "incidents": incidents,
+            "colonias_sepomex": colonias_sepomex,
             "tracking_number": tracking_por_orden.get(co),
             "carrier": "ESTAFETAREST KYNDRYL",
         })
@@ -340,6 +363,29 @@ def health_check():
         "service": "SEKO Kyndryl Automation API",
         "client_code": CLIENT_CODE_KST,
         "server_time": datetime.datetime.now().isoformat(),
+    }
+
+
+@app.get("/api/sepomex/cp/{cp}")
+def lookup_cp_sepomex(cp: str):
+    """Consulta en tiempo real el catálogo SEPOMEX por Código Postal para autocompletar en UI."""
+    validador = _get_validador_postal()
+    cp_fmt = format_zip_code(cp)
+    if str(cp_fmt).startswith("ERROR"):
+        return {"existe": False, "cp": cp, "estado": "", "municipio": "", "colonias": []}
+    info = validador.buscar_cp(cp_fmt)
+    if not info:
+        return {"existe": False, "cp": cp_fmt, "estado": "", "municipio": "", "colonias": []}
+    est_norm = normalizar_texto(info["estado"])
+    est_plantilla = MAPEO_ESTADO_PLANTILLA.get(est_norm, info["estado"])
+    return {
+        "existe": True,
+        "cp": cp_fmt,
+        "estado": est_plantilla,
+        "estado_oficial": info["estado"],
+        "municipio": info["municipios"][0] if info["municipios"] else "",
+        "municipios": info["municipios"],
+        "colonias": info["colonias"],
     }
 
 
@@ -421,86 +467,65 @@ def patch_order(pick_order: str, updates: OrderPatchRequest):
     if not filas_afectadas:
         raise HTTPException(status_code=404, detail=f"No se encontró la orden '{pick_order}' en el lote actual.")
         
-    validador = ValidadorPostal()
+    validador = _get_validador_postal()
     
     # Procesar teléfono si se actualizó
     nuevo_tel_limpio = None
     if updates.phone is not None:
         nuevo_tel_limpio = validar_y_limpiar_telefono(updates.phone)
         
+    zip_fmt = format_zip_code(updates.zip) if updates.zip is not None else None
+
     for r, is_retorno_counterpart in filas_afectadas:
+        is_ret_row = is_retorno_counterpart or pick_order.endswith("-1")
         # Actualizar teléfono
         if nuevo_tel_limpio:
-            if not is_retorno_counterpart:
-                c_tel = headers_guias.get("ShipToPhone")
-                if c_tel:
-                    ws_guias.cell(r, c_tel).value = str(nuevo_tel_limpio)
-            else:
-                c_tel = headers_guias.get("ShipFromPhone")
-                if c_tel:
-                    ws_guias.cell(r, c_tel).value = str(nuevo_tel_limpio)
+            c_tel = headers_guias.get("ShipFromPhone" if is_ret_row else "ShipToPhone")
+            if c_tel:
+                ws_guias.cell(r, c_tel).value = str(nuevo_tel_limpio)
                     
         # Actualizar código postal
-        if updates.zip is not None:
-            zip_fmt = format_zip_code(updates.zip)
-            if not is_retorno_counterpart:
-                c_zip = headers_guias.get("Zip")
-                if c_zip:
-                    ws_guias.cell(r, c_zip).value = str(zip_fmt)
-            else:
-                c_zip = headers_guias.get("ShipFromZip")
-                if c_zip:
-                    ws_guias.cell(r, c_zip).value = str(zip_fmt)
+        if zip_fmt is not None:
+            c_zip = headers_guias.get("ShipFromZip" if is_ret_row else "Zip")
+            if c_zip:
+                ws_guias.cell(r, c_zip).value = str(zip_fmt)
                     
         # Actualizar Address 1
         if updates.address1 is not None:
-            if not is_retorno_counterpart:
-                c_a1 = headers_guias.get("ShipToAddress1")
-                if c_a1:
-                    ws_guias.cell(r, c_a1).value = str(updates.address1)[:50]
-            else:
-                c_a1 = headers_guias.get("ShipFromAddress1")
-                if c_a1:
-                    ws_guias.cell(r, c_a1).value = str(updates.address1)[:50]
+            c_a1 = headers_guias.get("ShipFromAddress1" if is_ret_row else "ShipToAddress1")
+            if c_a1:
+                ws_guias.cell(r, c_a1).value = str(updates.address1).strip()[:50]
                     
         # Actualizar Address 2 (Colonia)
         if updates.address2 is not None:
-            if not is_retorno_counterpart:
-                c_a2 = headers_guias.get("ShipToAddress2")
-                if c_a2:
-                    ws_guias.cell(r, c_a2).value = str(updates.address2)[:50]
-            else:
-                c_a2 = headers_guias.get("ShipFromAddress2")
-                if c_a2:
-                    ws_guias.cell(r, c_a2).value = str(updates.address2)[:50]
+            c_a2 = headers_guias.get("ShipFromAddress2" if is_ret_row else "ShipToAddress2")
+            if c_a2:
+                ws_guias.cell(r, c_a2).value = str(updates.address2).strip()[:50]
+
+        # Actualizar Address 3 (Referencias / Interior)
+        if updates.address3 is not None:
+            c_a3 = headers_guias.get("ShipFromAddress3" if is_ret_row else "ShipToAddress3")
+            if c_a3:
+                val_a3 = str(updates.address3).strip()[:50]
+                ws_guias.cell(r, c_a3).value = val_a3 if val_a3 else None
                     
         # Actualizar Ciudad / Municipio
         if updates.city is not None:
-            if not is_retorno_counterpart:
-                c_city = headers_guias.get("City")
-                if c_city:
-                    ws_guias.cell(r, c_city).value = str(updates.city)
-            else:
-                c_city = headers_guias.get("ShipFromCity")
-                if c_city:
-                    ws_guias.cell(r, c_city).value = str(updates.city)
+            c_city = headers_guias.get("ShipFromCity" if is_ret_row else "City")
+            if c_city:
+                ws_guias.cell(r, c_city).value = str(updates.city).strip()
                     
         # Actualizar Estado
         if updates.state is not None:
-            if not is_retorno_counterpart:
-                c_state = headers_guias.get("State")
-                if c_state:
-                    ws_guias.cell(r, c_state).value = str(updates.state)
-            else:
-                c_state = headers_guias.get("ShipFromState")
-                if c_state:
-                    ws_guias.cell(r, c_state).value = str(updates.state)
+            c_state = headers_guias.get("ShipFromState" if is_ret_row else "State")
+            if c_state:
+                ws_guias.cell(r, c_state).value = str(updates.state).strip()
                     
         # Actualizar Servicio (60 / 70)
         if updates.service_code is not None:
             c_srv = headers_guias.get("SelectedServiceCode")
             if c_srv:
-                ws_guias.cell(r, c_srv).value = str(updates.service_code)
+                ws_guias.cell(r, c_srv).value = str(updates.service_code).strip()
                 
         # Actualizar Valor Declarado
         if updates.declared_value is not None:
@@ -509,24 +534,64 @@ def patch_order(pick_order: str, updates: OrderPatchRequest):
                 ws_guias.cell(r, c_val).value = float(updates.declared_value)
                 
     wb_guias.save(guias_path)
-    
-    # También actualizar el resumen de auditoría si está disponible
+
+    # Extraer estado final de la primera fila afectada para re-evaluar validez integral
+    r_main, is_ret_main = filas_afectadas[0]
+    is_ret_row_main = is_ret_main or pick_order.endswith("-1")
+    final_tel = str(ws_guias.cell(r_main, headers_guias.get("ShipFromPhone" if is_ret_row_main else "ShipToPhone")).value or "").strip()
+    final_zip = str(ws_guias.cell(r_main, headers_guias.get("ShipFromZip" if is_ret_row_main else "Zip")).value or "").strip().split(".")[0].zfill(5)
+    final_a1 = str(ws_guias.cell(r_main, headers_guias.get("ShipFromAddress1" if is_ret_row_main else "ShipToAddress1")).value or "").strip()
+    final_a2 = str(ws_guias.cell(r_main, headers_guias.get("ShipFromAddress2" if is_ret_row_main else "ShipToAddress2")).value or "").strip()
+    final_a3_raw = ws_guias.cell(r_main, headers_guias.get("ShipFromAddress3" if is_ret_row_main else "ShipToAddress3")).value
+    final_a3 = str(final_a3_raw).strip() if final_a3_raw is not None and str(final_a3_raw).strip().lower() != "nan" else ""
+    final_city = str(ws_guias.cell(r_main, headers_guias.get("ShipFromCity" if is_ret_row_main else "City")).value or "").strip()
+    final_state = str(ws_guias.cell(r_main, headers_guias.get("ShipFromState" if is_ret_row_main else "State")).value or "").strip()
+
+    has_any_error = any("ERROR" in v.upper() for v in [final_tel, final_zip, final_a1] if v)
+    cp_info_final = validador.buscar_cp(final_zip) if not has_any_error else None
+    orden_limpia = (not has_any_error) and bool(cp_info_final or (len(final_zip) == 5 and final_zip.isdigit()))
+
+    # También actualizar el resumen de auditoría e incidencias si está disponible
     if audit_path and audit_path.is_file():
         try:
             wb_audit = openpyxl.load_workbook(audit_path)
+            base_ritm = pick_order[:-2] if pick_order.endswith("-1") else pick_order
             if "Resumen Direcciones" in wb_audit.sheetnames:
                 ws_res = wb_audit["Resumen Direcciones"]
+                headers_res = {str(ws_res.cell(1, c).value or "").strip(): c for c in range(1, ws_res.max_column + 1)}
                 for r in range(2, ws_res.max_row + 1):
                     val = str(ws_res.cell(r, 1).value or "").strip()
-                    if pick_order in val:
-                        # Si se corrigió el teléfono y ya no tiene ERROR
-                        if nuevo_tel_limpio and not str(nuevo_tel_limpio).startswith("ERROR:"):
-                            ws_res.cell(r, 9).value = str(nuevo_tel_limpio)
-                            # Si tenía estatus de error por teléfono, actualizar a corregido
-                            est_val = str(ws_res.cell(r, 3).value or "")
-                            if "ERROR" in est_val:
-                                ws_res.cell(r, 3).value = "VALIDADA SEPOMEX (Corregida Manualmente)"
-                                ws_res.cell(r, 10).value = "Corregida en caliente vía Dashboard Web"
+                    val_clean = val.replace(" [RETORNO]", "").strip()
+                    if val_clean in (pick_order, base_ritm, f"{base_ritm}-1"):
+                        if "Address 1 (Calle y Num)" in headers_res:
+                            ws_res.cell(r, headers_res["Address 1 (Calle y Num)"]).value = final_a1
+                        if "Address 2 (Colonia)" in headers_res:
+                            ws_res.cell(r, headers_res["Address 2 (Colonia)"]).value = final_a2
+                        if "Address 3 (Referencias / Int)" in headers_res:
+                            ws_res.cell(r, headers_res["Address 3 (Referencias / Int)"]).value = final_a3
+                        if "Ciudad / Municipio" in headers_res:
+                            ws_res.cell(r, headers_res["Ciudad / Municipio"]).value = final_city
+                        if "Estado" in headers_res:
+                            ws_res.cell(r, headers_res["Estado"]).value = final_state
+                        if "Código Postal" in headers_res:
+                            ws_res.cell(r, headers_res["Código Postal"]).value = final_zip
+                        if "Teléfono (10d)" in headers_res:
+                            ws_res.cell(r, headers_res["Teléfono (10d)"]).value = final_tel
+                        if orden_limpia:
+                            if "Estatus Dirección" in headers_res:
+                                ws_res.cell(r, headers_res["Estatus Dirección"]).value = "100% CONFIRMADA (Corregida Manualmente)"
+                            if "Verificación Mapa" in headers_res:
+                                ws_res.cell(r, headers_res["Verificación Mapa"]).value = "Validada y corregida manualmente en Dashboard Operativo"
+
+            if orden_limpia and "Incidencias" in wb_audit.sheetnames:
+                ws_inc = wb_audit["Incidencias"]
+                for r in range(2, ws_inc.max_row + 1):
+                    inc_ritm = str(ws_inc.cell(r, 2).value or "").strip()
+                    inc_tipo = str(ws_inc.cell(r, 3).value or "").strip()
+                    if inc_ritm in (pick_order, base_ritm, f"{base_ritm}-1") and inc_tipo in ("ERROR", "REVISAR"):
+                        ws_inc.cell(r, 3).value = "CORREGIDO"
+                        ws_inc.cell(r, 6).value = f"[Resuelta en Dashboard] {ws_inc.cell(r, 6).value or ''}"
+
             wb_audit.save(audit_path)
         except Exception as e:
             print(f"[AVISO] No se pudo actualizar el archivo de auditoría: {e}")
