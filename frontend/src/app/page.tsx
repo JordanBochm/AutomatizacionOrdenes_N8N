@@ -3413,7 +3413,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Lado Derecho: Descargas Agrupadas */}
-              {batchData ? (
+              {batchData && hasOrders ? (
                 <div className="flex flex-wrap items-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-4">
                   <span className="text-xs text-slate-500 font-bold mr-1 hidden sm:inline">Descargas:</span>
 
