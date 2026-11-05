@@ -90,7 +90,7 @@ const ActiveCellInput: React.FC<{
       const len = inputRef.current.value.length;
       try {
         inputRef.current.setSelectionRange(len, len);
-      } catch {}
+      } catch { }
     }
   }, []);
 
@@ -129,11 +129,10 @@ const ActiveCellInput: React.FC<{
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => onCommit()}
-        className={`w-full h-full px-2.5 py-1.5 text-xs bg-white text-slate-900 focus:outline-none ${
-          field === "tracking_number" || field === "pick_order" || field === "customer_order"
+        className={`w-full h-full px-2.5 py-1.5 text-xs bg-white text-slate-900 focus:outline-none ${field === "tracking_number" || field === "pick_order" || field === "customer_order"
             ? "font-mono text-center"
             : "font-semibold text-center"
-        }`}
+          }`}
       />
     </div>
   );
@@ -216,13 +215,12 @@ const SheetRow = React.memo<MemoRowProps>(
       <tr
         role="row"
         aria-rowindex={rowIndex + 1}
-        className={`border-b border-slate-200 transition-colors ${
-          isSelectedCheckbox
+        className={`border-b border-slate-200 transition-colors ${isSelectedCheckbox
             ? "bg-blue-50/60"
             : isLastTrailingEmpty
-            ? "bg-slate-50/40"
-            : "bg-white hover:bg-slate-50/60"
-        }`}
+              ? "bg-slate-50/40"
+              : "bg-white hover:bg-slate-50/60"
+          }`}
       >
         {/* Columna Checkbox */}
         <td className="py-1.5 px-2.5 w-10 text-center border-r border-slate-200 select-none">
@@ -239,14 +237,13 @@ const SheetRow = React.memo<MemoRowProps>(
         <td
           onClick={() => onSelectEntireRow(rowIndex)}
           title="Clic para seleccionar toda la fila"
-          className={`py-1.5 px-2 w-11 text-center font-mono text-xs font-bold border-r border-slate-200 select-none cursor-pointer transition ${
-            isRowInSelection &&
-            selectionBounds &&
-            selectionBounds.minCol === 0 &&
-            selectionBounds.maxCol === EDITABLE_COLUMNS.length - 1
+          className={`py-1.5 px-2 w-11 text-center font-mono text-xs font-bold border-r border-slate-200 select-none cursor-pointer transition ${isRowInSelection &&
+              selectionBounds &&
+              selectionBounds.minCol === 0 &&
+              selectionBounds.maxCol === EDITABLE_COLUMNS.length - 1
               ? "bg-[#233762] text-white"
               : "bg-slate-50/80 text-slate-600 hover:bg-[#EFF3F9] hover:text-[#233762]"
-          }`}
+            }`}
         >
           {rowIndex + 1}
         </td>
@@ -326,8 +323,8 @@ const SheetRow = React.memo<MemoRowProps>(
             field === "client"
               ? row.client || row.account || ""
               : field === "pick_order"
-              ? stripClientPickPrefix(row.pick_order, row.client || row.account || "")
-              : (row as any)[field] ?? "";
+                ? stripClientPickPrefix(row.pick_order, row.client || row.account || "")
+                : (row as any)[field] ?? "";
 
           const isMono =
             field === "tracking_number" ||
@@ -354,15 +351,14 @@ const SheetRow = React.memo<MemoRowProps>(
               onMouseEnter={() => onCellMouseEnter(rowIndex, colIndex)}
               onDoubleClick={() => onCellDoubleClick(rowIndex, colIndex)}
               onContextMenu={(e) => onContextMenu(rowIndex, colIndex, e)}
-              className={`relative p-0 h-9 border-r border-slate-200 select-none cursor-cell align-middle ${
-                isActive
+              className={`relative p-0 h-9 border-r border-slate-200 select-none cursor-cell align-middle ${isActive
                   ? "ring-2 ring-[#233762] ring-inset z-20 bg-white"
                   : inRange
-                  ? `bg-[#EFF3F9] ${rangeBorderClasses}`
-                  : inFillPreview
-                  ? "bg-[#EFF3F9]/50 border border-dashed border-[#233762]"
-                  : validationClass
-              }`}
+                    ? `bg-[#EFF3F9] ${rangeBorderClasses}`
+                    : inFillPreview
+                      ? "bg-[#EFF3F9]/50 border border-dashed border-[#233762]"
+                      : validationClass
+                }`}
             >
               {isEditing ? (
                 <ActiveCellInput
@@ -377,13 +373,11 @@ const SheetRow = React.memo<MemoRowProps>(
                 />
               ) : (
                 <div
-                  className={`w-full h-full px-2.5 flex items-center justify-center text-xs truncate ${
-                    isMono ? "font-mono" : "font-semibold"
-                  } ${
-                    field === "client" && !isUnknownCli
+                  className={`w-full h-full px-2.5 flex items-center justify-center text-xs truncate ${isMono ? "font-mono" : "font-semibold"
+                    } ${field === "client" && !isUnknownCli
                       ? "font-bold text-[#233762]"
                       : ""
-                  }`}
+                    }`}
                 >
                   <span className="truncate">
                     {String(rawCellVal ?? "") || (
@@ -391,8 +385,8 @@ const SheetRow = React.memo<MemoRowProps>(
                         {isLastTrailingEmpty && colIndex === 1
                           ? "Ej. Kyndryl / BASF"
                           : isLastTrailingEmpty && colIndex === 2
-                          ? "Pegar (Ctrl+V) o escribir..."
-                          : ""}
+                            ? "Pegar (Ctrl+V) o escribir..."
+                            : ""}
                       </span>
                     )}
                   </span>
@@ -573,25 +567,23 @@ export default function TrackingGrid({
                 });
               }
             }}
-            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
-              validationInfo.emptyCount + validationInfo.duplicateCount + validationInfo.errorCount > 0
-                ? "bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100 cursor-pointer"
-                : "bg-emerald-50/70 border-emerald-200 text-emerald-800 cursor-default"
-            }`}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold transition ${validationInfo.emptyCount + validationInfo.duplicateCount + validationInfo.errorCount > 0
+                ? "hover:bg-slate-50 cursor-pointer"
+                : "cursor-default"
+              }`}
             title={
               validationInfo.firstIssueRowIndex !== null
                 ? "Clic para saltar a la primera fila con observación"
                 : "Sin observaciones pendientes"
             }
           >
-            <AlertTriangle
-              className={`w-3.5 h-3.5 ${
-                validationInfo.errorCount + validationInfo.duplicateCount > 0
-                  ? "text-[#CE3A39]"
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${validationInfo.errorCount + validationInfo.duplicateCount > 0
+                  ? "bg-[#CE3A39]"
                   : validationInfo.emptyCount > 0
-                  ? "text-amber-600"
-                  : "text-emerald-600"
-              }`}
+                    ? "bg-amber-500"
+                    : "bg-emerald-500"
+                }`}
             />
             <span>
               {validationInfo.emptyCount} vacío(s) &bull; {validationInfo.duplicateCount} duplicado(s) &bull;{" "}
@@ -629,12 +621,12 @@ export default function TrackingGrid({
                   field === "carrier"
                     ? "w-36"
                     : field === "client"
-                    ? "w-28"
-                    : field === "boxes"
-                    ? "w-20"
-                    : field === "customer_order"
-                    ? "w-44"
-                    : "";
+                      ? "w-28"
+                      : field === "boxes"
+                        ? "w-20"
+                        : field === "customer_order"
+                          ? "w-44"
+                          : "";
                 return (
                   <th
                     key={field}

@@ -25,52 +25,52 @@ const ESTATUS_CONFIG: Record<
 > = {
   DIAGNOSTICO: {
     label: "En Diagnóstico",
-    badgeBg: "bg-blue-50",
-    badgeText: "text-blue-800",
-    badgeBorder: "border-blue-200",
-    dotColor: "bg-blue-500",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-[#233762]",
   },
   ESPERA_PARTES: {
     label: "Espera de Partes",
-    badgeBg: "bg-amber-50",
-    badgeText: "text-amber-800",
-    badgeBorder: "border-amber-300",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
     dotColor: "bg-amber-500",
   },
   EN_REPARACION: {
     label: "En Banco de Trabajo",
-    badgeBg: "bg-purple-50",
-    badgeText: "text-purple-800",
-    badgeBorder: "border-purple-300",
-    dotColor: "bg-purple-500",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-amber-500",
   },
   GARANTIA_LENOVO: {
     label: "RMA Lenovo",
-    badgeBg: "bg-indigo-50",
-    badgeText: "text-indigo-800",
-    badgeBorder: "border-indigo-300",
-    dotColor: "bg-indigo-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-[#233762]",
   },
   GARANTIA_DELL: {
     label: "RMA Dell",
-    badgeBg: "bg-sky-50",
-    badgeText: "text-sky-800",
-    badgeBorder: "border-sky-300",
-    dotColor: "bg-sky-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-[#233762]",
   },
   LISTO_QC: {
     label: "Reparado / Listo QC",
-    badgeBg: "bg-emerald-50",
-    badgeText: "text-emerald-800",
-    badgeBorder: "border-emerald-300",
-    dotColor: "bg-emerald-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-emerald-500",
   },
   SCRAP: {
     label: "Dictamen Scrap",
-    badgeBg: "bg-rose-50",
-    badgeText: "text-rose-800",
-    badgeBorder: "border-rose-300",
-    dotColor: "bg-rose-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-[#CE3A39]",
   },
 };
 
@@ -138,53 +138,59 @@ export default function ReparacionView({ onBack }: ReparacionViewProps = {}) {
       </div>
 
       {/* KPIs Submódulo Reparación */}
-      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total en Taller</div>
-          <div className="text-2xl font-black text-[#233762] mt-1.5">{kpis.totalEnTaller}</div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-            <Layers className="w-3 h-3 text-blue-500" /> Órdenes activas
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total en Taller</span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.totalEnTaller}</div>
+          <div className="text-xs text-slate-400 mt-1">Órdenes activas</div>
         </div>
 
-        <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-200 shadow-sm">
-          <div className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">En Diagnóstico</div>
-          <div className="text-2xl font-black text-blue-700 mt-1.5">{kpis.enDiagnostico}</div>
-          <div className="text-[11px] text-blue-600 mt-1 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Revisión inicial
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">En Diagnóstico</span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.enDiagnostico}</div>
+          <div className="text-xs text-slate-400 mt-1">Revisión inicial</div>
         </div>
 
-        <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-200 shadow-sm">
-          <div className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">Espera Partes</div>
-          <div className="text-2xl font-black text-amber-700 mt-1.5">{kpis.esperaPartes}</div>
-          <div className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
-            <Wrench className="w-3 h-3" /> Refacciones solicitadas
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Espera Partes</span>
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.esperaPartes}</div>
+          <div className="text-xs text-slate-400 mt-1">Refacciones solicitadas</div>
         </div>
 
-        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-200 shadow-sm">
-          <div className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">Garantía RMA</div>
-          <div className="text-2xl font-black text-indigo-700 mt-1.5">{kpis.enGarantiaFabricante}</div>
-          <div className="text-[11px] text-indigo-600 mt-1 flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" /> Lenovo / Dell Oficial
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Garantía RMA</span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.enGarantiaFabricante}</div>
+          <div className="text-xs text-slate-400 mt-1">Lenovo / Dell Oficial</div>
         </div>
 
-        <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200 shadow-sm">
-          <div className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">Reparado / QC</div>
-          <div className="text-2xl font-black text-emerald-700 mt-1.5">{kpis.listosQC}</div>
-          <div className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Listo para stock
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Reparado / QC</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.listosQC}</div>
+          <div className="text-xs text-slate-400 mt-1">Listo para stock</div>
         </div>
 
-        <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-200 shadow-sm">
-          <div className="text-[11px] font-bold text-rose-900 uppercase tracking-wider">Dictamen Scrap</div>
-          <div className="text-2xl font-black text-rose-700 mt-1.5">{kpis.scrap}</div>
-          <div className="text-[11px] text-rose-600 mt-1 flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" /> Baja técnica
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Dictamen Scrap</span>
+            <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.scrap}</div>
+          <div className="text-xs text-slate-400 mt-1">Baja técnica</div>
         </div>
       </section>
 
@@ -225,11 +231,11 @@ export default function ReparacionView({ onBack }: ReparacionViewProps = {}) {
                   onClick={() => setSelectedEstatus(key as EstatusReparacion)}
                   className={`px-2.5 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 ${
                     selectedEstatus === key
-                      ? "bg-[#CE3A39] text-white"
+                      ? "bg-[#233762] text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotColor}`} />
+                  <span className={`w-2 h-2 rounded-full ${selectedEstatus === key ? "bg-white" : cfg.dotColor}`} />
                   {cfg.label} ({count})
                 </button>
               );
@@ -284,8 +290,8 @@ export default function ReparacionView({ onBack }: ReparacionViewProps = {}) {
                       </td>
                       <td className="py-3 px-4">
                         {item.garantiaAplica ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            <ShieldCheck className="w-3 h-3 text-emerald-600" /> {item.proveedorGarantia} Oficial
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {item.proveedorGarantia} Oficial
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-400 font-medium">Reparación Local</span>
@@ -293,10 +299,8 @@ export default function ReparacionView({ onBack }: ReparacionViewProps = {}) {
                       </td>
                       <td className="py-3 px-4 text-slate-700">{item.tecnicoAsignado}</td>
                       <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${conf.badgeBg} ${conf.badgeText} ${conf.badgeBorder}`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${conf.dotColor}`} />
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${conf.dotColor}`} />
                           {conf.label}
                         </span>
                       </td>

@@ -25,45 +25,45 @@ const ESTATUS_CONFIG: Record<
 > = {
   PREPARANDO: {
     label: "En Empaque / Timbrado",
-    badgeBg: "bg-slate-100",
+    badgeBg: "bg-slate-50",
     badgeText: "text-slate-700",
-    badgeBorder: "border-slate-300",
+    badgeBorder: "border-slate-200",
     dotColor: "bg-slate-400",
   },
   LISTO_RECOLECCION: {
     label: "Listo para Recolección",
-    badgeBg: "bg-blue-50",
-    badgeText: "text-blue-800",
-    badgeBorder: "border-blue-300",
-    dotColor: "bg-blue-500",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-amber-500",
   },
   EN_TRANSITO: {
     label: "En Tránsito Carrier",
-    badgeBg: "bg-indigo-50",
-    badgeText: "text-indigo-800",
-    badgeBorder: "border-indigo-300",
-    dotColor: "bg-indigo-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-[#233762]",
   },
   EN_REPARTO: {
     label: "En Reparto Local",
-    badgeBg: "bg-purple-50",
-    badgeText: "text-purple-800",
-    badgeBorder: "border-purple-300",
-    dotColor: "bg-purple-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-[#233762]",
   },
   ENTREGADO: {
     label: "Entregado a Usuario",
-    badgeBg: "bg-emerald-50",
-    badgeText: "text-emerald-800",
-    badgeBorder: "border-emerald-300",
-    dotColor: "bg-emerald-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-emerald-500",
   },
   INCIDENCIA: {
     label: "Incidencia en Destino",
-    badgeBg: "bg-rose-50",
-    badgeText: "text-rose-800",
-    badgeBorder: "border-rose-300",
-    dotColor: "bg-rose-600",
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    badgeBorder: "border-slate-200",
+    dotColor: "bg-[#CE3A39]",
   },
 };
 
@@ -132,45 +132,50 @@ export default function OutboundView({ onBack }: OutboundViewProps = {}) {
       </div>
 
       {/* KPIs Outbound */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Despachos</div>
-          <div className="text-2xl font-black text-[#233762] mt-1.5">{kpis.totalOutbound}</div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-            <Layers className="w-3 h-3 text-blue-500" /> Órdenes generadas
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-5">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Despachos</span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.totalOutbound}</div>
+          <div className="text-xs text-slate-400 mt-1">Órdenes generadas</div>
         </div>
 
-        <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-200 shadow-sm">
-          <div className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">Preparando / Andén</div>
-          <div className="text-2xl font-black text-amber-700 mt-1.5">{kpis.preparando}</div>
-          <div className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
-            <PackageCheck className="w-3 h-3" /> Timbrado y empaque
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Preparando / Andén</span>
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.preparando}</div>
+          <div className="text-xs text-slate-400 mt-1">Timbrado y empaque</div>
         </div>
 
-        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-200 shadow-sm">
-          <div className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">En Tránsito</div>
-          <div className="text-2xl font-black text-indigo-700 mt-1.5">{kpis.enTransito}</div>
-          <div className="text-[11px] text-indigo-600 mt-1 flex items-center gap-1">
-            <Truck className="w-3 h-3" /> FedEx / Estafeta
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">En Tránsito</span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.enTransito}</div>
+          <div className="text-xs text-slate-400 mt-1">FedEx / Estafeta</div>
         </div>
 
-        <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200 shadow-sm">
-          <div className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">Entregados</div>
-          <div className="text-2xl font-black text-emerald-700 mt-1.5">{kpis.entregados}</div>
-          <div className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Recepción confirmada
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Entregados</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.entregados}</div>
+          <div className="text-xs text-slate-400 mt-1">Recepción confirmada</div>
         </div>
 
-        <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-200 shadow-sm">
-          <div className="text-[11px] font-bold text-rose-900 uppercase tracking-wider">Incidencias</div>
-          <div className="text-2xl font-black text-rose-700 mt-1.5">{kpis.incidencias}</div>
-          <div className="text-[11px] text-rose-600 mt-1 flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" /> Requiere atención CSM
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Incidencias</span>
+            <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
           </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{kpis.incidencias}</div>
+          <div className="text-xs text-slate-400 mt-1">Requiere atención CSM</div>
         </div>
       </section>
 
@@ -211,11 +216,11 @@ export default function OutboundView({ onBack }: OutboundViewProps = {}) {
                   onClick={() => setSelectedEstatus(key as EstatusOutbound)}
                   className={`px-2.5 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 ${
                     selectedEstatus === key
-                      ? "bg-[#CE3A39] text-white"
+                      ? "bg-[#233762] text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotColor}`} />
+                  <span className={`w-2 h-2 rounded-full ${selectedEstatus === key ? "bg-white" : cfg.dotColor}`} />
                   {cfg.label} ({count})
                 </button>
               );
@@ -291,10 +296,8 @@ export default function OutboundView({ onBack }: OutboundViewProps = {}) {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${conf.badgeBg} ${conf.badgeText} ${conf.badgeBorder}`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${conf.dotColor}`} />
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${conf.dotColor}`} />
                           {conf.label}
                         </span>
                       </td>

@@ -489,32 +489,32 @@ export const STATUS_UI_CONFIG: Record<
 > = {
   ENTREGADO: {
     label: "Entregado",
-    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    badgeClass: "bg-slate-50 text-slate-700 border-slate-200",
     dotClass: "bg-emerald-500",
   },
   EN_TRANSITO: {
     label: "En Tránsito",
-    badgeClass: "bg-[#EFF3F9] text-[#233762] border-[#233762]/20",
+    badgeClass: "bg-slate-50 text-slate-700 border-slate-200",
     dotClass: "bg-[#233762]",
   },
   RECOLECTADO: {
     label: "Recolectado",
-    badgeClass: "bg-slate-100 text-slate-700 border-slate-300",
+    badgeClass: "bg-slate-50 text-slate-700 border-slate-200",
     dotClass: "bg-slate-500",
   },
   EN_REPARTO: {
     label: "En Reparto",
-    badgeClass: "bg-[#EFF3F9] text-[#233762] border-[#233762]/30",
+    badgeClass: "bg-slate-50 text-slate-700 border-slate-200",
     dotClass: "bg-[#233762]",
   },
   INCIDENCIA: {
     label: "Incidencia",
-    badgeClass: "bg-red-50 text-[#CE3A39] border-red-200",
+    badgeClass: "bg-slate-50 text-slate-700 border-slate-200",
     dotClass: "bg-[#CE3A39]",
   },
   DESCONOCIDO: {
     label: "Desconocido",
-    badgeClass: "bg-slate-100 text-slate-600 border-slate-200",
+    badgeClass: "bg-slate-50 text-slate-600 border-slate-200",
     dotClass: "bg-slate-400",
   },
 };
@@ -1049,87 +1049,79 @@ export default function TransportTracker({
   };
 
   return (
-    <main className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col gap-5">
+    <main className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col gap-8">
       {/* ==================================================================== */}
       {/* ZONA 1: KPIs Y ESTADO DE CONEXIÓN DE CARRIERS                        */}
       {/* ==================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <button
           type="button"
           onClick={() => setStatusFilter("ALL")}
-          className={`bg-white rounded-xl border p-4 text-left transition-all shadow-xs hover:shadow-md cursor-pointer ${
-            statusFilter === "ALL" ? "border-[#233762] ring-1 ring-[#233762]/20" : "border-slate-200"
+          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
+            statusFilter === "ALL" ? "border-[#233762] ring-2 ring-[#233762]/15" : "border-slate-200"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
               Guías Consultadas
             </span>
-            <div className="w-8 h-8 rounded-lg bg-[#EFF3F9] text-[#233762] flex items-center justify-center">
-              <Package className="w-4 h-4" />
-            </div>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
-          <p className="text-2xl font-extrabold text-[#233762] mt-2 font-mono">{metrics.total}</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Clic para mostrar todas las guías</p>
+          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">{metrics.total}</p>
+          <p className="text-xs text-slate-400 mt-1">Clic para mostrar todas las guías</p>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter("ENTREGADO")}
-          className={`bg-white rounded-xl border p-4 text-left transition-all shadow-xs hover:shadow-md cursor-pointer ${
-            statusFilter === "ENTREGADO" ? "border-emerald-600 ring-1 ring-emerald-600/20" : "border-slate-200"
+          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
+            statusFilter === "ENTREGADO" ? "border-[#233762] ring-2 ring-[#233762]/15" : "border-slate-200"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Entregados</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Entregados</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </div>
-          <p className="text-2xl font-extrabold text-emerald-700 mt-2 font-mono">{metrics.entregados}</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Envíos finalizados con éxito</p>
+          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">{metrics.entregados}</p>
+          <p className="text-xs text-slate-400 mt-1">Envíos finalizados con éxito</p>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter("EN_TRANSITO")}
-          className={`bg-white rounded-xl border p-4 text-left transition-all shadow-xs hover:shadow-md cursor-pointer ${
-            statusFilter === "EN_TRANSITO" ? "border-[#233762] ring-1 ring-[#233762]/20" : "border-slate-200"
+          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
+            statusFilter === "EN_TRANSITO" ? "border-[#233762] ring-2 ring-[#233762]/15" : "border-slate-200"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
               En Tránsito / Reparto
             </span>
-            <div className="w-8 h-8 rounded-lg bg-[#EFF3F9] text-[#233762] flex items-center justify-center">
-              <Truck className="w-4 h-4" />
-            </div>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
-          <p className="text-2xl font-extrabold text-[#233762] mt-2 font-mono">{metrics.enRuta}</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Unidades en movimiento activo</p>
+          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">{metrics.enRuta}</p>
+          <p className="text-xs text-slate-400 mt-1">Unidades en movimiento activo</p>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter("DELAYED_OR_ISSUE")}
-          className={`bg-white rounded-xl border p-4 text-left transition-all shadow-xs hover:shadow-md cursor-pointer ${
+          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
             statusFilter === "DELAYED_OR_ISSUE"
-              ? "border-[#CE3A39] ring-1 ring-[#CE3A39]/20"
+              ? "border-[#233762] ring-2 ring-[#233762]/15"
               : "border-slate-200"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
               Incidencias / Retrasos
             </span>
-            <div className="w-8 h-8 rounded-lg bg-red-50 text-[#CE3A39] flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
+            <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
           </div>
-          <p className="text-2xl font-extrabold text-[#CE3A39] mt-2 font-mono">
+          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">
             {metrics.incidenciasORetrasos}
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Excepciones o fecha estimada vencida</p>
+          <p className="text-xs text-slate-400 mt-1">Excepciones o fecha estimada vencida</p>
         </button>
       </div>
 
@@ -1153,7 +1145,7 @@ export default function TransportTracker({
             {carrierConfig && (
               <div className="hidden xl:flex items-center gap-2 mr-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-[11px]">
                 <span className="text-slate-500 font-semibold">APIs:</span>
-                <span className="inline-flex items-center gap-1 font-mono font-bold text-[#233762]">
+                <span className="inline-flex items-center gap-1 font-mono font-bold text-slate-700">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
                       carrierConfig.FEDEX ? "bg-emerald-500" : "bg-slate-400"
@@ -1162,7 +1154,7 @@ export default function TransportTracker({
                   FedEx {carrierConfig.FEDEX ? "Live" : "Simulador"}
                 </span>
                 <span className="text-slate-300">|</span>
-                <span className="inline-flex items-center gap-1 font-mono font-bold text-[#CE3A39]">
+                <span className="inline-flex items-center gap-1 font-mono font-bold text-slate-700">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
                       carrierConfig.ESTAFETA ? "bg-emerald-500" : "bg-slate-400"
@@ -1269,12 +1261,12 @@ export default function TransportTracker({
                   Detectadas ({inputPreviewSummary.total}):
                 </span>
                 {inputPreviewSummary.fedex > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-[#EFF3F9] text-[#233762] font-mono text-[11px] font-bold border border-[#233762]/20">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px] font-bold border border-slate-200">
                     {inputPreviewSummary.fedex} FedEx
                   </span>
                 )}
                 {inputPreviewSummary.estafeta > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-[#FDF2F2] text-[#CE3A39] font-mono text-[11px] font-bold border border-[#CE3A39]/20">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px] font-bold border border-slate-200">
                     {inputPreviewSummary.estafeta} Estafeta
                   </span>
                 )}
@@ -1357,7 +1349,7 @@ export default function TransportTracker({
                 onClick={() => setCarrierFilter("ESTAFETA")}
                 className={`px-2.5 py-1 rounded-lg transition cursor-pointer font-mono ${
                   carrierFilter === "ESTAFETA"
-                    ? "bg-[#CE3A39] text-white shadow-2xs"
+                    ? "bg-[#233762] text-white shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -1411,7 +1403,7 @@ export default function TransportTracker({
               type="button"
               onClick={handleRefreshAll}
               disabled={results.length === 0 || isBatchLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               title="Ignorar caché y consultar nuevamente todas las guías de la tabla"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isBatchLoading ? "animate-spin" : ""}`} />
@@ -1422,10 +1414,10 @@ export default function TransportTracker({
               type="button"
               onClick={handleExportExcel}
               disabled={filteredResults.length === 0 || isExportingExcel}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-[#233762]/30 bg-[#EFF3F9] hover:bg-slate-200/80 text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-slate-700 hover:text-[#233762] text-xs font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               title="Descargar archivo Excel (.xlsx) con el diseño institucional estandarizado de Tracking"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-[#233762]" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
               <span>{isExportingExcel ? "Generando..." : "Excel (.xlsx)"}</span>
             </button>
 
@@ -1433,7 +1425,7 @@ export default function TransportTracker({
               type="button"
               onClick={handleOpenPdfPreview}
               disabled={filteredResults.length === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-white hover:bg-[#EFF3F9] border border-[#233762] text-[#233762] text-xs font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               title="Abrir vista previa en vivo del PDF estandarizado"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -1444,7 +1436,7 @@ export default function TransportTracker({
               type="button"
               onClick={handleDownloadPdf}
               disabled={filteredResults.length === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               title="Descargar PDF oficial con el formato estandarizado de Tracking"
             >
               <Download className="w-3.5 h-3.5" />
@@ -1458,7 +1450,7 @@ export default function TransportTracker({
                   setResults([]);
                   setSelectedGuideKey(null);
                 }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 text-[#CE3A39] text-xs font-bold transition cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition cursor-pointer"
                 title="Limpiar tabla de resultados"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -1602,15 +1594,7 @@ export default function TransportTracker({
 
                       {/* Columna 2: Carrier */}
                       <td className="py-3.5 px-3">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-md font-mono text-[11px] font-bold border ${
-                            item.carrier === "FEDEX"
-                              ? "bg-[#EFF3F9] text-[#233762] border-[#233762]/25"
-                              : item.carrier === "ESTAFETA"
-                              ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/25"
-                              : "bg-slate-100 text-slate-600 border-slate-200"
-                          }`}
-                        >
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border bg-slate-100 text-slate-600 border-slate-200">
                           {item.carrier}
                         </span>
                       </td>
@@ -1618,10 +1602,8 @@ export default function TransportTracker({
                       {/* Columna 3: Estatus */}
                       <td className="py-3.5 px-3">
                         <div className="flex flex-col items-start gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border ${statusCfg.badgeClass}`}
-                          >
-                            <span className={`w-2 h-2 rounded-full ${statusCfg.dotClass}`} />
+                          <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${statusCfg.dotClass}`} />
                             {statusCfg.label}
                           </span>
                           {item.retrasado && (

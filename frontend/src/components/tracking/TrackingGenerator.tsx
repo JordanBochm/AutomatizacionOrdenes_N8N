@@ -726,27 +726,27 @@ export default function TrackingGenerator({
             {isCustomMode && (
               <>
                 <div className="w-full sm:w-72">
-                  <label className="block text-[11px] font-bold text-[#CE3A39] uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                     Título del Reporte (Editable)
                   </label>
                   <input
                     type="text"
                     value={headerInfo.title}
                     onChange={(e) => setHeaderInfo({ ...headerInfo, title: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 rounded-xl bg-red-50/40 border border-red-200 focus:bg-white focus:outline-none focus:border-[#CE3A39] transition"
+                    className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:border-[#233762] transition"
                     placeholder="GUÍAS PARA LAS ÓRDENES DEL DÍA"
                   />
                 </div>
 
                 <div className="w-full sm:w-60">
-                  <label className="block text-[11px] font-bold text-[#CE3A39] uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                     Cliente / Cuenta del Reporte
                   </label>
                   <input
                     type="text"
                     value={headerInfo.clients}
                     onChange={(e) => setHeaderInfo({ ...headerInfo, clients: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 rounded-xl bg-red-50/40 border border-red-200 focus:bg-white focus:outline-none focus:border-[#CE3A39] transition"
+                    className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:border-[#233762] transition"
                     placeholder="Ej. OTROS CLIENTES / SEKO"
                   />
                 </div>
@@ -759,10 +759,10 @@ export default function TrackingGenerator({
             <button
               type="button"
               onClick={handleToggleCustomMode}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer ${
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                 isCustomMode
-                  ? "bg-[#CE3A39] hover:bg-[#B02E2D] text-white"
-                  : "bg-[#EFF3F9] hover:bg-[#E2E8F4] text-[#233762] border border-[#233762]/20"
+                  ? "bg-[#233762] hover:bg-[#1B2A4A] text-white"
+                  : "bg-white hover:bg-[#EFF3F9] text-[#233762] border border-slate-300"
               }`}
             >
               {isCustomMode ? (
@@ -875,7 +875,7 @@ export default function TrackingGenerator({
               type="button"
               onClick={handleOpenPreview}
               disabled={totals.totalOrders === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-white hover:bg-[#EFF3F9] border border-[#233762] text-[#233762] text-xs font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Eye className="w-3.5 h-3.5" />
               <span>Vista previa</span>
@@ -885,7 +885,7 @@ export default function TrackingGenerator({
               type="button"
               onClick={handleDownloadPdf}
               disabled={totals.totalOrders === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Generar PDF</span>

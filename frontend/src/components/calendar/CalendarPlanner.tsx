@@ -42,29 +42,29 @@ const CATEGORY_CONFIG: Record<
 > = {
   entrega: {
     label: "Cita de Entrega",
-    bgBadge: "bg-[#EFF3F9]",
-    textBadge: "text-[#233762] border-[#233762]/20",
+    bgBadge: "bg-slate-100",
+    textBadge: "text-slate-600 border-slate-200",
     dotColor: "bg-[#233762]",
     icon: Package,
   },
   recoleccion: {
     label: "Recolección (Pickup)",
-    bgBadge: "bg-[#FDF2F2]",
-    textBadge: "text-[#CE3A39] border-[#CE3A39]/20",
+    bgBadge: "bg-slate-100",
+    textBadge: "text-slate-600 border-slate-200",
     dotColor: "bg-[#CE3A39]",
     icon: Truck,
   },
   cierre: {
     label: "Cierre de Lote",
-    bgBadge: "bg-emerald-50",
-    textBadge: "text-emerald-700 border-emerald-200",
-    dotColor: "bg-emerald-600",
+    bgBadge: "bg-slate-100",
+    textBadge: "text-slate-600 border-slate-200",
+    dotColor: "bg-emerald-500",
     icon: FileSpreadsheet,
   },
   mantenimiento: {
     label: "Mantenimiento / Cita Técnica",
-    bgBadge: "bg-amber-50",
-    textBadge: "text-amber-800 border-amber-200",
+    bgBadge: "bg-slate-100",
+    textBadge: "text-slate-600 border-slate-200",
     dotColor: "bg-amber-500",
     icon: AlertCircle,
   },
@@ -334,30 +334,27 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
         </span>
         <button
           onClick={() => setFilterCategory("all")}
-          className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-            filterCategory === "all"
+          className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${filterCategory === "all"
               ? "bg-[#233762] text-white"
               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-          }`}
+            }`}
         >
           Todos ({events.length})
         </button>
         {(Object.keys(CATEGORY_CONFIG) as EventCategory[]).map((cat) => {
           const cfg = CATEGORY_CONFIG[cat];
           const count = events.filter((e) => e.category === cat).length;
-          const Icon = cfg.icon;
           const isSelected = filterCategory === cat;
           return (
             <button
               key={cat}
               onClick={() => setFilterCategory(cat)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold border transition-colors ${
-                isSelected
-                  ? `${cfg.bgBadge} ${cfg.textBadge} ring-2 ring-[#233762]/20`
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold border transition-colors ${isSelected
+                  ? "bg-[#233762] text-white border-[#233762]"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-              }`}
+                }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <span className={`w-2 h-2 rounded-full ${isSelected ? "bg-white" : cfg.dotColor}`} />
               <span>{cfg.label}</span>
               <span className="text-[10px] opacity-75 font-mono">({count})</span>
             </button>
@@ -418,28 +415,26 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
                 <div
                   key={dateStr}
                   onClick={() => setSelectedDate(dateStr)}
-                  className={`min-h-[85px] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col justify-between ${
-                    isSelected
+                  className={`min-h-[85px] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col justify-between ${isSelected
                       ? "border-[#233762] bg-[#EFF3F9]/60 shadow-xs ring-2 ring-[#233762]/30"
                       : isToday
-                      ? "border-[#CE3A39]/60 bg-[#FDF2F2]/40 hover:border-slate-300"
-                      : isCurrentMonth
-                      ? "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
-                      : "border-slate-100 bg-slate-50/50 text-slate-300 hover:bg-slate-100/50"
-                  }`}
+                        ? "border-[#233762]/40 bg-[#EFF3F9]/30 hover:border-slate-300"
+                        : isCurrentMonth
+                          ? "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                          : "border-slate-100 bg-slate-50/50 text-slate-300 hover:bg-slate-100/50"
+                    }`}
                 >
                   {/* Encabezado del día */}
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-xs font-mono font-bold w-6 h-6 rounded-full flex items-center justify-center ${
-                        isToday
-                          ? "bg-[#CE3A39] text-white"
-                          : isSelected
+                      className={`text-xs font-mono font-bold w-6 h-6 rounded-full flex items-center justify-center ${isSelected
                           ? "bg-[#233762] text-white"
-                          : isCurrentMonth
-                          ? "text-slate-700"
-                          : "text-slate-300"
-                      }`}
+                          : isToday
+                            ? "bg-[#EFF3F9] text-[#233762] border border-[#233762]/30"
+                            : isCurrentMonth
+                              ? "text-slate-700"
+                              : "text-slate-300"
+                        }`}
                     >
                       {dayNum}
                     </span>
@@ -457,11 +452,12 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
                       return (
                         <div
                           key={ev.id}
-                          className={`text-[10px] font-medium truncate px-1.5 py-0.5 rounded border leading-tight ${cfg.bgBadge} ${cfg.textBadge}`}
+                          className="text-[10px] font-medium truncate px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-700 leading-tight flex items-center gap-1"
                           title={`${ev.time} - ${ev.title}`}
                         >
-                          <span className="font-mono font-bold mr-1">{ev.time}</span>
-                          {ev.title}
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dotColor}`} />
+                          <span className="font-mono font-bold">{ev.time}</span>
+                          <span className="truncate">{ev.title}</span>
                         </div>
                       );
                     })}
@@ -529,29 +525,25 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
                 return (
                   <div
                     key={ev.id}
-                    className={`p-3.5 rounded-xl border transition-all flex flex-col gap-2 relative overflow-hidden ${
-                      isDone
+                    className={`p-3.5 rounded-xl border transition-all flex flex-col gap-2 relative overflow-hidden ${isDone
                         ? "bg-slate-50 border-slate-200 opacity-70"
                         : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider ${cfg.bgBadge} ${cfg.textBadge}`}
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider ${cfg.bgBadge} ${cfg.textBadge}`}
                       >
-                        <Icon className="w-3 h-3" />
+                        <span className={`w-2 h-2 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                       </span>
                       <button
                         onClick={() => handleToggleStatus(ev.id)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
-                          isDone
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                            : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
-                        }`}
+                        className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
                         title="Marcar como completada/pendiente"
                       >
-                        {isDone ? "✓ Completada" : "Pendiente"}
+                        <span className={`w-2 h-2 rounded-full ${isDone ? "bg-emerald-500" : "bg-amber-500"}`} />
+                        {isDone ? "Completada" : "Pendiente"}
                       </button>
                     </div>
 
