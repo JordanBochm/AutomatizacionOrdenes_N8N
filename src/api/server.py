@@ -70,7 +70,6 @@ from src.validador_postal import (
     validar_y_limpiar_telefono,
     normalizar_texto,
     formatear_direccion_inteligente,
-    MAPEO_ESTADO_PLANTILLA,
 )
 
 _VALIDADOR_POSTAL_SINGLETON: Optional[ValidadorPostal] = None
@@ -388,7 +387,7 @@ def lookup_cp_sepomex(cp: str):
     if not info:
         return {"existe": False, "cp": cp_fmt, "estado": "", "municipio": "", "colonias": []}
     est_norm = normalizar_texto(info["estado"])
-    est_plantilla = MAPEO_ESTADO_PLANTILLA.get(est_norm, info["estado"])
+    est_plantilla = validador.ESTADO_PLANTILLA.get(est_norm, info["estado"])
     return {
         "existe": True,
         "cp": cp_fmt,
