@@ -340,7 +340,10 @@ export default function DashboardPage() {
 
   // Filtros de tabla
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"ALL" | "ISSUES" | "CONFIRMED" | "OUTBOUND" | "RETURN">("ALL");
+  const [activeTab, setActiveTab] = useState<
+    "ALL" | "ISSUES" | "CONFIRMED" | "REVIEW" | "BLOCKED"
+  >("ALL");
+  const [orderTypeFilter, setOrderTypeFilter] = useState<"ALL" | "OUTBOUND" | "RETURN">("ALL");
 
   // Estado para modal de edición en caliente
   const [editingOrder, setEditingOrder] = useState<OrderItem | null>(null);
@@ -1209,6 +1212,7 @@ export default function DashboardPage() {
       setBatchData(null);
       setSearchTerm("");
       setActiveTab("ALL");
+      setOrderTypeFilter("ALL");
       setEditingOrder(null);
       setSelectedOrderIds(new Set());
       void captureArchive();
@@ -1236,8 +1240,10 @@ export default function DashboardPage() {
     return batchData.orders.filter((order) => {
       if (activeTab === "ISSUES" && order.status_semaphore === "VERDE") return false;
       if (activeTab === "CONFIRMED" && order.status_semaphore !== "VERDE") return false;
-      if (activeTab === "OUTBOUND" && order.type !== "OUTBOUND") return false;
-      if (activeTab === "RETURN" && order.type !== "RETURN") return false;
+      if (activeTab === "REVIEW" && order.status_semaphore !== "AMARILLO") return false;
+      if (activeTab === "BLOCKED" && order.status_semaphore !== "ROJO") return false;
+      if (orderTypeFilter === "OUTBOUND" && order.type !== "OUTBOUND") return false;
+      if (orderTypeFilter === "RETURN" && order.type !== "RETURN") return false;
 
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
@@ -1250,7 +1256,7 @@ export default function DashboardPage() {
         order.address1.toLowerCase().includes(term)
       );
     });
-  }, [batchData, searchTerm, activeTab]);
+  }, [batchData, searchTerm, activeTab, orderTypeFilter]);
 
   const hasOrders = Boolean(batchData?.orders && batchData.orders.length > 0);
   const outboundCount = useMemo(
@@ -1363,8 +1369,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
-      {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
-      <div className="h-1.5 w-full flex relative z-50">
+      {/* Franja Superior Bicolor Institucional (3px en Automatizador, 6px en resto) */}
+      <div className={`${activeModule === "asset_management" ? "h-[3px]" : "h-1.5"} w-full flex relative z-50`}>
         <div className="w-1/2 bg-[#233762]" />
         <div className="w-1/2 bg-[#CE3A39]" />
       </div>
@@ -3185,14 +3191,14 @@ export default function DashboardPage() {
         /* VISTA DASHBOARD DE OPERACIÓN (AUTOMATIZADOR DE OPERACIÓN)            */
         /* ==================================================================== */
         <>
-          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
             <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 {/* Botón para volver a Operación del día */}
                 <button
                   type="button"
                   onClick={() => setActiveModule("operacion_dia")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs group cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition group cursor-pointer"
                   title="Regresar a Operación del día"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
@@ -3216,7 +3222,7 @@ export default function DashboardPage() {
                   <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                     Automatizador de operación
                   </h1>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold border border-slate-200">
                     KST / Kyndryl
                   </span>
                 </div>
@@ -3227,7 +3233,7 @@ export default function DashboardPage() {
                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs text-slate-700">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-200 text-[#CE3A39]">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200">
                     {roleConfig.code}
                   </span>
                 </div>
@@ -3243,7 +3249,7 @@ export default function DashboardPage() {
 
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition cursor-pointer"
                   title="Cerrar sesión"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -3253,12 +3259,12 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <main className="flex-1 w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 py-6 space-y-6 relative z-10">
+          <main className="flex-1 w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 py-6 space-y-8 relative z-10">
             {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
             <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-500">Lote en proceso:</span>
-                <span className="text-xs font-mono font-bold text-[#233762] px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                <span className="text-xs font-mono font-bold text-[#233762] px-2.5 py-1 rounded-lg bg-white border border-slate-200">
                   {batchData?.batch_filename || "Sin lote activo"}
                 </span>
               </div>
@@ -3267,7 +3273,7 @@ export default function DashboardPage() {
                 onClick={handleArchivePreview}
                 disabled={actionLoading === "archive" || !hasOrders}
                 title="Archivar el lote actual y limpiar la tabla (se resguarda en data/archive)"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-600 hover:bg-red-50 hover:border-red-200 hover:text-[#CE3A39] text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Archive className="w-4 h-4" />
                 <span>
@@ -3279,7 +3285,7 @@ export default function DashboardPage() {
             {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) - Altura Compactada y Equilibrada */}
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-stretch">
               {/* Dropzone de Ingesta (xl:col-span-4) alineado a la misma altura h-full min-h-[135px] */}
-              <div className="md:col-span-2 xl:col-span-4 bg-white border-2 border-dashed border-slate-300 hover:border-[#233762] rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group h-full min-h-[135px]">
+              <div className="md:col-span-2 xl:col-span-4 bg-white border border-dashed border-slate-300 hover:border-[#233762]/60 rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group h-full min-h-[135px]">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -3289,7 +3295,7 @@ export default function DashboardPage() {
                   disabled={uploading}
                 />
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-[#EFF3F9] text-[#233762] border border-[#233762]/20 group-hover:scale-105 transition-transform shrink-0">
+                  <div className="p-2.5 rounded-xl bg-slate-100 text-[#233762] border border-slate-200 group-hover:bg-[#EFF3F9] transition-colors shrink-0">
                     <UploadCloud className="w-5 h-5" />
                   </div>
                   <div>
@@ -3304,279 +3310,346 @@ export default function DashboardPage() {
                   </span>
                   <button
                     type="button"
-                    className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold shadow-xs transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold transition cursor-pointer"
                   >
                     {uploading ? "Procesando..." : "Examinar..."}
                   </button>
                 </div>
               </div>
 
-              {/* Tarjeta KPI 1: Total Órdenes */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#233762]" />
-                <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#233762]">Total Órdenes</span>
-                  <Package className="w-4 h-4 text-[#233762]" />
-                </div>
-                <div>
-                  <span className="text-4xl font-extrabold tracking-tight font-mono text-[#233762] my-2 block">
-                    {batchData?.metrics.total_orders || 0}
-                  </span>
-                  <p className="text-[11px] text-slate-400">Ida y Retorno (-1)</p>
-                </div>
-              </div>
-
-              {/* Tarjeta KPI 2: Confirmadas 100% */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500" />
-                <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Confirmadas</span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                </div>
-                <div>
-                  <span className="text-4xl font-extrabold tracking-tight font-mono text-emerald-600 my-2 block">
-                    {batchData?.metrics.confirmed_100 || 0}
-                  </span>
-                  <p className="text-[11px] text-emerald-600/80">Semáforo Verde</p>
-                </div>
-              </div>
-
-              {/* Tarjeta KPI 3: Por Revisar */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
-                <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Por Revisar</span>
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                </div>
-                <div>
-                  <span className="text-4xl font-extrabold tracking-tight font-mono text-amber-600 my-2 block">
-                    {batchData?.metrics.review || 0}
-                  </span>
-                  <p className="text-[11px] text-amber-700/80">Semáforo Amarillo</p>
-                </div>
-              </div>
-
-              {/* Tarjeta KPI 4: Bloqueadas por Error */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:shadow-md">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#CE3A39]" />
-                <div className="flex items-center justify-between text-slate-500">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#CE3A39]">Bloqueadas</span>
-                  <XCircle className="w-4 h-4 text-[#CE3A39]" />
-                </div>
-                <div>
-                  <span className="text-4xl font-extrabold tracking-tight font-mono text-[#CE3A39] my-2 block">
-                    {batchData?.metrics.error_blocked || 0}
-                  </span>
-                  <p className="text-[11px] text-[#CE3A39]/80">Teléfono / CP Inválido</p>
-                </div>
-              </div>
+              {/* 4 Tarjetas KPI Interactivas (sin franja superior, punto de 8px, número en azul marino) */}
+              {(
+                [
+                  {
+                    key: "total",
+                    label: "Total órdenes",
+                    value: batchData?.metrics.total_orders || 0,
+                    hint: "Ida y retorno (-1)",
+                    dot: "bg-[#233762]",
+                    tab: "ALL" as const,
+                    Icon: Package,
+                  },
+                  {
+                    key: "ok",
+                    label: "Confirmadas",
+                    value: batchData?.metrics.confirmed_100 || 0,
+                    hint: "Listas para timbrar",
+                    dot: "bg-emerald-500",
+                    tab: "CONFIRMED" as const,
+                    Icon: CheckCircle2,
+                  },
+                  {
+                    key: "review",
+                    label: "Por revisar",
+                    value: batchData?.metrics.review || 0,
+                    hint: "Dirección ambigua",
+                    dot: "bg-amber-500",
+                    tab: "REVIEW" as const,
+                    Icon: AlertTriangle,
+                  },
+                  {
+                    key: "blocked",
+                    label: "Bloqueadas",
+                    value: batchData?.metrics.error_blocked || 0,
+                    hint: "Teléfono o CP inválido",
+                    dot: "bg-[#CE3A39]",
+                    tab: "BLOCKED" as const,
+                    Icon: XCircle,
+                  },
+                ]
+              ).map(({ key, label, value, hint, dot, tab, Icon }) => {
+                const isCurrent = hasOrders && activeTab === tab;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={!hasOrders}
+                    onClick={() => setActiveTab(tab)}
+                    title={hasOrders ? `Filtrar tabla: ${label}` : "Carga un lote para filtrar"}
+                    className={`xl:col-span-2 text-left bg-white border rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm transition
+                      ${isCurrent ? "border-[#233762] ring-1 ring-[#233762]" : "border-slate-200 hover:border-slate-300"}
+                      ${hasOrders ? "cursor-pointer" : "cursor-default opacity-80"}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                        <span className={`w-2 h-2 rounded-full ${dot}`} />
+                        {label}
+                      </span>
+                      <Icon className="w-4 h-4 text-slate-300" />
+                    </div>
+                    <div>
+                      <span className="block text-4xl font-extrabold tracking-tight font-mono text-[#233762]">
+                        {value}
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-1">{hint}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </section>
 
-            {/* ZONA 2: Barra Maestra de Acciones Techship y Descargas - Mejor Distribución y Bloque Identificador */}
-            <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-4.5 shadow-sm flex flex-wrap items-center justify-between gap-4">
-              {/* Lado Izquierdo: Bloque Identificador + Botones de Acción Operativa */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/90 mr-1 shadow-2xs">
-                  <Zap className="w-3.5 h-3.5 text-[#CE3A39]" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">
-                    FLUJO TECHSHIP API:
-                  </span>
+            {/* ZONA 2: Flujo en 3 pasos + Descargas */}
+            <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
+              {/* ---------- Flujo en pasos ---------- */}
+              <div>
+                <h3 className="text-xs font-semibold text-slate-500 mb-3">Flujo Techship</h3>
+
+                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-0">
+                  {/* Paso 1: Simular (secundario) */}
+                  <button
+                    type="button"
+                    onClick={handleTechshipDryRun}
+                    disabled={!hasOrders || actionLoading === "dry_run" || actionLoading === "live"}
+                    title="Verifica en Techship cuáles órdenes ya tienen guía (anti-duplicados) y cuáles están listas sin consumir guías reales"
+                    className="group flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-[#233762]/40 hover:border-[#233762] hover:bg-[#EFF3F9] text-[#233762] text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-[#EFF3F9] group-hover:bg-white border border-[#233762]/30 flex items-center justify-center text-xs font-mono">
+                      1
+                    </span>
+                    <span>{actionLoading === "dry_run" ? "Verificando..." : "Simular y revisar duplicados"}</span>
+                  </button>
+
+                  {/* Conector */}
+                  <div className="hidden md:block h-px w-8 bg-slate-300" aria-hidden="true" />
+                  <div className="md:hidden w-px h-3 bg-slate-300 ml-7" aria-hidden="true" />
+
+                  {/* Paso 2: Timbrar (acción principal) */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLiveModal(true)}
+                    disabled={!hasOrders || actionLoading === "live"}
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-mono">
+                      2
+                    </span>
+                    <span>{actionLoading === "live" ? "Timbrando..." : "Timbrar guías en Techship"}</span>
+                  </button>
+
+                  {/* Conector */}
+                  <div className="hidden md:block h-px w-8 bg-slate-300" aria-hidden="true" />
+                  <div className="md:hidden w-px h-3 bg-slate-300 ml-7" aria-hidden="true" />
+
+                  {/* Paso 3: Sincronizar (secundario) */}
+                  <button
+                    type="button"
+                    onClick={handleSyncClosing}
+                    disabled={!hasOrders || actionLoading === "sync"}
+                    className="group flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-[#233762]/40 hover:border-[#233762] hover:bg-[#EFF3F9] text-[#233762] text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-[#EFF3F9] group-hover:bg-white border border-[#233762]/30 flex items-center justify-center text-xs font-mono">
+                      3
+                    </span>
+                    <span>{actionLoading === "sync" ? "Sincronizando..." : "Sincronizar cierre y etiquetas"}</span>
+                  </button>
                 </div>
-
-                <button
-                  onClick={handleTechshipDryRun}
-                  disabled={!hasOrders || actionLoading === "dry_run" || actionLoading === "live"}
-                  title="Verifica en Techship cuáles órdenes ya tienen guía (anti-duplicados) y cuáles están listas sin consumir guías reales"
-                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/25 text-xs sm:text-sm font-bold shadow-2xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <ShieldCheck className="w-4 h-4 text-[#233762]" />
-                  <span>{actionLoading === "dry_run" ? "Verificando..." : "Simular / Anti-Duplicados"}</span>
-                </button>
-
-                <button
-                  onClick={() => setShowLiveModal(true)}
-                  disabled={!hasOrders || actionLoading === "live"}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs sm:text-sm font-bold shadow-md shadow-red-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <Zap className="w-4 h-4 fill-white" />
-                  <span>{actionLoading === "live" ? "Timbrando..." : "1. Timbrar Guías en Techship"}</span>
-                </button>
-
-                <button
-                  onClick={handleSyncClosing}
-                  disabled={!hasOrders || actionLoading === "sync"}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <Truck className="w-4 h-4" />
-                  <span>{actionLoading === "sync" ? "Sincronizando..." : "2. Sincronizar Cierre y Etiquetas"}</span>
-                </button>
               </div>
 
-              {/* Lado Derecho: Descargas Agrupadas */}
-              {batchData && hasOrders ? (
-                <div className="flex flex-wrap items-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-4">
-                  <span className="text-xs text-slate-500 font-bold mr-1 hidden sm:inline">Descargas:</span>
+              {/* ---------- Descargas (mismo estilo para las 4) ---------- */}
+              <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500 mr-1">Descargas</span>
 
-                  <button
-                    onClick={() => handleDownload("cierre_excel")}
-                    disabled={batchData.files_available?.cierre_excel === false}
-                    title={
-                      batchData.files_available?.cierre_excel === false
-                        ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
-                        : "Descargar Cierre_*.xlsx (ServiceNow 12 columnas)"
-                    }
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#233762]" />
-                    <span>Cierre.xlsx</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleDownload("etiquetas_pdf")}
-                    disabled={batchData.files_available?.etiquetas_pdf === false}
-                    title={
-                      batchData.files_available?.etiquetas_pdf === false
-                        ? "Disponible tras ejecutar '2. Sincronizar Cierre y Etiquetas'"
-                        : "Descargar o imprimir PDF consolidado de etiquetas"
-                    }
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold transition shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-[#CE3A39]" />
-                    <span>Etiquetas.pdf</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleDownload("techship_excel")}
-                    disabled={batchData.files_available?.techship_excel === false}
-                    title="Descargar Guias_Techship_Importada_*.xlsx"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Techship.xlsx</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleDownload("auditoria_excel")}
-                    disabled={batchData.files_available?.auditoria_excel === false}
-                    title="Descargar Auditoria_Direcciones_*.xlsx (Detalle SEPOMEX e Incidencias)"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-mono font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Auditoría.xlsx</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-4 text-xs text-slate-400 italic">
-                  <FileSpreadsheet className="w-3.5 h-3.5 opacity-50" />
-                  <span>Sin archivos para descargar</span>
-                </div>
-              )}
+                {batchData && hasOrders ? (
+                  (
+                    [
+                      {
+                        type: "cierre_excel",
+                        label: "Cierre.xlsx",
+                        Icon: FileSpreadsheet,
+                        needsSync: true,
+                      },
+                      {
+                        type: "etiquetas_pdf",
+                        label: "Etiquetas.pdf",
+                        Icon: FileText,
+                        needsSync: true,
+                      },
+                      {
+                        type: "techship_excel",
+                        label: "Techship.xlsx",
+                        Icon: FileSpreadsheet,
+                        needsSync: false,
+                      },
+                      {
+                        type: "auditoria_excel",
+                        label: "Auditoría.xlsx",
+                        Icon: FileSpreadsheet,
+                        needsSync: false,
+                      },
+                    ] as const
+                  ).map(({ type, label, Icon, needsSync }) => {
+                    const available = batchData.files_available?.[type] !== false;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleDownload(type)}
+                        disabled={!available}
+                        title={
+                          available
+                            ? `Descargar ${label}`
+                            : needsSync
+                              ? "Disponible después del paso 3: Sincronizar cierre y etiquetas"
+                              : "Aún no disponible"
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        {available ? (
+                          <Icon className="w-3.5 h-3.5 text-slate-500" />
+                        ) : (
+                          <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <span className="text-xs text-slate-400 italic">Sin archivos para descargar</span>
+                )}
+              </div>
             </section>
 
             {/* ZONA 3: Tabla de Órdenes y Auditoría */}
             <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-              <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/80">
-                <div
-                  className={`flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${!hasOrders ? "opacity-50" : ""
+              <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* 3 Pestañas de estado (activa siempre en azul marino) */}
+                  <div
+                    className={`flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${
+                      !hasOrders ? "opacity-50" : ""
                     }`}
-                >
-                  <button
-                    disabled={!hasOrders}
-                    onClick={() => setActiveTab("ALL")}
-                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
-                      ? "text-slate-400 cursor-not-allowed"
-                      : activeTab === "ALL"
-                        ? "bg-[#233762] text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                      }`}
                   >
-                    Todas ({batchData?.orders.length || 0})
-                  </button>
-                  <button
-                    disabled={!hasOrders}
-                    onClick={() => setActiveTab("ISSUES")}
-                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
-                      ? "text-slate-400 cursor-not-allowed"
-                      : activeTab === "ISSUES"
-                        ? "bg-[#CE3A39] text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    <button
+                      type="button"
+                      disabled={!hasOrders}
+                      onClick={() => setActiveTab("ALL")}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        !hasOrders
+                          ? "text-slate-400 cursor-not-allowed"
+                          : activeTab === "ALL"
+                            ? "bg-[#233762] text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900 cursor-pointer"
                       }`}
-                  >
-                    Solo Errores / Revisar (
-                    {(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
-                  </button>
-                  <button
-                    disabled={!hasOrders}
-                    onClick={() => setActiveTab("CONFIRMED")}
-                    className={`px-3 py-1.5 rounded-lg transition ${!hasOrders
-                      ? "text-slate-400 cursor-not-allowed"
-                      : activeTab === "CONFIRMED"
-                        ? "bg-emerald-600 text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    >
+                      Todas ({batchData?.orders.length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!hasOrders}
+                      onClick={() => setActiveTab("ISSUES")}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        !hasOrders
+                          ? "text-slate-400 cursor-not-allowed"
+                          : activeTab === "ISSUES" || activeTab === "REVIEW" || activeTab === "BLOCKED"
+                            ? "bg-[#233762] text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900 cursor-pointer"
                       }`}
-                  >
-                    Confirmadas ({batchData?.metrics.confirmed_100 || 0})
-                  </button>
-                  <button
-                    disabled={!hasOrders}
-                    onClick={() => setActiveTab("OUTBOUND")}
-                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${!hasOrders
-                      ? "text-slate-400 cursor-not-allowed"
-                      : activeTab === "OUTBOUND"
-                        ? "bg-slate-700 text-white"
-                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    >
+                      Requieren atención ({(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!hasOrders}
+                      onClick={() => setActiveTab("CONFIRMED")}
+                      className={`px-3 py-1.5 rounded-lg transition ${
+                        !hasOrders
+                          ? "text-slate-400 cursor-not-allowed"
+                          : activeTab === "CONFIRMED"
+                            ? "bg-[#233762] text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900 cursor-pointer"
                       }`}
+                    >
+                      Confirmadas ({batchData?.metrics.confirmed_100 || 0})
+                    </button>
+                  </div>
+
+                  {/* Selector aparte tipo toggle para Solo Ida / Solo Retorno (combinable con el estado) */}
+                  <div
+                    className={`flex items-center gap-1.5 text-xs font-semibold transition-opacity ${
+                      !hasOrders ? "opacity-50" : ""
+                    }`}
                   >
-                    Solo Ida ({outboundCount})
-                  </button>
-                  <button
-                    disabled={!hasOrders}
-                    onClick={() => setActiveTab("RETURN")}
-                    className={`px-3 py-1.5 rounded-lg transition hidden sm:inline ${!hasOrders
-                      ? "text-slate-400 cursor-not-allowed"
-                      : activeTab === "RETURN"
-                        ? "bg-slate-700 text-white"
-                        : "text-slate-600 hover:text-slate-900 cursor-pointer"
+                    <button
+                      type="button"
+                      disabled={!hasOrders}
+                      onClick={() =>
+                        setOrderTypeFilter((prev) => (prev === "OUTBOUND" ? "ALL" : "OUTBOUND"))
+                      }
+                      title={
+                        orderTypeFilter === "OUTBOUND"
+                          ? "Quitar filtro de Solo Ida (mostrar ambos)"
+                          : "Filtrar solo órdenes de Ida (Entrega)"
+                      }
+                      className={`px-3 py-1.5 rounded-xl border transition ${
+                        !hasOrders
+                          ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                          : orderTypeFilter === "OUTBOUND"
+                            ? "border-[#233762] bg-[#233762] text-white cursor-pointer"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 cursor-pointer"
                       }`}
-                  >
-                    Solo Retorno ({returnCount})
-                  </button>
+                    >
+                      Solo Ida ({outboundCount})
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!hasOrders}
+                      onClick={() =>
+                        setOrderTypeFilter((prev) => (prev === "RETURN" ? "ALL" : "RETURN"))
+                      }
+                      title={
+                        orderTypeFilter === "RETURN"
+                          ? "Quitar filtro de Solo Retorno (mostrar ambos)"
+                          : "Filtrar solo órdenes de Retorno (-1)"
+                      }
+                      className={`px-3 py-1.5 rounded-xl border transition ${
+                        !hasOrders
+                          ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                          : orderTypeFilter === "RETURN"
+                            ? "border-[#233762] bg-[#233762] text-white cursor-pointer"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 cursor-pointer"
+                      }`}
+                    >
+                      Solo Retorno ({returnCount})
+                    </button>
+                  </div>
                 </div>
 
-                {/* Botón para eliminar órdenes seleccionadas */}
-                <div className="flex items-center gap-2">
+                {/* Botón para eliminar órdenes seleccionadas + Buscador */}
+                <div className="flex flex-wrap items-center gap-2.5 flex-1 justify-end">
                   <button
                     type="button"
                     onClick={handleRequestDeleteSelectedOrders}
                     disabled={!hasOrders || selectedOrderIds.size === 0}
                     title="Eliminar órdenes seleccionadas del lote para que no se procesen"
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-2xs ${selectedOrderIds.size > 0
-                      ? "border-red-200 bg-red-50 text-[#CE3A39] hover:bg-red-100 cursor-pointer"
-                      : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                      }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
+                      selectedOrderIds.size > 0
+                        ? "border-red-200 bg-red-50 text-[#CE3A39] hover:bg-red-100 cursor-pointer"
+                        : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                    }`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>
                       Eliminar seleccionadas {selectedOrderIds.size > 0 ? `(${selectedOrderIds.size})` : ""}
                     </span>
                   </button>
-                </div>
 
-                <div className="relative flex-1 max-w-xs">
-                  <Search
-                    className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${!hasOrders ? "text-slate-300" : "text-slate-400"
+                  <div className="relative flex-1 min-w-[220px] max-w-xs">
+                    <Search
+                      className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                        !hasOrders ? "text-slate-300" : "text-slate-400"
                       }`}
-                  />
-                  <input
-                    type="text"
-                    disabled={!hasOrders}
-                    placeholder={
-                      hasOrders ? "Buscar RITM, empleado, CP, teléfono..." : "Sin órdenes para buscar..."
-                    }
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition shadow-2xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
-                  />
+                    />
+                    <input
+                      type="text"
+                      disabled={!hasOrders}
+                      placeholder={
+                        hasOrders ? "Buscar RITM, empleado, CP, teléfono..." : "Sin órdenes para buscar..."
+                      }
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3623,18 +3696,23 @@ export default function DashboardPage() {
                         const isGreen = order.status_semaphore === "VERDE";
 
                         const isSelected = selectedOrderIds.has(order.order_id);
+                        const incidentTooltip =
+                          order.incidents && order.incidents.length > 0
+                            ? order.incidents.join(" | ")
+                            : isGreen
+                              ? "Dirección 100% confirmada en SEPOMEX"
+                              : order.status_text;
 
                         return (
                           <tr
                             key={order.order_id}
-                            className={`transition-colors ${isSelected
-                              ? "bg-blue-50/70 hover:bg-blue-100/60"
-                              : isError
-                                ? "bg-red-50/50 hover:bg-red-50/80"
-                                : isWarning
-                                  ? "bg-amber-50/30 hover:bg-amber-50/60"
+                            className={`transition-colors ${
+                              isSelected
+                                ? "bg-slate-100/80 hover:bg-slate-100"
+                                : isError
+                                  ? "bg-red-50/40 hover:bg-red-50/70"
                                   : "hover:bg-slate-50"
-                              }`}
+                            }`}
                           >
                             <td className="py-3 px-3 text-center select-none">
                               <input
@@ -3646,22 +3724,16 @@ export default function DashboardPage() {
                               />
                             </td>
                             <td className="py-3 px-4 whitespace-nowrap">
-                              {order.type === "RETURN" ? (
-                                <span className="px-2 py-0.5 rounded-md bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/30 font-mono text-[10px] font-bold">
-                                  RETORNO
-                                </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-md bg-[#EFF3F9] text-[#233762] border border-[#233762]/30 font-mono text-[10px] font-bold">
-                                  ENTREGA
-                                </span>
-                              )}
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
+                                {order.type === "RETURN" ? "RETORNO" : "ENTREGA"}
+                              </span>
                             </td>
 
                             <td className="py-3 px-4 whitespace-nowrap">
                               <div className="font-mono font-bold text-[#233762]">{order.order_id}</div>
                               {order.tracking_number && (
                                 <div
-                                  className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-semibold"
+                                  className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono font-semibold"
                                   title="Guía Estafeta asignada en Techship"
                                 >
                                   <Truck className="w-2.5 h-2.5" />
@@ -3671,34 +3743,21 @@ export default function DashboardPage() {
                             </td>
 
                             <td className="py-3 px-4 whitespace-nowrap">
-                              <div className="flex flex-col items-start gap-0.5">
-                                {isGreen && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px]">
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    100% Confirmada
-                                  </span>
-                                )}
-                                {isWarning && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px]">
-                                    <AlertTriangle className="w-3.5 h-3.5" />
-                                    Revisar Dirección
-                                  </span>
-                                )}
-                                {isError && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-bold text-[11px]">
-                                    <XCircle className="w-3.5 h-3.5" />
-                                    Error / Bloqueada
-                                  </span>
-                                )}
-                                {!isGreen && order.incidents && order.incidents.length > 0 && (
-                                  <span
-                                    className="text-[10px] text-slate-500 max-w-[190px] truncate pl-1"
-                                    title={order.incidents.join(" | ")}
-                                  >
-                                    {order.incidents[0].replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/, "")}
-                                  </span>
-                                )}
-                              </div>
+                              <span
+                                className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"
+                                title={incidentTooltip}
+                              >
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    isGreen
+                                      ? "bg-emerald-500"
+                                      : isWarning
+                                        ? "bg-amber-500"
+                                        : "bg-[#CE3A39]"
+                                  }`}
+                                />
+                                <span>{isGreen ? "OK" : isWarning ? "Revisar" : "Bloqueada"}</span>
+                              </span>
                             </td>
 
                             <td className="py-3 px-4 whitespace-nowrap">
@@ -3727,7 +3786,7 @@ export default function DashboardPage() {
                               </div>
                               {order.address3 && (
                                 <div
-                                  className="text-[10px] text-[#233762] bg-[#EFF3F9] px-1.5 py-0.5 rounded mt-0.5 truncate font-mono border border-[#233762]/15"
+                                  className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 truncate font-mono border border-slate-200"
                                   title={`Dirección 3 (Referencias / Int): ${order.address3}`}
                                 >
                                   <span className="font-bold mr-1">3:</span>
@@ -3748,7 +3807,7 @@ export default function DashboardPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEdit(order)}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition shadow-2xs cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition cursor-pointer"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                   <span>Corregir</span>
@@ -3757,9 +3816,9 @@ export default function DashboardPage() {
                                   type="button"
                                   onClick={() => handleRequestDeleteSingleOrder(order)}
                                   title="Eliminar fila del lote (no procesar)"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-500 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 text-xs font-semibold transition shadow-2xs cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-500 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 text-xs font-semibold transition cursor-pointer"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5 text-[#CE3A39]" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                   <span>Eliminar</span>
                                 </button>
                               </div>
