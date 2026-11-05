@@ -74,9 +74,20 @@ export class ReportesRepository {
       }
     }
 
-    // Auto-semilla inicial si existe el archivo fuente
-    this.seedFromDefaultExcel();
+    // Inicializar vacío sin datos de muestra
+    this.records = [];
+    this.cargas = [];
+    safeAtomicWrite(DB_FILE, this.records);
+    safeAtomicWrite(CARGAS_FILE, this.cargas);
     this.isLoaded = true;
+  }
+
+  public clearAll(): void {
+    this.init();
+    this.records = [];
+    this.cargas = [];
+    safeAtomicWrite(DB_FILE, this.records);
+    safeAtomicWrite(CARGAS_FILE, this.cargas);
   }
 
   public seedFromDefaultExcel(): boolean {

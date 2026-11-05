@@ -26,6 +26,7 @@ import {
   ExternalLink,
   Wrench,
   Truck,
+  Trash2,
 } from "lucide-react";
 import {
   DevolucionRecord,
@@ -113,6 +114,10 @@ export default function ReportesView({
   const [selectedSerial, setSelectedSerial] = useState<string | null>(null);
   const [serialHistory, setSerialHistory] = useState<DevolucionRecord[]>([]);
   const [loadingSerialHistory, setLoadingSerialHistory] = useState<boolean>(false);
+
+  // Modal para Limpiar Información
+  const [showClearModal, setShowClearModal] = useState<boolean>(false);
+  const [isClearing, setIsClearing] = useState<boolean>(false);
 
   // Modal de Carga / Upload
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
@@ -368,6 +373,41 @@ export default function ReportesView({
   };
 
   // Carga de archivo Excel (Previsualización / Dry-Run)
+  // Limpiar toda la información del módulo de devoluciones
+  const handleClearDevoluciones = async () => {
+    try {
+      setIsClearing(true);
+      const res = await fetch("/api/reportes", { method: "DELETE" });
+      if (res.ok) {
+        setItems([]);
+        setTotal(0);
+        setKpis({
+          totalDevueltos: 0,
+          enEvaluacion: 0,
+          pendientesBaja: 0,
+          inStockCerrado: 0,
+          sinClasificar: 0,
+          conciliadosSnowCount: 0,
+          porcentajeConciliadosSnow: 0,
+          totalSerialesDuplicados: 0,
+          totalSinRitm: 0,
+          totalSinTracking: 0,
+          totalConGarantia: 0,
+          totalGarantiaExpirada: 0,
+          totalSinGarantiaInfo: 0,
+        });
+        showToast("Módulo de devoluciones limpiado exitosamente.", "success");
+      } else {
+        showToast("Error al limpiar el módulo de devoluciones.", "error");
+      }
+    } catch {
+      showToast("Error de conexión al limpiar módulo.", "error");
+    } finally {
+      setIsClearing(false);
+      setShowClearModal(false);
+    }
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -669,10 +709,18 @@ export default function ReportesView({
                 </button>
                 <button
                   onClick={handleExportFiltered}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-semibold shadow-sm hover:bg-slate-50 hover:text-[#233762] transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-semibold shadow-sm hover:bg-slate-50 hover:text-[#233762] transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4 text-[#CE3A39]" />
                   Descargar Excel Filtrado
+                </button>
+                <button
+                  onClick={() => setShowClearModal(true)}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white border border-red-200 text-[#CE3A39] text-sm font-semibold shadow-2xs hover:bg-red-50 hover:border-red-300 transition-all cursor-pointer"
+                  title="Limpiar toda la información de computadoras y números de serie"
+                >
+                  <Trash2 className="w-4 h-4 text-[#CE3A39]" />
+                  <span>Limpiar Información</span>
                 </button>
               </div>
             </div>
@@ -908,12 +956,24 @@ export default function ReportesView({
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <FileSpreadsheet className="w-8 h-8 text-slate-300" />
-                      <span className="font-semibold text-slate-600">
-                        No se encontraron registros con los filtros aplicados.
-                      </span>
+                  <td colSpan={9} className="py-16 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
+                      <div className="w-14 h-14 rounded-2xl bg-[#EFF3F9] border border-[#233762]/15 flex items-center justify-center text-[#233762]">
+                        <FileSpreadsheet className="w-7 h-7 text-[#233762]" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">Módulo de Devoluciones Limpio</h4>
+                        <p className="text-xs text-slate-500 mt-1">
+                          No hay información de computadoras ni números de serie cargados en esta sección.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowUploadModal(true)}
+                        className="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] text-white text-xs font-bold hover:bg-[#1b2b4d] transition shadow-sm cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Cargar Nuevo Archivo Excel</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1295,6 +1355,58 @@ export default function ReportesView({
       )}
 
       </>
+      )}
+
+      {/* Modal Confirmación Limpiar Información */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-2xl bg-red-50 border border-red-100 text-[#CE3A39] flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    ¿Limpiar la sección de devoluciones?
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    Se eliminará toda la información cargada de computadoras, modelos, números de serie y tickets en este módulo. La sección quedará completamente en blanco y limpia.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-2.5 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowClearModal(false)}
+                  disabled={isClearing}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearDevoluciones}
+                  disabled={isClearing}
+                  className="px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm shadow-red-200 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isClearing ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Limpiando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Sí, limpiar todo</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal Carga de Excel (Actualizar / Cargar) */}
