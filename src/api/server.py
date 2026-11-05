@@ -77,7 +77,30 @@ _VALIDADOR_POSTAL_SINGLETON: Optional[ValidadorPostal] = None
 def _get_validador_postal() -> ValidadorPostal:
     global _VALIDADOR_POSTAL_SINGLETON
     if _VALIDADOR_POSTAL_SINGLETON is None:
-        _VALIDADOR_POSTAL_SINGLETON = ValidadorPostal()
+        val = ValidadorPostal()
+        if not hasattr(val, "buscar_cp"):
+            def _buscar_cp(cp_val):
+                conn = val._get_conn()
+                if not conn:
+                    return None
+                digits = re.sub(r"[^\d]", "", str(cp_val).split(".")[0])
+                if not digits:
+                    return None
+                cp_clean = digits[-5:].zfill(5)
+                regs = conn.execute(
+                    "SELECT DISTINCT colonia, municipio, estado FROM sepomex WHERE cp = ?", (cp_clean,)
+                ).fetchall()
+                if not regs:
+                    return None
+                return {
+                    "existe": True,
+                    "cp": cp_clean,
+                    "estado": regs[0][2] if regs else "",
+                    "municipio": regs[0][1] if regs else "",
+                    "colonias": sorted({r[0] for r in regs}),
+                }
+            val.buscar_cp = _buscar_cp
+        _VALIDADOR_POSTAL_SINGLETON = val
     return _VALIDADOR_POSTAL_SINGLETON
 from src.techship_client import (
     procesar_archivo_techship,
@@ -191,6 +214,85 @@ def _sanear_telefono(val: Any) -> str:
     return s
 
 
+DATA_ARCHIVE = PROJECT_ROOT / "data" / "archive"
+
+_MESES_ES = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+}
+
+
+def _fecha_de_archivo(path: Path) -> datetime.date:
+    """
+    Deduce la fecha operativa de un archivo:
+      1. Por nombre MX_MM-DD-YY  (SCTASK, Guias_Techship, Auditoria)
+      2. Por nombre DD_Mes_AAAA  (Cierre, Etiquetas_Lote)
+      3. Si no coincide ningún patrón, por fecha de modificación.
+    """
+    nombre = path.stem
+    m = re.search(r"(\d{2})-(\d{2})-(\d{2})", nombre)
+    if m:
+        try:
+            return datetime.date(2000 + int(m.group(3)), int(m.group(1)), int(m.group(2)))
+        except ValueError:
+            pass
+    m = re.search(r"(\d{1,2})_([A-Za-z]+)_(\d{4})", nombre)
+    if m and m.group(2).lower() in _MESES_ES:
+        try:
+            return datetime.date(int(m.group(3)), _MESES_ES[m.group(2).lower()], int(m.group(1)))
+        except ValueError:
+            pass
+    return datetime.date.fromtimestamp(path.stat().st_mtime)
+
+
+def _es_archivo_de_lote(f: Path, guias_path: Path, lote_fecha: datetime.date) -> bool:
+    """
+    Determina si un archivo (Cierre o Etiquetas) corresponde al lote activo.
+    Condiciones:
+      1. Si su fecha deducida coincide con la fecha del lote activo: corresponde.
+      2. Si la fecha deducida es anterior a la del lote: es de un día previo (NO corresponde).
+      3. Si fue generado con fecha posterior al lote (ej. lote viernes, sincronizado lunes)
+         y su fecha de modificación es posterior a la del archivo de guías (con margen de 60s): corresponde.
+    """
+    try:
+        f_fecha = _fecha_de_archivo(f)
+        if f_fecha == lote_fecha:
+            return True
+        if f_fecha < lote_fecha:
+            return False
+        if f.stat().st_mtime >= (guias_path.stat().st_mtime - 60):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _encontrar_cierre_lote(guias_path: Path, lote_fecha: datetime.date) -> Optional[Path]:
+    """Busca el archivo Cierre_*.xlsx en data/output/ correspondiente al lote activo."""
+    candidatos = []
+    for f in DATA_OUTPUT.glob("Cierre_*.xlsx"):
+        if f.is_file() and not f.name.startswith("~$"):
+            if _es_archivo_de_lote(f, guias_path, lote_fecha):
+                candidatos.append(f)
+    if not candidatos:
+        return None
+    candidatos.sort(key=os.path.getmtime, reverse=True)
+    return candidatos[0]
+
+
+def _encontrar_etiquetas_lote(guias_path: Path, lote_fecha: datetime.date) -> Optional[Path]:
+    """Busca el archivo Etiquetas_*.pdf en data/output/ correspondiente al lote activo."""
+    candidatos = []
+    for f in DATA_OUTPUT.glob("Etiquetas_*.pdf"):
+        if f.is_file() and not f.name.startswith("~$"):
+            if _es_archivo_de_lote(f, guias_path, lote_fecha):
+                candidatos.append(f)
+    if not candidatos:
+        return None
+    candidatos.sort(key=os.path.getmtime, reverse=True)
+    return candidatos[0]
+
+
 def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
     """Lee y estructura los datos de un lote para enviarlos al frontend."""
     if not guias_path.is_file():
@@ -222,14 +324,15 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
         except Exception:
             pass
 
-    # Cargar guías de Cierre si existe para obtener los tracking numbers timbrados
+    # Cargar guías de Cierre si existe estrictamente para este lote
+    lote_fecha = _fecha_de_archivo(guias_path)
+    cierre_file = _encontrar_cierre_lote(guias_path, lote_fecha)
+    etiquetas_file = _encontrar_etiquetas_lote(guias_path, lote_fecha)
+
     tracking_por_orden = {}
-    cierre_cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
-    if not cierre_cand:
-        cierre_cand = sorted((PROJECT_ROOT / "data" / "archive").glob("**/output/Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
-    if cierre_cand:
+    if cierre_file and cierre_file.is_file():
         try:
-            df_cierre = pd.read_excel(cierre_cand[0])
+            df_cierre = pd.read_excel(cierre_file)
             for _, r in df_cierre.iterrows():
                 parent_val = str(r.get("Parent", "")).strip()
                 trk_val = str(r.get("Tracking Number", "")).strip()
@@ -338,14 +441,11 @@ def _parsear_estado_lote(guias_path: Path, audit_path: Optional[Path]):
             "carrier": "ESTAFETAREST KYNDRYL",
         })
         
-    cierre_cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
-    etiquetas_cand = sorted(DATA_OUTPUT.glob("Etiquetas_*.pdf"), key=os.path.getmtime, reverse=True)
-
     files_available = {
         "techship_excel": guias_path.is_file(),
         "auditoria_excel": bool(audit_path and audit_path.is_file()),
-        "cierre_excel": len(cierre_cand) > 0,
-        "etiquetas_pdf": len(etiquetas_cand) > 0,
+        "cierre_excel": bool(cierre_file and cierre_file.is_file()),
+        "etiquetas_pdf": bool(etiquetas_file and etiquetas_file.is_file()),
     }
 
     return {
@@ -756,22 +856,27 @@ def sync_closing(req: TechshipSyncRequest = Body(default_factory=TechshipSyncReq
         raise HTTPException(status_code=500, detail=f"Error al sincronizar con Techship: {str(e)}")
         
     # Detectar el PDF generado
-    now = datetime.date.today()
-    meses_es = [
-        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ]
-    pdf_path = DATA_OUTPUT / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}.pdf"
-    if not pdf_path.is_file():
-        # Fallback si se generó con sufijo _API
-        pdf_path = DATA_OUTPUT / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}_API.pdf"
+    pdf_path = _encontrar_etiquetas_lote(guias_path, _fecha_de_archivo(guias_path)) if guias_path else None
+    if not pdf_path or not pdf_path.is_file():
+        now = datetime.date.today()
+        meses_es = [
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ]
+        pdf_cand = DATA_OUTPUT / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}.pdf"
+        if pdf_cand.is_file():
+            pdf_path = pdf_cand
+        else:
+            pdf_cand_api = DATA_OUTPUT / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}_API.pdf"
+            if pdf_cand_api.is_file():
+                pdf_path = pdf_cand_api
         
     return {
         "success": True,
         "cierre_excel_path": str(ruta_cierre),
         "cierre_excel_filename": os.path.basename(ruta_cierre),
-        "etiquetas_pdf_path": str(pdf_path) if pdf_path.is_file() else None,
-        "etiquetas_pdf_filename": pdf_path.name if pdf_path.is_file() else None,
+        "etiquetas_pdf_path": str(pdf_path) if pdf_path and pdf_path.is_file() else None,
+        "etiquetas_pdf_filename": pdf_path.name if pdf_path and pdf_path.is_file() else None,
         "message": "Cierre y PDF de etiquetas sincronizados correctamente desde Techship.",
     }
 
@@ -779,26 +884,24 @@ def sync_closing(req: TechshipSyncRequest = Body(default_factory=TechshipSyncReq
 @app.get("/api/techship/tracking")
 def get_techship_tracking():
     """
-    Devuelve la lista de números de guía y carrier asociados a las órdenes del lote actual
-    o del Cierre más reciente generado.
+    Devuelve la lista de números de guía y carrier asociados a las órdenes del lote actual.
     """
     guias_path, _, _ = _encontrar_archivos_lote_activo()
     tracking_map = {}
     
-    # 1. Buscar en Cierre_*.xlsx en output o archive
-    cierre_cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
-    if not cierre_cand:
-        cierre_cand = sorted((PROJECT_ROOT / "data" / "archive").glob("**/output/Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
-    if cierre_cand:
-        try:
-            df_c = pd.read_excel(cierre_cand[0])
-            for _, r in df_c.iterrows():
-                p = str(r.get("Parent", "")).strip()
-                t = str(r.get("Tracking Number", "")).strip()
-                if p and t and t.lower() != "nan" and not t.startswith("ERROR"):
-                    tracking_map[p] = t
-        except Exception:
-            pass
+    if guias_path and guias_path.is_file():
+        lote_fecha = _fecha_de_archivo(guias_path)
+        cierre_file = _encontrar_cierre_lote(guias_path, lote_fecha)
+        if cierre_file and cierre_file.is_file():
+            try:
+                df_c = pd.read_excel(cierre_file)
+                for _, r in df_c.iterrows():
+                    p = str(r.get("Parent", "")).strip()
+                    t = str(r.get("Tracking Number", "")).strip()
+                    if p and t and t.lower() != "nan" and not t.startswith("ERROR"):
+                        tracking_map[p] = t
+            except Exception:
+                pass
 
     # Si hay lote activo, devolver todas las órdenes del lote con su tracking
     result = []
@@ -837,38 +940,45 @@ def download_file(file_type: str):
       - etiquetas_pdf: Etiquetas_Lote_DD_Mes_AAAA.pdf
     """
     guias_path, audit_path, _ = _encontrar_archivos_lote_activo()
-    now = datetime.date.today()
-    meses_es = [
-        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ]
-    
-    file_map = {
-        "techship_excel": guias_path,
-        "auditoria_excel": audit_path,
-        "cierre_excel": DATA_OUTPUT / f"Cierre_{now.day}_{meses_es[now.month - 1]}_{now.year}.xlsx",
-        "etiquetas_pdf": DATA_OUTPUT / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}.pdf",
-    }
-    
-    target_file = file_map.get(file_type.lower())
-    if not target_file or not target_file.is_file():
-        # Buscar variantes
-        if file_type == "cierre_excel":
-            cand = sorted(DATA_OUTPUT.glob("Cierre_*.xlsx"), key=os.path.getmtime, reverse=True)
-            if cand:
-                target_file = cand[0]
-        elif file_type == "etiquetas_pdf":
-            cand = sorted(DATA_OUTPUT.glob("Etiquetas_*.pdf"), key=os.path.getmtime, reverse=True)
-            if cand:
-                target_file = cand[0]
-                
-    if not target_file or not target_file.is_file():
+    if not guias_path or not guias_path.is_file():
         raise HTTPException(
             status_code=404,
-            detail=f"El archivo solicitado '{file_type}' aún no ha sido generado."
+            detail="No hay un lote activo en el sistema. Sube un reporte SCTASK primero."
         )
-        
-    media_type = "application/pdf" if target_file.suffix == ".pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    lote_fecha = _fecha_de_archivo(guias_path)
+    ft_lower = file_type.lower()
+
+    if ft_lower == "techship_excel":
+        target_file = guias_path
+    elif ft_lower == "auditoria_excel":
+        target_file = audit_path
+    elif ft_lower == "cierre_excel":
+        target_file = _encontrar_cierre_lote(guias_path, lote_fecha)
+    elif ft_lower == "etiquetas_pdf":
+        target_file = _encontrar_etiquetas_lote(guias_path, lote_fecha)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de archivo no reconocido: '{file_type}'."
+        )
+
+    if not target_file or not target_file.is_file():
+        fecha_str = lote_fecha.strftime("%d/%m/%Y")
+        if ft_lower in ("cierre_excel", "etiquetas_pdf"):
+            detail_msg = (
+                f"El archivo '{file_type}' para el lote activo ({fecha_str}) aún no ha sido generado. "
+                "Ejecuta el paso '2. Sincronizar Cierre y Etiquetas' para generarlo."
+            )
+        else:
+            detail_msg = f"El archivo solicitado '{file_type}' no existe para el lote activo ({fecha_str})."
+        raise HTTPException(status_code=404, detail=detail_msg)
+
+    media_type = (
+        "application/pdf"
+        if target_file.suffix.lower() == ".pdf"
+        else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     return FileResponse(
         path=str(target_file),
         filename=target_file.name,
@@ -880,43 +990,12 @@ def download_file(file_type: str):
 # ARCHIVADO DE LOTES DE DÍAS ANTERIORES
 # -------------------------------------------------------------
 
-DATA_ARCHIVE = PROJECT_ROOT / "data" / "archive"
-
-_MESES_ES = {
-    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
-    "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
-}
-
-
 class ArchiveRequest(BaseModel):
     dry_run: bool = Field(default=False, description="True = solo vista previa, no mueve nada")
     clean_all: bool = Field(
         default=True,
         description="True = limpia y archiva también el lote activo en pantalla para dejar la tabla en 0 órdenes"
     )
-
-
-def _fecha_de_archivo(path: Path) -> datetime.date:
-    """
-    Deduce la fecha operativa de un archivo:
-      1. Por nombre MX_MM-DD-YY  (SCTASK, Guias_Techship, Auditoria)
-      2. Por nombre DD_Mes_AAAA  (Cierre, Etiquetas_Lote)
-      3. Si no coincide ningún patrón, por fecha de modificación.
-    """
-    nombre = path.stem
-    m = re.search(r"(\d{2})-(\d{2})-(\d{2})", nombre)
-    if m:
-        try:
-            return datetime.date(2000 + int(m.group(3)), int(m.group(1)), int(m.group(2)))
-        except ValueError:
-            pass
-    m = re.search(r"(\d{1,2})_([A-Za-z]+)_(\d{4})", nombre)
-    if m and m.group(2).lower() in _MESES_ES:
-        try:
-            return datetime.date(int(m.group(3)), _MESES_ES[m.group(2).lower()], int(m.group(1)))
-        except ValueError:
-            pass
-    return datetime.date.fromtimestamp(path.stat().st_mtime)
 
 
 @app.post("/api/batches/archive-previous")
