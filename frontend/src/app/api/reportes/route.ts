@@ -51,3 +51,21 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE() {
+  try {
+    const repo = getReportesRepository();
+    repo.clearAll();
+    return NextResponse.json({
+      success: true,
+      message: "Sección de devoluciones limpiada correctamente. Sin registros de computadoras ni seriales.",
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Error desconocido";
+    console.error("Error en DELETE /api/reportes:", error);
+    return NextResponse.json(
+      { error: "Error al limpiar la sección de devoluciones", details: message },
+      { status: 500 }
+    );
+  }
+}

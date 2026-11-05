@@ -397,7 +397,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
         if zip_val and not str(zip_val).startswith('ERROR'):
             an = validador.analizar(
                 zip_val,
-                [municipio_clean, city_raw_clean, localidad_clean, state_clean],
+                [municipio_clean, city_raw_clean, localidad_clean, state_clean, house_apt_clean],
                 colonia=localidad_clean,
                 texto_calle=f"{street_clean} {house_apt_clean}",
             )
@@ -427,12 +427,14 @@ def process_excel(input_path, output_path, default_declared_value=None):
                     registrar(fila_excel, parent, 'CORREGIDO', 'City', city_val, f"'{an['municipio_oficial']}' (municipio oficial del CP {zip_val})")
                     city_val = an['municipio_oficial']
 
-        # 5. Compresión Inteligente y Protección de Número Interior (Address 1 y Address 2 <= 50 chars)
+        # 5. Compresión Inteligente y Distribución en 3 Líneas (Address 1, Address 2 y Address 3 <= 50 chars)
         colonia_en_calle = an.get('colonia_en_calle') if an else None
         colonia_oficial = None
         if an and an.get('existe'):
             if an.get('colonia_en_calle'):
                 colonia_oficial = an['colonia_en_calle']
+            elif an.get('colonia_match'):
+                colonia_oficial = an['colonia_match']
             elif an.get('colonia_ok'):
                 colonia_oficial = localidad_clean
             elif len(an.get('colonias', [])) == 1:
@@ -448,6 +450,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
 
         addr1_val = fmt_dir['addr1']
         addr2_val = fmt_dir['addr2']
+        addr3_val = fmt_dir.get('addr3') or None
 
         # Alerta si no tiene número exterior explícito (S/N)
         if fmt_dir['alerta_num_ext']:
@@ -458,17 +461,16 @@ def process_excel(input_path, output_path, default_declared_value=None):
             has_address_error = True
             registrar(fila_excel, parent, 'ERROR', 'Longitud Dirección', addr1_val, fmt_dir['alerta_interior'])
         elif fmt_dir['interior_protegido']:
-            registrar(fila_excel, parent, 'CORREGIDO', 'Número Interior', addr1_val,
-                      f"Indicador de interior protegido y colocado al inicio de Address 2: '{addr2_val}'")
+            registrar(fila_excel, parent, 'CORREGIDO', 'Referencias / Interior (Addr3)', addr3_val or addr1_val,
+                      f"Referencias/Interior protegidos en Address 3: '{addr3_val}'")
 
         if fmt_dir['colonia_extraida']:
             registrar(fila_excel, parent, 'CORREGIDO', 'Colonia (Addr2)', addr2_val,
-                      "Colonia extraída de la calle y colocada limpia en Address 2.")
+                      "Colonia oficial detectada y colocada limpia en Address 2.")
         elif an and an['existe']:
             if len(an['colonias']) == 1 and not an['colonia_ok']:
                 colonia_unica = an['colonias'][0]
-                if not fmt_dir['interior_protegido']:
-                    addr2_val = colonia_unica
+                addr2_val = colonia_unica[:50]
                 registrar(fila_excel, parent, 'CORREGIDO', 'Colonia (Addr2)', colonia_unica,
                           f"Asignada automáticamente (Única colonia oficial del CP {zip_val}).")
             elif an['colonia_ok'] is False and len(an['colonias']) > 1:
@@ -531,7 +533,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
             tech_row['ShipToName'] = full_name
             tech_row['ShipToAddress1'] = addr1_val
             tech_row['ShipToAddress2'] = addr2_val
-            tech_row['ShipToAddress3'] = None  # En Techship la etiqueta física solo imprime Address 1 y 2
+            tech_row['ShipToAddress3'] = addr3_val
             tech_row['City'] = city_val
             tech_row['State'] = state_val
             tech_row['Country'] = 'MX'
@@ -547,6 +549,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 'Estatus Dirección': estatus_confirmacion,
                 'Address 1 (Calle y Num)': addr1_val,
                 'Address 2 (Colonia)': addr2_val,
+                'Address 3 (Referencias / Int)': addr3_val or '',
                 'Ciudad / Municipio': city_val,
                 'Estado': state_val,
                 'Código Postal': zip_val,
@@ -564,7 +567,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
             # Remitente (ShipFrom) = empleado con dirección validada
             tech_row['ShipFromAddress1'] = addr1_val
             tech_row['ShipFromAddress2'] = addr2_val
-            tech_row['ShipFromAddress3'] = None
+            tech_row['ShipFromAddress3'] = addr3_val
             tech_row['ShipFromCity'] = city_val
             tech_row['ShipFromState'] = state_val
             tech_row['ShipFromZip'] = zip_val
@@ -581,6 +584,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
                 'Estatus Dirección': estatus_confirmacion,
                 'Address 1 (Calle y Num)': addr1_val,
                 'Address 2 (Colonia)': addr2_val,
+                'Address 3 (Referencias / Int)': addr3_val or '',
                 'Ciudad / Municipio': city_val,
                 'Estado': state_val,
                 'Código Postal': zip_val,
@@ -719,7 +723,7 @@ def process_excel(input_path, output_path, default_declared_value=None):
         df_resumen = pd.DataFrame(resumen_direcciones)
         df_resumen.to_excel(writer_audit, index=False, sheet_name='Resumen Direcciones')
         ws_resumen = writer_audit.sheets['Resumen Direcciones']
-        for col_letter, ancho in zip('ABCDEFGHIJ', [18, 26, 32, 34, 28, 22, 18, 14, 16, 55]):
+        for col_letter, ancho in zip('ABCDEFGHIJK', [18, 26, 32, 34, 28, 30, 22, 18, 14, 16, 55]):
             ws_resumen.column_dimensions[col_letter].width = ancho
 
         orden = {'ERROR': 0, 'REVISAR': 1, 'CORREGIDO': 2}

@@ -216,16 +216,21 @@ def formatear_direccion_inteligente(
     num_ext_int_raw,
     colonia_raw,
     colonia_en_calle=None,
-    colonia_oficial=None
+    colonia_oficial=None,
+    addr3_raw=None
 ):
     """
-    Distribuye estratégicamente los datos entre Address 1 (<= 50 chars) y Address 2 (<= 50 chars).
+    Distribuye estratégicamente los datos entre:
+      - Address 1 (<= 50 chars): Calle y Número Exterior (más interior corto si aplica).
+      - Address 2 (<= 50 chars): Colonia / Asentamiento Oficial SEPOMEX limpio.
+      - Address 3 (<= 50 chars): Referencias de domicilio, Edificio, Depto, Privada o continuación de calle.
     Protege el número interior contra truncados y verifica la presencia de número exterior.
     
     Retorna:
     {
         "addr1": str,
         "addr2": str,
+        "addr3": str,
         "tiene_num_ext": bool,
         "alerta_num_ext": str or None,
         "interior_protegido": bool,
@@ -235,42 +240,44 @@ def formatear_direccion_inteligente(
     }
     """
     calle_clean = str(calle_raw or '').strip()
-    if calle_clean.lower() == 'nan':
+    if calle_clean.lower() in ('nan', 'none', 'n/a', 'na'):
         calle_clean = ''
     house_clean = str(num_ext_int_raw or '').strip()
-    if house_clean.lower() == 'nan':
+    if house_clean.lower() in ('nan', 'none', 'n/a', 'na'):
         house_clean = ''
     colonia_clean = str(colonia_raw or '').strip()
-    if colonia_clean.lower() == 'nan':
+    if colonia_clean.lower() in ('nan', 'none', 'n/a', 'na'):
         colonia_clean = ''
+    extra_addr3 = str(addr3_raw or '').strip()
+    if extra_addr3.lower() in ('nan', 'none', 'n/a', 'na'):
+        extra_addr3 = ''
 
-    # 1. Combinar calle + número/interior evitando duplicar si house ya está en calle
-    if house_clean and house_clean.lower() not in calle_clean.lower():
-        calle_comb = f"{calle_clean} {house_clean}".strip()
-    else:
-        calle_comb = calle_clean
-
-    # 2. Paso B: Deduplicación de tokens o frases consecutivas
-    calle_comb = deduplicar_frases_consecutivas(calle_comb)
-
-    # 3. Paso A: Extracción de colonia si viene incrustada en Address 1
+    # 1. Extraer colonia si viene incrustada en calle_clean o en house_clean
     colonia_extraida = None
     if colonia_en_calle:
         colonia_extraida = colonia_en_calle
         patron_col = re.compile(
-            rf"\b(?:col|colonia|fracc|fraccionamiento)?\s*{re.escape(colonia_en_calle)}\b",
+            rf"(?:,\s*)?\b(?:col\.?|colonia|fracc\.?|fraccionamiento)?\s*{re.escape(colonia_en_calle)}\b",
             re.IGNORECASE
         )
-        calle_comb = patron_col.sub("", calle_comb).strip()
-        calle_comb = re.sub(r"\s+", " ", calle_comb).strip()
+        calle_clean = re.sub(r"\s+", " ", patron_col.sub("", calle_clean)).strip(" ,;-")
+        house_clean = re.sub(r"\s+", " ", patron_col.sub("", house_clean)).strip(" ,;-")
     else:
-        # Detectar patrón explícito "Col. Nombre" al final de la calle
-        match_col = re.search(r'\b(?:col|colonia|fracc|fraccionamiento)\.?\s+([A-Za-z0-9\s]+)$', calle_comb, re.IGNORECASE)
-        if match_col:
-            colonia_extraida = match_col.group(1).strip()
-            calle_comb = calle_comb[:match_col.start()].strip()
+        for source_name, text_val in [("calle", calle_clean), ("house", house_clean)]:
+            match_col = re.search(
+                r'(?:,\s*)?\b(?:col|colonia|fracc|fraccionamiento)\.?\s+([A-Za-zÁÉÍÓÚáéíóúÑñ0-9\s]+)$',
+                text_val,
+                re.IGNORECASE
+            )
+            if match_col:
+                colonia_extraida = match_col.group(1).strip()
+                if source_name == "calle":
+                    calle_clean = text_val[:match_col.start()].strip(" ,;-")
+                else:
+                    house_clean = text_val[:match_col.start()].strip(" ,;-")
+                break
 
-    # Definir colonia base para Address 2 (priorizando colonia confirmada/validada)
+    # Definir colonia base para Address 2 (priorizando colonia oficial SEPOMEX validada)
     if colonia_oficial and str(colonia_oficial).strip():
         addr2_base = str(colonia_oficial).strip()
     elif colonia_extraida and str(colonia_extraida).strip():
@@ -281,69 +288,120 @@ def formatear_direccion_inteligente(
     else:
         addr2_base = ""
 
-    # 4. Validar existencia de número exterior real (evitando falsos positivos en '16 SN')
-    tiene_num_ext, alerta_num_ext = evaluar_numero_exterior(calle_comb)
+    # Si house_clean es idéntico a la colonia oficial, limpiarlo para no duplicar en Address 3
+    if house_clean and addr2_base and (
+        normalizar_texto(house_clean) == normalizar_texto(addr2_base)
+        or ValidadorPostal._sin_prefijo_colonia(house_clean) == ValidadorPostal._sin_prefijo_colonia(addr2_base)
+    ):
+        house_clean = ""
 
-    # 5. Paso C: Compresión estándar si supera los 50 caracteres
+    # 2. Separar inteligentemente Calle (Address 1) y House/Referencias/Interior (Address 3)
+    calle_clean = deduplicar_frases_consecutivas(calle_clean)
+    house_clean = deduplicar_frases_consecutivas(house_clean)
+
+    # Si house_clean empieza repitiendo calle_clean (ej. Street="Dr Balmis", House="Dr Balmis 163, int 101B")
+    if house_clean and calle_clean and house_clean.lower().startswith(calle_clean.lower()):
+        house_clean = house_clean[len(calle_clean):].strip(" ,;-")
+
+    # Si house_clean ya está contenido exactamente dentro de calle_clean (ej. Street="Grama 127", House="127")
+    if house_clean and house_clean.lower() in calle_clean.lower():
+        house_clean = ""
+
+    tiene_ext_en_calle, _ = evaluar_numero_exterior(calle_clean)
+
+    addr3_parts = []
+    if extra_addr3:
+        addr3_parts.append(extra_addr3)
+
+    if house_clean:
+        if not tiene_ext_en_calle:
+            # La calle no tiene número exterior; revisar si house_clean aporta el número exterior
+            if "," in house_clean:
+                first_part, rest_part = house_clean.split(",", 1)
+                if evaluar_numero_exterior(first_part)[0]:
+                    calle_clean = f"{calle_clean} {first_part.strip()}".strip()
+                    if rest_part.strip():
+                        addr3_parts.append(rest_part.strip())
+                else:
+                    calle_clean = f"{calle_clean} {house_clean}".strip()
+            elif len(house_clean) <= 15 and evaluar_numero_exterior(house_clean)[0]:
+                calle_clean = f"{calle_clean} {house_clean}".strip()
+            else:
+                m_num = re.match(r'^((?:No\.?|#|Num\.?)?\s*\d+[A-Za-z\-]*)\s+(.+)$', house_clean, re.IGNORECASE)
+                if m_num:
+                    calle_clean = f"{calle_clean} {m_num.group(1).strip()}".strip()
+                    addr3_parts.append(m_num.group(2).strip())
+                else:
+                    calle_clean = f"{calle_clean} {house_clean}".strip()
+        else:
+            # La calle YA tiene número exterior: enviar house_clean a Address 3 (referencias, edificio, piso, depto)
+            addr3_parts.append(house_clean)
+
+    calle_comb = deduplicar_frases_consecutivas(calle_clean)
+
+    # 3. Validar existencia de número exterior real considerando calle + addr3
+    texto_completo_eval = f"{calle_comb} {' '.join(addr3_parts)}".strip()
+    tiene_num_ext, alerta_num_ext = evaluar_numero_exterior(texto_completo_eval)
+
+    # 4. Compresión con abreviaturas si calle_comb supera los 50 caracteres
     if len(calle_comb) > 50:
         for pat, rep in ABREVIATURAS_DIRECCION:
             calle_comb = re.sub(pat, rep, calle_comb, flags=re.IGNORECASE)
         calle_comb = re.sub(r'\s+', ' ', calle_comb).strip()
 
-    # 6. Paso D: Protección de interior (<= 50 chars)
+    # 5. Distribución entre Address 1 (<= 50 chars) y Address 3 (<= 50 chars), manteniendo Address 2 = Colonia
     interior_protegido = False
     error_longitud_critico = False
     alerta_interior = None
 
     if len(calle_comb) <= 50:
         addr1_final = calle_comb
-        addr2_final = addr2_base[:50].strip()
     else:
-        # Excede 50 caracteres: buscar si contiene tokens de ubicación interna
-        # Regla a: Solo buscar tokens de interior tras el inicio de la calle (> 10 caracteres)
+        # Excede 50 caracteres: separar interior o desbordamiento hacia Address 3
         match_int = REGEX_INTERIOR.search(calle_comb)
         if match_int and match_int.start() > 10:
             interior_raw = calle_comb[match_int.start():].strip()
             calle_sin_int = calle_comb[:match_int.start()].rstrip(', ')
-            # Regla b: Limpiar basura de ciudades, estados o CPs del interior
             interior_str = limpiar_basura_geografica(interior_raw)
-
-            # Intentar colocar el interior al inicio de Address 2 preservando la colonia oficial
-            if addr2_base:
-                candidato_addr2 = f"{interior_str}, {addr2_base}".strip()
-            else:
-                candidato_addr2 = interior_str
-
-            if len(candidato_addr2) <= 50:
-                # Cabe en Address 2
-                addr2_final = candidato_addr2
+            if interior_str:
+                addr3_parts.insert(0, interior_str)
                 interior_protegido = True
-                if len(calle_sin_int) <= 50:
-                    addr1_final = calle_sin_int
-                else:
-                    cut = calle_sin_int.rfind(' ', 0, 50)
-                    addr1_final = calle_sin_int[:cut].strip() if cut != -1 else calle_sin_int[:50]
+            if len(calle_sin_int) <= 50:
+                addr1_final = calle_sin_int
             else:
-                # Si no cupo todo junto en Address 2, intentar colocar solo interior o recortar seguro
-                if len(interior_str) <= 50:
-                    addr2_final = interior_str
-                    interior_protegido = True
-                else:
-                    addr2_final = addr2_base[:50].strip()
-                    error_longitud_critico = True
-                    alerta_interior = "Dirección excede 50 caracteres y pone en riesgo datos de interior/entrega"
-                
-                cut = calle_sin_int.rfind(' ', 0, 50) if len(calle_sin_int) > 50 else len(calle_sin_int)
-                addr1_final = calle_sin_int[:cut].strip() if cut != -1 else calle_sin_int[:50]
+                cut = calle_sin_int.rfind(' ', 0, 50)
+                addr1_final = calle_sin_int[:cut].strip(" ,;-") if cut != -1 else calle_sin_int[:50]
+                sobrante = calle_sin_int[len(addr1_final):].strip(" ,;-")
+                if sobrante:
+                    addr3_parts.insert(0, sobrante)
         else:
-            # Sin interior detectado, truncar limpiamente en palabra
             cut = calle_comb.rfind(' ', 0, 50)
-            addr1_final = calle_comb[:cut].strip() if cut != -1 else calle_comb[:50]
-            addr2_final = addr2_base[:50].strip()
+            addr1_final = calle_comb[:cut].strip(" ,;-") if cut != -1 else calle_comb[:50]
+            sobrante = calle_comb[len(addr1_final):].strip(" ,;-")
+            if sobrante:
+                addr3_parts.insert(0, sobrante)
+                interior_protegido = True
+
+    # Consolidar Address 3 (<= 50 chars)
+    addr3_combined = ", ".join([p for p in addr3_parts if p]).strip(" ,;-")
+    addr3_combined = deduplicar_frases_consecutivas(addr3_combined)
+    if len(addr3_combined) > 50:
+        for pat, rep in ABREVIATURAS_DIRECCION:
+            addr3_combined = re.sub(pat, rep, addr3_combined, flags=re.IGNORECASE)
+        addr3_combined = re.sub(r'\s+', ' ', addr3_combined).strip()
+
+    if len(addr3_combined) > 50:
+        cut3 = addr3_combined.rfind(' ', 0, 50)
+        addr3_final = addr3_combined[:cut3].strip(" ,;-") if cut3 != -1 else addr3_combined[:50]
+    else:
+        addr3_final = addr3_combined
+
+    addr2_final = addr2_base[:50].strip()
 
     return {
         "addr1": addr1_final[:50].strip(),
         "addr2": addr2_final[:50].strip(),
+        "addr3": addr3_final[:50].strip(),
         "tiene_num_ext": tiene_num_ext,
         "alerta_num_ext": alerta_num_ext,
         "interior_protegido": interior_protegido,
@@ -351,7 +409,6 @@ def formatear_direccion_inteligente(
         "alerta_interior": alerta_interior,
         "colonia_extraida": colonia_extraida
     }
-
 
 
 class ValidadorPostal:
@@ -528,8 +585,9 @@ class ValidadorPostal:
     def analizar(self, cp, candidatos_ubicacion, colonia=None, texto_calle=""):
         """
         Compara lo capturado en el Excel contra el catálogo SEPOMEX bajo CERO ALUCINACIONES.
-        - Solo declara 'coherente' si el CP existe y algún dato coincide con el municipio oficial.
-        - Retorna lista de colonias oficiales y detecta si una colonia oficial vino escrita en la calle.
+        - Declara 'coherente' si el CP existe y algún dato coincide con el municipio oficial,
+          el estado oficial o una colonia oficial exacta de ese CP.
+        - Busca coincidencias de colonias oficiales en Localidad, Municipio, City, State y Calle/House.
         """
         base = {
             "existe": False,
@@ -538,6 +596,7 @@ class ValidadorPostal:
             "estado_plantilla": None,
             "municipio_oficial": None,
             "colonia_ok": None,
+            "colonia_match": None,
             "colonias": [],
             "colonia_en_calle": None
         }
@@ -575,15 +634,42 @@ class ValidadorPostal:
             if municipio_match:
                 break
 
-        colonia_ok = None
+        # Buscar coincidencia de colonia en el campo principal 'colonia' y en todos los candidatos_ubicacion
+        colonia_match = None
+        colonia_ok = False
+        textos_busqueda_colonia = []
         if colonia:
-            nc = self._sin_prefijo_colonia(colonia)
-            colonia_ok = bool(nc) and any(
-                nc == self._sin_prefijo_colonia(c)
-                or self._sin_prefijo_colonia(c) in nc
-                or (len(nc) >= 4 and nc in self._sin_prefijo_colonia(c))
-                for c in colonias
-            )
+            textos_busqueda_colonia.append(colonia)
+        for cand in candidatos_ubicacion:
+            if cand and cand not in textos_busqueda_colonia:
+                textos_busqueda_colonia.append(cand)
+
+        # Paso 1: Coincidencia exacta o contenida contra las colonias oficiales del CP
+        for texto_cand in textos_busqueda_colonia:
+            nc_cand = self._sin_prefijo_colonia(texto_cand)
+            if not nc_cand or len(nc_cand) < 3:
+                continue
+            # Ignorar si el texto es simplemente el nombre del estado o municipio genérico
+            if nc_cand in norm_mun or nc_cand in {normalizar_texto(e) for e in estados}:
+                # A menos que la colonia se llame igual que el municipio
+                exact_col = next((c for c in colonias if self._sin_prefijo_colonia(c) == nc_cand), None)
+                if exact_col:
+                    colonia_match = exact_col
+                    colonia_ok = True
+                    break
+                continue
+            for c in colonias:
+                nc_oficial = self._sin_prefijo_colonia(c)
+                if (
+                    nc_cand == nc_oficial
+                    or (len(nc_oficial) >= 4 and nc_oficial in nc_cand)
+                    or (len(nc_cand) >= 5 and nc_cand in nc_oficial)
+                ):
+                    colonia_match = c
+                    colonia_ok = True
+                    break
+            if colonia_match:
+                break
 
         colonia_en_calle = None
         ntexto = normalizar_texto(texto_calle)
@@ -592,16 +678,26 @@ class ValidadorPostal:
                 nc = self._sin_prefijo_colonia(c)
                 if len(nc) >= 4 and re.search(rf"\b{re.escape(nc)}\b", ntexto):
                     colonia_en_calle = c
+                    if not colonia_match:
+                        colonia_match = c
+                        colonia_ok = True
                     break
 
         estado_of = estados[0]
+        estado_plantilla = self.ESTADO_PLANTILLA.get(normalizar_texto(estado_of), estado_of)
+
+        # Si no hubo match directo de municipio pero sí hubo match exacto de una colonia oficial del CP,
+        # el domicilio pertenece comprobadamente a ese CP y municipio oficial
+        es_coherente = (municipio_match is not None or colonia_match is not None) and len(estados) == 1
+
         return {
             "existe": True,
-            "coherente": municipio_match is not None and len(estados) == 1,
+            "coherente": es_coherente,
             "estado_oficial": estado_of,
-            "estado_plantilla": self.ESTADO_PLANTILLA.get(normalizar_texto(estado_of), estado_of),
+            "estado_plantilla": estado_plantilla,
             "municipio_oficial": municipio_match or (municipios[0] if len(municipios) == 1 else None),
             "colonia_ok": colonia_ok,
+            "colonia_match": colonia_match,
             "colonias": colonias,
             "colonia_en_calle": colonia_en_calle,
         }
