@@ -1932,7 +1932,7 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-500 mt-1">Selecciona un módulo operativo para continuar.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl justify-items-center">
               {hubModules.map(({ name, description, Icon, target, tone }) => {
                 const isActive = Boolean(target);
                 const iconTone =
@@ -1949,7 +1949,7 @@ export default function DashboardPage() {
                         triggerToast(`Módulo ${name} en construcción`, "info");
                       }
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[200px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] w-full max-w-[340px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
@@ -1957,19 +1957,23 @@ export default function DashboardPage() {
                         : "bg-transparent group-hover:bg-[#233762]/30"
                         }`}
                     />
-                    {isActive && (
+                    {isActive ? (
                       <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                         Activo
                       </span>
+                    ) : (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                        En desarrollo
+                      </span>
                     )}
-                    <div className="flex flex-col items-center w-full">
+                    <div className="flex flex-col items-center w-full mt-2">
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
                       >
                         <Icon className="w-7 h-7" />
                       </div>
-                      <h3 className="text-lg font-bold text-[#233762] mt-4">{name}</h3>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
                     </div>
                     <span
                       className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
@@ -1977,7 +1981,7 @@ export default function DashboardPage() {
                     >
                       {isActive ? (
                         <>
-                          <span>Ingresar</span>
+                          <span>Ingresar al módulo</span>
                           <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                         </>
                       ) : (
@@ -2064,7 +2068,7 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-500 mt-1">Selecciona una herramienta operativa para continuar.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl justify-items-center">
               {operacionDiaModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
                 const isActive = Boolean(target);
                 const iconTone =
@@ -2086,7 +2090,7 @@ export default function DashboardPage() {
                       }
                       setActiveModule(target);
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[220px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] w-full max-w-[340px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
@@ -2103,14 +2107,14 @@ export default function DashboardPage() {
                         En desarrollo
                       </span>
                     )}
-                    <div className="flex flex-col items-center w-full">
+                    <div className="flex flex-col items-center w-full mt-2">
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
                       >
                         <Icon className="w-7 h-7" />
                       </div>
-                      <h3 className="text-lg font-bold text-[#233762] mt-4">{name}</h3>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
                     </div>
                     <span
                       className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
@@ -2118,7 +2122,7 @@ export default function DashboardPage() {
                     >
                       {isActive ? (
                         <>
-                          <span>Ingresar</span>
+                          <span>Ingresar al módulo</span>
                           <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                         </>
                       ) : (
