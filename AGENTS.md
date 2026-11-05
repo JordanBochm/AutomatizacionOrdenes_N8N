@@ -34,9 +34,20 @@ LA IA SIEMPRE DEBE OPERAR BAJO EL FLUJO GITFLOW EN CADA TAREA O REQUERIMIENTO:
 - **Cabecera y Logo:**
   - Logo oficial `/logo-supplychain.png` centrado en la parte superior (`h-20 sm:h-24 w-auto`), con fallback a `<AnimatedLogo />`.
   - Franja superior bicolor institucional de 6px (50% `#233762` y 50% `#CE3A39`).
-- **Tarjetas y Módulos:**
-  - Dimensiones idénticas y simétricas (`h-[275px] min-h-[275px]`).
-  - Botón de regreso con estilo píldora (`rounded-full`) y flecha roja (`#CE3A39`).
+- **Tarjetas y Módulos (Dimensiones Homogéneas Obligatorias):**
+  - CADA TARJETA DE MÓDULO O SUBMÓDULO DEBE MEDIR EXACTAMENTE LO MISMO EN TODAS LAS PANTALLAS:
+    - Ancho exacto fijado: `w-[300px]` (PROHIBIDO usar anchos porcentuales o columnas grid que cambien el ancho de las tarjetas entre pantallas).
+    - Altura exacta fijada: `h-[275px] min-h-[275px]`.
+  - Contenedor de módulos: `flex flex-wrap justify-center gap-6 max-w-5xl mx-auto` (o `max-w-7xl` para 4 módulos en desktop) para que las tarjetas conserven siempre sus 300px × 275px sin estirarse ni comprimirse.
+  - Estructura interna estandarizada de cada tarjeta:
+    - Badge superior derecha: `text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full` alternando tonos oficiales (`#EFF3F9` / `#FDF2F2`).
+    - Contenedor de icono centrado: `w-14 h-14 rounded-2xl` con sombra suave y zoom al hover.
+    - Título centrado: `text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4`.
+    - Descripción centrada: `text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1`.
+    - Enlace inferior alineado: `Ingresar al módulo →` (`text-[#233762] group-hover:text-[#CE3A39]`).
+    - Línea de base institucional de acento: `h-1 bg-[#233762] group-hover:bg-[#CE3A39]`.
+- **Navegación y Botones:**
+  - Botón de regreso con estilo píldora (`rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] font-bold`) y flecha roja (`<ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39]" />`).
 
 # Reglas críticas para agentes
 - NUNCA ejecutar timbrados reales ni llamar a Techship, Estafeta o FedEx en pruebas. En API usar siempre `dry_run: true`; en CLI usar `main.py` SIN `--live`.
