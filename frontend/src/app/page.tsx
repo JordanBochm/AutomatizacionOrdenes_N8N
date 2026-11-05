@@ -1932,7 +1932,8 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-500 mt-1">Selecciona un módulo operativo para continuar.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl justify-items-center">
+            {/* Contenedor de Módulos (Diseño estandarizado: w-[300px] h-[275px]) */}
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {hubModules.map(({ name, description, Icon, target, tone }) => {
                 const isActive = Boolean(target);
                 const iconTone =
@@ -1949,7 +1950,7 @@ export default function DashboardPage() {
                         triggerToast(`Módulo ${name} en construcción`, "info");
                       }
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] w-full max-w-[340px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
@@ -2068,7 +2069,8 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-500 mt-1">Selecciona una herramienta operativa para continuar.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl justify-items-center">
+            {/* Submódulos Operación del Día (Diseño estandarizado: w-[300px] h-[275px]) */}
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {operacionDiaModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
                 const isActive = Boolean(target);
                 const iconTone =
@@ -2090,7 +2092,7 @@ export default function DashboardPage() {
                       }
                       setActiveModule(target);
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] w-full max-w-[340px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
@@ -2309,8 +2311,8 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Grid / Contenedor de Módulo Estandarizado (h-[275px] min-h-[275px], max-w-[340px] centrado) */}
-            <div className="flex justify-center w-full max-w-5xl">
+            {/* Contenedor de Transporte (w-[300px] h-[275px]) */}
+            <div className="flex justify-center w-full max-w-5xl mx-auto">
               {transporteModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
                 const isActive = Boolean(target);
                 const isNavy = tone === "navy";
@@ -2331,7 +2333,7 @@ export default function DashboardPage() {
                       }
                       setActiveModule(target);
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] w-full max-w-[340px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
