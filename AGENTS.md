@@ -24,30 +24,49 @@ LA IA SIEMPRE DEBE OPERAR BAJO EL FLUJO GITFLOW EN CADA TAREA O REQUERIMIENTO:
 3. **Hotfixes:**
    - Se crean desde `main` bajo el prefijo `hotfix/<nombre>`, se resuelven y se fusionan tanto a `main` como a `develop`.
 
-# Reglas de Estandarización de Identidad Visual (UI)
-- **Colores Oficiales Exclusivos:**
-  - Azul Primario (Seko Navy): `#233762`
-  - Rojo Secundario (Seko Red): `#CE3A39`
-  - Fondo Suave Navy: `#EFF3F9`
-  - Fondo Suave Red: `#FDF2F2`
-  - PROHIBIDO usar colores ajenos (ámbar, morado, celeste brillante, violeta, naranja) para tarjetas, badges, bordes o acentos.
-- **Cabecera y Logo:**
-  - Logo oficial `/logo-supplychain.png` centrado en la parte superior (`h-20 sm:h-24 w-auto`), con fallback a `<AnimatedLogo />`.
-  - Franja superior bicolor institucional de 6px (50% `#233762` y 50% `#CE3A39`).
-- **Tarjetas y Módulos (Dimensiones Homogéneas Obligatorias):**
-  - CADA TARJETA DE MÓDULO O SUBMÓDULO DEBE MEDIR EXACTAMENTE LO MISMO EN TODAS LAS PANTALLAS:
-    - Ancho exacto fijado: `w-[300px]` (PROHIBIDO usar anchos porcentuales o columnas grid que cambien el ancho de las tarjetas entre pantallas).
-    - Altura exacta fijada: `h-[275px] min-h-[275px]`.
-  - Contenedor de módulos: `flex flex-wrap justify-center gap-6 max-w-5xl mx-auto` (o `max-w-7xl` para 4 módulos en desktop) para que las tarjetas conserven siempre sus 300px × 275px sin estirarse ni comprimirse.
-  - Estructura interna estandarizada de cada tarjeta:
-    - Badge superior derecha: `text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full` alternando tonos oficiales (`#EFF3F9` / `#FDF2F2`).
-    - Contenedor de icono centrado: `w-14 h-14 rounded-2xl` con sombra suave y zoom al hover.
-    - Título centrado: `text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4`.
-    - Descripción centrada: `text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1`.
-    - Enlace inferior alineado: `Ingresar al módulo →` (`text-[#233762] group-hover:text-[#CE3A39]`).
-    - Línea de base institucional de acento: `h-1 bg-[#233762] group-hover:bg-[#CE3A39]`.
-- **Navegación y Botones:**
-  - Botón de regreso con estilo píldora (`rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] font-bold`) y flecha roja (`<ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39]" />`).
+# Reglas de Estandarización de Identidad Visual y Homogeneidad (UI - Obligatorio y Permanente)
+ANTES DE REALIZAR CUALQUIER CAMBIO EN EL FRONTEND O CREAR UN COMPONENTE, LA IA DEBE VERIFICAR Y RESPETAR ESTRICTAMENTE ESTAS REGLAS DE HOMOGENEIDAD Y BAJA SATURACIÓN VISUAL:
+
+1. **Sistema Semántico de Color (Cero Saturación Visual):**
+   - **Azul Marino (`#233762`):** Estructura, navegación, acciones normales/secundarias principales, pestaña o filtro activo (`bg-[#233762] text-white`), encabezados de tabla (`bg-[#233762] text-white`) y números de KPI (`text-[#233762] font-mono`).
+   - **Rojo Corporativo (`#CE3A39`):** EXCLUSIVAMENTE para:
+     a) La **única acción primaria crítica** de la vista (ej. *Timbrar guías*, *Generar PDF*). Máximo 1 botón rojo sólido por vista operativa.
+     b) **Errores reales** o bloqueos de validación (ej. teléfono inválido, guía retrasada/incidencia).
+     c) **Acciones destructivas en `hover`** (ej. *Eliminar*, *Limpiar tabla / Archivar*, *Cerrar sesión*: en reposo usan borde/texto `slate` y solo cambian a `hover:bg-red-50 hover:border-red-200 hover:text-[#CE3A39]`).
+   - **Verde (`emerald-500`) / Ámbar (`amber-500`) / Rojo (`#CE3A39`):** EXCLUSIVAMENTE para el punto indicador (`w-2 h-2 rounded-full` de `8px`) del semáforo de estado de órdenes/envíos/equipos. **NUNCA** usar fondos verdes, ámbar, morados, celestes o rojos en tarjetas KPI, pestañas de filtro, botones de descarga ni badges de categoría/carrier/rol.
+   - **Gris (`slate-*`):** Todo lo demás. Badges de rol (`ASSET_MANAGER`, `ADMIN`), badges de cliente (`KYNDRYL & BASF`), badges de tipo (`ENTREGA`, `RETORNO`), badges de carrier (`FEDEX`, `ESTAFETA`), botones de descarga y contenedores secundarios deben ser neutros (`bg-slate-100 text-slate-600 border-slate-200` o `bg-slate-50 text-slate-700 border-slate-200`).
+   - **Fondos y Sombras:** Fondo de página `bg-slate-50`; tarjetas principales blancas (`bg-white border border-slate-200 rounded-2xl p-5 shadow-sm`). Prohibido anidar sombras redundantes.
+
+2. **Cabecera, Franja Superior y Badges de Rol:**
+   - En vistas de selección (Hub / Módulos): logo oficial `/logo-supplychain.png` centrado (`h-20 sm:h-24 w-auto`, fallback `<AnimatedLogo />`) y franja bicolor superior de `6px` (`h-1.5`).
+   - En vistas operativas de Asset Management: franja superior bicolor de `3px` (`h-[3px]`, 50% `#233762` y 50% `#CE3A39`).
+   - Badge de rol de usuario en el header: siempre neutro (`bg-slate-100 text-slate-600`), nunca rojo.
+   - Botón de regreso con estilo píldora (`rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] font-semibold`) y flecha roja (`<ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39]" />`).
+
+3. **Tarjetas de Módulos (Dimensiones Homogéneas Obligatorias en Hubs):**
+   - CADA TARJETA DE MÓDULO O SUBMÓDULO DEBE MEDIR EXACTAMENTE LO MISMO EN TODAS LAS PANTALLAS:
+     - Ancho exacto fijado: `w-[300px]` (PROHIBIDO usar anchos porcentuales o columnas grid que cambien el ancho de las tarjetas entre pantallas).
+     - Altura exacta fijada: `h-[275px] min-h-[275px]`.
+   - Contenedor de módulos: `flex flex-wrap justify-center gap-6 max-w-5xl mx-auto` (o `max-w-7xl` para 4 módulos en desktop).
+   - Estructura interna estandarizada:
+     - Badge superior derecha: `text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full` en tonos institucionales suaves (`#EFF3F9 text-[#233762]` / `#FDF2F2 text-[#CE3A39]`), nunca verde brillante.
+     - Contenedor de icono centrado: `w-14 h-14 rounded-2xl` con zoom al hover.
+     - Título centrado: `text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4`.
+     - Descripción centrada: `text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1`.
+     - Enlace inferior alineado: `Ingresar al módulo →` (`text-[#233762] group-hover:text-[#CE3A39]`).
+     - Línea de base institucional de acento: `h-1 bg-[#233762] group-hover:bg-[#CE3A39]`.
+
+4. **Tarjetas KPI Operativas (Estándar Limpio):**
+   - Tarjeta blanca (`bg-white border border-slate-200 rounded-2xl p-5 shadow-sm`), **sin** franja superior de color y **sin** fondos de tarjeta coloreados (`bg-amber-50`, `bg-emerald-50`, `bg-red-50`, etc.).
+   - Cabecera con título en `text-[11px] font-semibold uppercase tracking-wider text-slate-500` acompañado únicamente de un punto (`w-2 h-2 rounded-full`) del color semántico correspondiente.
+   - Valor numérico en `text-3xl` o `text-4xl font-bold font-mono text-[#233762] mt-2` (siempre en azul marino `#233762`).
+   - Subtítulo en `text-xs text-slate-400 mt-1`.
+   - Si la tarjeta filtra la tabla, la tarjeta activa lleva anillo azul marino (`border-[#233762] ring-2 ring-[#233762]/15`).
+
+5. **Tablas, Filtros y Semáforos:**
+   - Pestañas de filtro: la pestaña activa SIEMPRE va en azul marino (`bg-[#233762] text-white`), nunca en rojo, verde o morado.
+   - Semáforo o estatus por fila: punto de color de `8px` (`w-2 h-2 rounded-full`) + texto corto legible, evitando píldoras saturadas de múltiples colores. Los detalles largos van en atributo `title` (tooltip).
+   - Botones de descarga / exportación: estilo neutro unificado (`bg-slate-50 border border-slate-200 text-slate-700 hover:bg-[#EFF3F9] hover:text-[#233762] hover:border-[#233762]/30`), con icono `<Lock />` y `opacity-40` cuando no estén disponibles.
 
 # Reglas críticas para agentes
 - NUNCA ejecutar timbrados reales ni llamar a Techship, Estafeta o FedEx en pruebas. En API usar siempre `dry_run: true`; en CLI usar `main.py` SIN `--live`.

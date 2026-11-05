@@ -483,8 +483,8 @@ export default function ReportesView({
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative selection:bg-[#233762] selection:text-white">
-      {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
-      <div className="h-1.5 w-full flex fixed top-0 left-0 right-0 z-50">
+      {/* Franja Superior Bicolor Institucional (3px en submódulos operativos, 6px en Hub de Reportes) */}
+      <div className={`${activeSubmodulo !== null ? "h-[3px]" : "h-1.5"} w-full flex fixed top-0 left-0 right-0 z-50`}>
         <div className="w-1/2 bg-[#233762]" />
         <div className="w-1/2 bg-[#CE3A39]" />
       </div>
@@ -718,45 +718,45 @@ export default function ReportesView({
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <button
                   onClick={handleBatchWarrantyCheck}
                   disabled={isCheckingBatch}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#EFF3F9] border border-[#233762] text-[#233762] text-xs font-bold disabled:opacity-40 transition cursor-pointer"
                   title="Consultar en los servidores de Lenovo y Dell las garantías de los equipos mostrados"
                 >
                   {isCheckingBatch ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-200" />
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#233762]" />
                       <span>Consultando Garantías...</span>
                     </>
                   ) : (
                     <>
-                      <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                      <ShieldCheck className="w-4 h-4 text-[#233762]" />
                       <span>Verificar Garantías del Lote</span>
                     </>
                   )}
                 </button>
                 <button
                   onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#233762] text-white text-sm font-semibold shadow hover:bg-[#1b2b4d] transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] text-white text-xs font-bold shadow-sm hover:bg-[#1b2b4d] transition cursor-pointer"
                 >
-                  <Upload className="w-4 h-4 text-emerald-300" />
+                  <Upload className="w-4 h-4" />
                   Actualizar / Cargar Excel
                 </button>
                 <button
                   onClick={handleExportFiltered}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-sm font-semibold shadow-sm hover:bg-slate-50 hover:text-[#233762] transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-[#EFF3F9] hover:border-[#233762]/30 hover:text-[#233762] transition cursor-pointer"
                 >
-                  <Download className="w-4 h-4 text-[#CE3A39]" />
+                  <Download className="w-4 h-4 text-slate-500" />
                   Descargar Excel Filtrado
                 </button>
                 <button
                   onClick={() => setShowClearModal(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white border border-red-200 text-[#CE3A39] text-sm font-semibold shadow-2xs hover:bg-red-50 hover:border-red-300 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 hover:text-[#CE3A39] transition cursor-pointer"
                   title="Limpiar toda la información de computadoras y números de serie"
                 >
-                  <Trash2 className="w-4 h-4 text-[#CE3A39]" />
+                  <Trash2 className="w-4 h-4" />
                   <span>Limpiar Información</span>
                 </button>
               </div>
@@ -764,71 +764,77 @@ export default function ReportesView({
           </header>
 
           {/* Tarjetas de KPIs */}
-      <section className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+      <section className="grid grid-cols-2 lg:grid-cols-6 gap-5 mb-8">
         {/* Total Devueltos */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Devueltos</div>
-          <div className="text-2xl md:text-3xl font-black text-[#233762] mt-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Devueltos</span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
+          </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
             {kpis.totalDevueltos.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-            <Layers className="w-3.5 h-3.5 text-blue-500" /> Lote activo
-          </div>
+          <div className="text-xs text-slate-400 mt-1">Lote activo</div>
         </div>
 
         {/* En evaluación */}
-        <div className="bg-amber-50/50 p-5 rounded-xl border border-amber-200 shadow-sm">
-          <div className="text-xs font-bold text-amber-800 uppercase tracking-wider">En Evaluación</div>
-          <div className="text-2xl md:text-3xl font-black text-amber-700 mt-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">En Evaluación</span>
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+          </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
             {kpis.enEvaluacion.toLocaleString()}
           </div>
-          <div className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" /> Revisión técnica
-          </div>
+          <div className="text-xs text-slate-400 mt-1">Revisión técnica</div>
         </div>
 
         {/* Pendientes de baja */}
-        <div className="bg-red-50/50 p-5 rounded-xl border border-red-200 shadow-sm">
-          <div className="text-xs font-bold text-[#CE3A39] uppercase tracking-wider">Pendiente de Baja</div>
-          <div className="text-2xl md:text-3xl font-black text-[#CE3A39] mt-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pendiente de Baja</span>
+            <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
+          </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
             {kpis.pendientesBaja.toLocaleString()}
           </div>
-          <div className="text-[11px] text-red-600 mt-1 flex items-center gap-1">
-            <AlertTriangle className="w-3.5 h-3.5" /> Destino Scrap
-          </div>
+          <div className="text-xs text-slate-400 mt-1">Destino Scrap</div>
         </div>
 
         {/* In Stock / Cerrado */}
-        <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-200 shadow-sm">
-          <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider">In Stock / Cerrado</div>
-          <div className="text-2xl md:text-3xl font-black text-emerald-700 mt-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">In Stock / Cerrado</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
             {kpis.inStockCerrado.toLocaleString()}
           </div>
-          <div className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Ingresado al almacén
-          </div>
+          <div className="text-xs text-slate-400 mt-1">Ingresado al almacén</div>
         </div>
 
         {/* % Conciliados SNOW */}
-        <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-200 shadow-sm">
-          <div className="text-xs font-bold text-blue-900 uppercase tracking-wider">Conciliados SNOW</div>
-          <div className="text-2xl md:text-3xl font-black text-blue-800 mt-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Conciliados SNOW</span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
+          </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
             {kpis.porcentajeConciliadosSnow}%
           </div>
-          <div className="text-[11px] text-blue-600 mt-1 flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5" /> {kpis.conciliadosSnowCount} registrados
-          </div>
+          <div className="text-xs text-slate-400 mt-1">{kpis.conciliadosSnowCount} registrados</div>
         </div>
 
         {/* Sin Clasificar */}
-        <div className="bg-slate-100/70 p-5 rounded-xl border border-slate-300 shadow-sm">
-          <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">Sin Clasificar</div>
-          <div className="text-2xl md:text-3xl font-black text-slate-700 mt-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Sin Clasificar</span>
+            <span className="w-2 h-2 rounded-full bg-slate-400" />
+          </div>
+          <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
             {kpis.sinClasificar.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-            <HelpCircle className="w-3.5 h-3.5 text-slate-400" /> Fechas o vacíos
-          </div>
+          <div className="text-xs text-slate-400 mt-1">Fechas o vacíos</div>
         </div>
       </section>
 
@@ -880,52 +886,52 @@ export default function ReportesView({
 
         {/* Filtros Especiales y Contadores */}
         <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-100 text-xs">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={handleDuplicadosToggle}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold transition-all cursor-pointer ${
                 soloDuplicados
-                  ? "bg-purple-50 text-purple-700 border-purple-300 font-bold"
-                  : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  ? "bg-[#233762] text-white border-[#233762]"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
               }`}
             >
-              <AlertCircle className="w-3.5 h-3.5 text-purple-600" />
+              <span className={`w-2 h-2 rounded-full ${soloDuplicados ? "bg-white" : "bg-amber-500"}`} />
               Solo Seriales Duplicados ({kpis.totalSerialesDuplicados})
             </button>
 
             <button
               onClick={handleSinRitmToggle}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold transition-all cursor-pointer ${
                 soloSinRitm
-                  ? "bg-amber-50 text-amber-800 border-amber-300 font-bold"
-                  : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  ? "bg-[#233762] text-white border-[#233762]"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
               }`}
             >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              <span className={`w-2 h-2 rounded-full ${soloSinRitm ? "bg-white" : "bg-amber-500"}`} />
               RITM Inválido / Vacío ({kpis.totalSinRitm})
             </button>
 
             <button
               onClick={handleSinTrackingToggle}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold transition-all cursor-pointer ${
                 soloSinTracking
-                  ? "bg-red-50 text-red-700 border-red-300 font-bold"
-                  : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  ? "bg-[#233762] text-white border-[#233762]"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
               }`}
             >
-              <X className="w-3.5 h-3.5 text-red-500" />
+              <span className={`w-2 h-2 rounded-full ${soloSinTracking ? "bg-white" : "bg-[#CE3A39]"}`} />
               Sin Guía Tracking ({kpis.totalSinTracking})
             </button>
 
             <button
               onClick={handleSoloConGarantiaToggle}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold transition-all cursor-pointer ${
                 soloConGarantia
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-bold"
-                  : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  ? "bg-[#233762] text-white border-[#233762]"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span className={`w-2 h-2 rounded-full ${soloConGarantia ? "bg-white" : "bg-emerald-500"}`} />
               Solo con Garantía Vigente ({kpis.totalConGarantia ?? 0})
             </button>
           </div>
@@ -1038,7 +1044,7 @@ export default function ReportesView({
 
                           {row.serialDuplicado && (
                             <span
-                              className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                              className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
                               title="Serial duplicado en varias filas"
                               onClick={() => handleOpenSerialHistory(row.serialNumber)}
                             >
@@ -1067,36 +1073,27 @@ export default function ReportesView({
                             <RefreshCw className="w-3 h-3 animate-spin text-[#233762]" /> Consultando...
                           </span>
                         ) : row.garantia?.vigente ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 w-fit"
-                              title={`Garantía Vigente (${row.garantia.proveedor})`}
-                            >
-                              <ShieldCheck className="w-3 h-3 text-emerald-600" /> Vigente
+                          <div className="flex flex-col gap-0.5" title={`Garantía Vigente (${row.garantia.proveedor})`}>
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Vigente
                             </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
+                            <span className="text-[10px] text-slate-400 font-mono">
                               {row.garantia.fechaFin ? `Hasta ${row.garantia.fechaFin}` : "Activa"}
                             </span>
                           </div>
                         ) : row.garantia?.estado === "POR_VENCER" ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 w-fit"
-                              title={`Por vencer (${row.garantia.proveedor})`}
-                            >
-                              <Clock className="w-3 h-3 text-amber-600" /> Por Vencer
+                          <div className="flex flex-col gap-0.5" title={`Por vencer (${row.garantia.proveedor})`}>
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" /> Por Vencer
                             </span>
-                            <span className="text-[10px] text-amber-700 font-mono">
+                            <span className="text-[10px] text-slate-400 font-mono">
                               {row.garantia.diasRestantes} días ({row.garantia.fechaFin})
                             </span>
                           </div>
                         ) : row.garantia?.estado === "EXPIRADA" ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 w-fit"
-                              title={`Garantía Expirada (${row.garantia.proveedor})`}
-                            >
-                              <X className="w-3 h-3 text-rose-500" /> Expirada
+                          <div className="flex flex-col gap-0.5" title={`Garantía Expirada (${row.garantia.proveedor})`}>
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                              <span className="w-2 h-2 rounded-full bg-[#CE3A39] shrink-0" /> Expirada
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono">
                               {row.garantia.fechaFin ? `Fin ${row.garantia.fechaFin}` : "Vencida"}
@@ -1161,10 +1158,8 @@ export default function ReportesView({
 
                       {/* Estatus Badge */}
                       <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${statusConf.badgeBg} ${statusConf.badgeText} ${statusConf.badgeBorder}`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${statusConf.dotColor}`} />
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${statusConf.dotColor}`} />
                           {row.estatus}
                         </span>
                       </td>
