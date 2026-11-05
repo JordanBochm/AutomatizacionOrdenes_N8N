@@ -379,7 +379,7 @@ export default function DashboardPage() {
   // Vista activa:
   // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'operacion_dia' | 'generador_tracking' | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
   const [activeModule, setActiveModule] = useState<
-    "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile" | "calendario" | "historial"
+    "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "rastreo_envios" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile" | "calendario" | "historial"
   >("login");
   const [initialTracking, setInitialTracking] = useState<string>("");
 
@@ -1293,7 +1293,7 @@ export default function DashboardPage() {
         target: "operacion_dia",
         tone: "navy",
       },
-      { name: "Transporte", description: "Rastreo de envios.", Icon: Truck, target: "transporte", tone: "red" },
+      { name: "Transporte", description: "Módulos de logística, rastreo de envíos y control de transporte.", Icon: Truck, target: "transporte", tone: "red" },
       { name: "Facturación", description: "Facturación mensual.", Icon: FileText, tone: "navy" },
       {
         name: "Reportes",
@@ -1338,6 +1338,25 @@ export default function DashboardPage() {
         Icon: Archive,
         target: "historial",
         tone: "navy",
+        statusBadge: "Activo",
+      },
+    ];
+
+  // Submódulos de Transporte y Logística (estandarizados)
+  const transporteModules: {
+    name: string;
+    description: string;
+    Icon: React.ElementType;
+    target?: "rastreo_envios";
+    tone: "navy" | "red";
+    statusBadge: "Activo" | "En desarrollo";
+  }[] = [
+      {
+        name: "Rastreo de envíos",
+        description: "Monitoreo en vivo de guías FedEx y Estafeta, trazabilidad de entregas, incidencias y reportes.",
+        Icon: Truck,
+        target: "rastreo_envios",
+        tone: "red",
         statusBadge: "Activo",
       },
     ];
@@ -1913,7 +1932,8 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-500 mt-1">Selecciona un módulo operativo para continuar.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+            {/* Contenedor de Módulos (Diseño estandarizado: w-[300px] h-[275px]) */}
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {hubModules.map(({ name, description, Icon, target, tone }) => {
                 const isActive = Boolean(target);
                 const iconTone =
@@ -1930,7 +1950,7 @@ export default function DashboardPage() {
                         triggerToast(`Módulo ${name} en construcción`, "info");
                       }
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[200px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
@@ -1938,19 +1958,23 @@ export default function DashboardPage() {
                         : "bg-transparent group-hover:bg-[#233762]/30"
                         }`}
                     />
-                    {isActive && (
+                    {isActive ? (
                       <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                         Activo
                       </span>
+                    ) : (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                        En desarrollo
+                      </span>
                     )}
-                    <div className="flex flex-col items-center w-full">
+                    <div className="flex flex-col items-center w-full mt-2">
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
                       >
                         <Icon className="w-7 h-7" />
                       </div>
-                      <h3 className="text-lg font-bold text-[#233762] mt-4">{name}</h3>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
                     </div>
                     <span
                       className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
@@ -1958,7 +1982,7 @@ export default function DashboardPage() {
                     >
                       {isActive ? (
                         <>
-                          <span>Ingresar</span>
+                          <span>Ingresar al módulo</span>
                           <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                         </>
                       ) : (
@@ -2045,7 +2069,8 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-500 mt-1">Selecciona una herramienta operativa para continuar.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl">
+            {/* Submódulos Operación del Día (Diseño estandarizado: w-[300px] h-[275px]) */}
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {operacionDiaModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
                 const isActive = Boolean(target);
                 const iconTone =
@@ -2067,7 +2092,7 @@ export default function DashboardPage() {
                       }
                       setActiveModule(target);
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[220px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
@@ -2084,14 +2109,14 @@ export default function DashboardPage() {
                         En desarrollo
                       </span>
                     )}
-                    <div className="flex flex-col items-center w-full">
+                    <div className="flex flex-col items-center w-full mt-2">
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
                       >
                         <Icon className="w-7 h-7" />
                       </div>
-                      <h3 className="text-lg font-bold text-[#233762] mt-4">{name}</h3>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
                     </div>
                     <span
                       className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
@@ -2099,7 +2124,7 @@ export default function DashboardPage() {
                     >
                       {isActive ? (
                         <>
-                          <span>Ingresar</span>
+                          <span>Ingresar al módulo</span>
                           <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                         </>
                       ) : (
@@ -2205,25 +2230,178 @@ export default function DashboardPage() {
         </div>
       ) : activeModule === "transporte" ? (
         /* ==================================================================== */
-        /* VISTA TRANSPORTE - RASTREO DE ENVÍOS MULTI-CARRIER (FEDEX / ESTAFETA) */
+        /* VISTA TRANSPORTE - SUBMÓDULOS DE TRANSPORTE Y LOGÍSTICA              */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
+          {/* Barra Superior con Navegación al Hub de Asset Management y Perfil */}
+          <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
+            <button
+              type="button"
+              onClick={() => setActiveModule("modules")}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group"
+              title="Regresar a Asset Management"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
+              <span>Regresar a Asset Management</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveModule("hub")}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-semibold transition shadow-2xs cursor-pointer"
+                title="Ir al Hub Principal"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Hub</span>
+              </button>
+
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-slate-600">{currentUser?.email}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                  {roleConfig.code}
+                </span>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-semibold shadow-2xs cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Contenido Central: Logo Centrado, Título y Tarjetas Estandarizadas */}
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-2 pb-10">
+            {/* Logo de la empresa centrado en la parte superior */}
+            <button
+              type="button"
+              onClick={() => setActiveModule("modules")}
+              className="cursor-pointer select-none"
+              title="Regresar a Asset Management"
+            >
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
+              )}
+            </button>
+
+            {/* Header Centralizado con Badge y Título */}
+            <div className="text-center max-w-2xl mx-auto mt-4 mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+                <span>Asset Management</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">Transporte</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                Módulos de Transporte y Logística
+              </h1>
+              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                Selecciona un submódulo operativo para monitorear envíos, trazabilidad de guías y logística de transporte.
+              </p>
+            </div>
+
+            {/* Contenedor de Transporte (w-[300px] h-[275px]) */}
+            <div className="flex justify-center w-full max-w-5xl mx-auto">
+              {transporteModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
+                const isActive = Boolean(target);
+                const isNavy = tone === "navy";
+                const iconTone = isNavy
+                  ? "bg-[#EFF3F9] text-[#233762]"
+                  : "bg-[#FDF2F2] text-[#CE3A39]";
+                const badgeStyle = isNavy
+                  ? "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"
+                  : "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20";
+
+                return (
+                  <div
+                    key={name}
+                    onClick={() => {
+                      if (!target) {
+                        triggerToast(`Módulo ${name} en construcción`, "info");
+                        return;
+                      }
+                      setActiveModule(target);
+                    }}
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                  >
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                          : "bg-transparent group-hover:bg-[#233762]/30"
+                        }`}
+                    />
+                    <span
+                      className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeStyle}`}
+                    >
+                      {statusBadge}
+                    </span>
+                    <div className="flex flex-col items-center w-full mt-2">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                      >
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">
+                        {name}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
+                        {description}
+                      </p>
+                    </div>
+                    <span
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive
+                          ? "text-[#233762] group-hover:text-[#CE3A39]"
+                          : "text-slate-400 font-medium"
+                        }`}
+                    >
+                      {isActive ? (
+                        <>
+                          <span>Ingresar al módulo</span>
+                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                        </>
+                      ) : (
+                        <span>En desarrollo</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : activeModule === "rastreo_envios" ? (
+        /* ==================================================================== */
+        /* VISTA RASTREO DE ENVÍOS - VENTANA DE TRABAJO (FEDEX / ESTAFETA)       */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
             <div className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Botón para volver a Asset Management */}
+                {/* Botón para volver a Transporte (Pill button con flecha roja) */}
                 <button
                   type="button"
-                  onClick={() => setActiveModule("modules")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs group cursor-pointer"
-                  title="Regresar a Asset Management"
+                  onClick={() => setActiveModule("transporte")}
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group text-xs"
+                  title="Volver a Transporte"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                  <span className="hidden sm:inline">Regresar</span>
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
+                  <span>Volver a Transporte</span>
                 </button>
 
                 <div className="h-7 w-px bg-slate-200 hidden sm:block" />
 
+                {/* Logo institucional */}
                 <button
                   type="button"
                   onClick={() => setActiveModule("hub")}
@@ -2244,22 +2422,27 @@ export default function DashboardPage() {
 
                 <div className="h-9 w-px bg-slate-200 hidden md:block" />
 
+                {/* Breadcrumb Pill Estandarizado y Título */}
                 <div className="hidden sm:flex items-center gap-2.5">
-                  <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                    Transporte · Rastreo de Envíos
-                  </h1>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold">
+                    <span>Asset Management</span>
+                    <span className="text-slate-400">/</span>
+                    <span>Transporte</span>
+                    <span className="text-slate-400">/</span>
+                    <span className="text-[#CE3A39] font-bold">Rastreo de Envíos</span>
+                  </div>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
                     FEDEX & ESTAFETA
                   </span>
                 </div>
               </div>
 
-              {/* Botones de navegación y sesión */}
+              {/* Botones de navegación y sesión estandarizados */}
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setActiveModule("hub")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-semibold transition shadow-2xs cursor-pointer"
                   title="Ir al Hub Principal"
                 >
                   <Home className="w-3.5 h-3.5" />
@@ -2276,7 +2459,7 @@ export default function DashboardPage() {
 
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
                   title="Cerrar sesión"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -3230,7 +3413,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Lado Derecho: Descargas Agrupadas */}
-              {batchData ? (
+              {batchData && hasOrders ? (
                 <div className="flex flex-wrap items-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-4">
                   <span className="text-xs text-slate-500 font-bold mr-1 hidden sm:inline">Descargas:</span>
 
@@ -3720,11 +3903,10 @@ export default function DashboardPage() {
                           Teléfono de Contacto (10 dígitos)
                         </label>
                         <span
-                          className={`text-[10px] font-mono font-bold ${
-                            editFormData.phone.replace(/\D/g, "").length === 10
+                          className={`text-[10px] font-mono font-bold ${editFormData.phone.replace(/\D/g, "").length === 10
                               ? "text-emerald-600"
                               : "text-[#CE3A39]"
-                          }`}
+                            }`}
                         >
                           {editFormData.phone.replace(/\D/g, "").length}/10 dígitos
                         </span>

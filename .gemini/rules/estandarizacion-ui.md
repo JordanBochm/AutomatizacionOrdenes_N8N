@@ -19,13 +19,19 @@ Esta regla es de cumplimiento estricto y permanente en todas las pantallas, comp
   - 50% `#233762` (Navy) y 50% `#CE3A39` (Red).
 
 ## 4. Estandarización y Simetría de Cuadrículas y Tarjetas de Módulos
-- **Dimensiones idénticas:** Todos los módulos o submódulos en cuadrículas deben tener exactamente la misma altura y ancho (`h-[275px] min-h-[275px]` o proporción fija).
-- **Estructura fija en tarjetas:**
-  - Placa o badge superior derecha en tipografía mono (`[10px] uppercase font-bold px-2 py-0.5 rounded-full`) alternando tonos oficiales (`#EFF3F9` / `#FDF2F2`).
-  - Contenedor de icono centrado de `w-14 h-14 rounded-2xl` con sombra ligera y efecto zoom suave al hover.
-  - Título y descripción con límite de líneas estándar (`line-clamp-3`).
-  - Enlace inferior alineado a la misma altura: `Ingresar al módulo →` (`text-[#233762] group-hover:text-[#CE3A39]`).
-  - Línea de base institucional de 1px: `bg-[#233762] group-hover:bg-[#CE3A39]`.
+- **Dimensiones idénticas fijas en todas las pantallas:**
+  - Todas las tarjetas de módulos y submódulos (Hub, Asset Management, Operación del Día, Transporte, Reportes o futuros módulos) **DEBEN medir exactamente lo mismo**:
+    - **Ancho exacto:** `w-[300px]` (NUNCA usar anchos dinámicos como `w-full` dentro de columnas grid variables que alteren el ancho entre pantallas).
+    - **Altura exacta:** `h-[275px] min-h-[275px]`.
+- **Contenedor exterior de módulos:**
+  - Usar siempre: `flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto` (o `max-w-7xl` para cuadrículas con 4 módulos) para que las tarjetas conserven su proporción homogénea de 300px × 275px en cualquier resolución.
+- **Estructura interna fija de cada tarjeta:**
+  - Placa o badge superior derecha en tipografía mono: `text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full` alternando tonos oficiales (`#EFF3F9` / `#FDF2F2`).
+  - Contenedor de icono centrado de `w-14 h-14 rounded-2xl` con sombra ligera y efecto zoom suave al hover (`group-hover:scale-110`).
+  - Título centrado con cambio de color al hover: `text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4`.
+  - Descripción centrada con límite de 3 líneas: `text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1`.
+  - Enlace inferior alineado a la misma altura: `Ingresar al módulo →` (`text-[#233762] group-hover:text-[#CE3A39] transition-colors`).
+  - Línea de base institucional de acento: `h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300`.
 
 ## 5. Navegación y Botones
 - Botones de regreso con estilo píldora: `rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold`.
