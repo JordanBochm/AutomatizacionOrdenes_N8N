@@ -55,20 +55,20 @@ const STATUS_CONFIG: Record<
 > = {
   ok: {
     label: "Completo",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    badge: "bg-slate-50 text-slate-700 border-slate-200",
     dot: "bg-emerald-500",
     icon: CheckCircle2,
   },
   partial: {
     label: "Con incidencias",
-    badge: "bg-amber-50 text-amber-800 border-amber-200",
+    badge: "bg-slate-50 text-slate-700 border-slate-200",
     dot: "bg-amber-500",
     icon: AlertTriangle,
   },
   error: {
     label: "Con errores",
-    badge: "bg-red-50 text-red-700 border-red-200",
-    dot: "bg-red-500",
+    badge: "bg-slate-50 text-slate-700 border-slate-200",
+    dot: "bg-[#CE3A39]",
     icon: AlertCircle,
   },
 };
@@ -81,8 +81,8 @@ const SOURCE_LABELS: Record<HistorySource, string> = {
 };
 
 const CARRIER_STYLES: Record<Carrier, string> = {
-  FEDEX: "bg-[#EFF3F9] text-[#233762] border-[#233762]/20",
-  ESTAFETA: "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20",
+  FEDEX: "bg-slate-100 text-slate-600 border-slate-200",
+  ESTAFETA: "bg-slate-100 text-slate-600 border-slate-200",
   DESCONOCIDO: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
@@ -334,33 +334,36 @@ export default function HistoryView({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center">
-            <Archive className="w-5 h-5" />
-          </span>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Días registrados</p>
-            <p className="text-xl font-bold text-[#233762]">{totals.days}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Días registrados
+            </span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
+          <p className="text-3xl font-bold font-mono text-[#233762] mt-2">{totals.days}</p>
+          <p className="text-xs text-slate-400 mt-1">Bitácora operativa local</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center">
-            <Truck className="w-5 h-5" />
-          </span>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Trackings</p>
-            <p className="text-xl font-bold text-[#233762]">{totals.trackings}</p>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Trackings
+            </span>
+            <span className="w-2 h-2 rounded-full bg-[#233762]" />
           </div>
+          <p className="text-3xl font-bold font-mono text-[#233762] mt-2">{totals.trackings}</p>
+          <p className="text-xs text-slate-400 mt-1">Guías consultadas en historial</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <FileSpreadsheet className="w-5 h-5" />
-          </span>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cierres</p>
-            <p className="text-xl font-bold text-[#233762]">{totals.closings}</p>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Cierres
+            </span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </div>
+          <p className="text-3xl font-bold font-mono text-[#233762] mt-2">{totals.closings}</p>
+          <p className="text-xs text-slate-400 mt-1">Sincronizaciones completadas</p>
         </div>
       </div>
 
@@ -426,22 +429,21 @@ export default function HistoryView({
                 <button
                   key={day.id}
                   onClick={() => setSelectedId(day.id)}
-                  className={`text-left p-3 rounded-lg border transition-all ${
-                    isSelected
+                  className={`text-left p-3 rounded-lg border transition-all ${isSelected
                       ? "border-[#233762] bg-[#EFF3F9]/60 ring-2 ring-[#233762]/20"
                       : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-[#233762]">{formatDayLabel(day.id)}</span>
                     <span className="flex items-center gap-1.5">
                       {day.id === todayId && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#CE3A39] text-white">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] border border-[#233762]/20">
                           Hoy
                         </span>
                       )}
-                      <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${status.badge}`}>
-                        <StatusIcon className="w-2.5 h-2.5" />
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${status.badge}`}>
+                        <span className={`w-2 h-2 rounded-full ${status.dot}`} />
                         {status.label}
                       </span>
                     </span>
@@ -494,8 +496,8 @@ export default function HistoryView({
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border ${selectedStatus.badge}`}>
-                        {SelectedStatusIcon && <SelectedStatusIcon className="w-3 h-3" />}
+                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${selectedStatus.badge}`}>
+                        <span className={`w-2 h-2 rounded-full ${selectedStatus.dot}`} />
                         {selectedStatus.label}
                       </span>
                       <button
@@ -509,22 +511,34 @@ export default function HistoryView({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-                    <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Órdenes</p>
-                      <p className="text-lg font-bold text-[#233762]">{selectedDay.metrics.total_orders}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Órdenes</p>
+                        <span className="w-2 h-2 rounded-full bg-[#233762]" />
+                      </div>
+                      <p className="text-xl font-bold font-mono text-[#233762] mt-1">{selectedDay.metrics.total_orders}</p>
                     </div>
-                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600">Confirmadas</p>
-                      <p className="text-lg font-bold text-emerald-700">{selectedDay.metrics.confirmed}</p>
+                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Confirmadas</p>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      </div>
+                      <p className="text-xl font-bold font-mono text-[#233762] mt-1">{selectedDay.metrics.confirmed}</p>
                     </div>
-                    <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-amber-700">Revisar</p>
-                      <p className="text-lg font-bold text-amber-800">{selectedDay.metrics.review}</p>
+                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Revisar</p>
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      </div>
+                      <p className="text-xl font-bold font-mono text-[#233762] mt-1">{selectedDay.metrics.review}</p>
                     </div>
-                    <div className="rounded-lg bg-red-50 border border-red-100 p-3">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-red-600">Bloqueadas</p>
-                      <p className="text-lg font-bold text-red-700">{selectedDay.metrics.error_blocked}</p>
+                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Bloqueadas</p>
+                        <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
+                      </div>
+                      <p className="text-xl font-bold font-mono text-[#233762] mt-1">{selectedDay.metrics.error_blocked}</p>
                     </div>
                   </div>
 

@@ -1369,8 +1369,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
-      {/* Franja Superior Bicolor Institucional (3px en Automatizador, 6px en resto) */}
-      <div className={`${activeModule === "asset_management" ? "h-[3px]" : "h-1.5"} w-full flex relative z-50`}>
+      {/* Franja Superior Bicolor Institucional (3px en vistas operativas de Asset Management, 6px en Hubs) */}
+      <div className={`${["asset_management", "generador_tracking", "rastreo_envios", "historial", "calendario"].includes(activeModule) ? "h-[3px]" : "h-1.5"} w-full flex relative z-50`}>
         <div className="w-1/2 bg-[#233762]" />
         <div className="w-1/2 bg-[#CE3A39]" />
       </div>
@@ -1899,7 +1899,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
                   {roleConfig.code}
                 </span>
               </div>
@@ -1965,7 +1965,7 @@ export default function DashboardPage() {
                         }`}
                     />
                     {isActive ? (
-                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
                         Activo
                       </span>
                     ) : (
@@ -2031,7 +2031,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
                   {roleConfig.code}
                 </span>
               </div>
@@ -2107,7 +2107,7 @@ export default function DashboardPage() {
                         }`}
                     />
                     {statusBadge === "Activo" ? (
-                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
                         Activo
                       </span>
                     ) : (
@@ -2188,7 +2188,7 @@ export default function DashboardPage() {
                   <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                     Generador de Tracking
                   </h1>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold border border-slate-200">
                     KYNDRYL & BASF
                   </span>
                 </div>
@@ -2209,7 +2209,7 @@ export default function DashboardPage() {
                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
                     {roleConfig.code}
                   </span>
                 </div>
@@ -2265,7 +2265,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
                   {roleConfig.code}
                 </span>
               </div>
@@ -2435,9 +2435,9 @@ export default function DashboardPage() {
                     <span className="text-slate-400">/</span>
                     <span>Transporte</span>
                     <span className="text-slate-400">/</span>
-                    <span className="text-[#CE3A39] font-bold">Rastreo de Envíos</span>
+                    <span className="text-[#233762] font-bold">Rastreo de Envíos</span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-mono font-bold border border-[#233762]/20">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold border border-slate-200">
                     FEDEX & ESTAFETA
                   </span>
                 </div>
@@ -2458,7 +2458,7 @@ export default function DashboardPage() {
                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-[#CE3A39]">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
                     {roleConfig.code}
                   </span>
                 </div>
