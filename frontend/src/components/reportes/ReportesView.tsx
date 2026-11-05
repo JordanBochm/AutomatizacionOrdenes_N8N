@@ -41,6 +41,7 @@ import ReparacionView from "./submodulos/ReparacionView";
 import OutboundView from "./submodulos/OutboundView";
 import RefurbView from "./submodulos/RefurbView";
 import { STATUS_CONFIG } from "@/lib/reportes/status-map";
+import AnimatedLogo from "@/components/layout/AnimatedLogo";
 
 interface ReportesViewProps {
   initialKpis: ReportesKPIs;
@@ -118,6 +119,7 @@ export default function ReportesView({
   // Modal para Limpiar Información
   const [showClearModal, setShowClearModal] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
+  const [logoError, setLogoError] = useState<boolean>(false);
 
   // Modal de Carga / Upload
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
@@ -482,7 +484,14 @@ export default function ReportesView({
   const totalPages = Math.ceil(total / pageSize) || 1;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative selection:bg-[#233762] selection:text-white">
+      {/* Franja Superior Bicolor Institucional (Top Ribbon 6px) */}
+      <div className="h-1.5 w-full flex fixed top-0 left-0 right-0 z-50">
+        <div className="w-1/2 bg-[#233762]" />
+        <div className="w-1/2 bg-[#CE3A39]" />
+      </div>
+
+      <div className="p-4 md:p-8 pt-6 flex-1 flex flex-col">
       {/* Toast Flotante */}
       {toast && (
         <div
@@ -503,135 +512,165 @@ export default function ReportesView({
 
       {/* Submódulos de Reportes: Vista HUB Inicial (cuando no hay submódulo seleccionado) */}
       {activeSubmodulo === null && (
-        <div className="w-full max-w-6xl mx-auto space-y-8 py-2">
-          {/* Barra Superior con Navegación al Hub Principal */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#233762] hover:border-slate-300 shadow-2xs transition-all group"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
-              <span>Volver al Hub Principal</span>
-            </Link>
-            <span className="text-xs font-mono text-slate-400">Seko Supply Chain México</span>
-          </div>
-
-          {/* Header Centralizado */}
-          <div className="text-center max-w-2xl mx-auto pt-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-3">
-              <span>Asset Management</span>
-              <span className="text-slate-400">/</span>
-              <span className="text-[#CE3A39] font-bold">Reportes</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#233762] tracking-tight">
-              Módulos de Reportes y Trazabilidad
-            </h1>
-            <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-              Selecciona un submódulo operativo para consultar reportes, métricas en tiempo real, conciliación de garantías y estatus de equipos.
-            </p>
-          </div>
-
-          {/* Grid de 4 Módulos Individuales */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
-            {/* Módulo 1: Devoluciones */}
-            <div
-              onClick={() => handleSubmoduloChange("devoluciones")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
-            >
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
-              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                {total.toLocaleString()} Equipos
-              </span>
-              <div className="flex flex-col items-center w-full">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-[#EFF3F9] text-[#233762]">
-                  <FileSpreadsheet className="w-7 h-7" />
-                </div>
-                <h3 className="text-lg font-bold text-[#233762] mt-4">Devoluciones</h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Conciliación semanal Kyndryl / Seko, estatus ServiceNow, garantías Lenovo / Dell y trazabilidad de retornos.
-                </p>
-              </div>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
-                <span>Ingresar al módulo</span>
-                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-              </span>
+        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-between py-2">
+          <div>
+            {/* Barra Superior con Navegación al Hub Principal */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs text-xs font-semibold cursor-pointer group"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
+                <span>Volver al Hub Principal</span>
+              </Link>
+              <span className="text-xs font-mono text-slate-400">Seko Supply Chain México</span>
             </div>
 
-            {/* Módulo 2: Equipos en Reparación */}
-            <div
-              onClick={() => handleSubmoduloChange("reparacion")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
-            >
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-amber-500 transition-colors duration-300" />
-              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                Taller y Banco
-              </span>
-              <div className="flex flex-col items-center w-full">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-amber-50 text-amber-600">
-                  <Wrench className="w-7 h-7" />
-                </div>
-                <h3 className="text-lg font-bold text-[#233762] mt-4">Equipos en Reparación</h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Monitoreo de diagnósticos técnicos, piezas solicitadas, garantías RMA Lenovo/Dell y dictámenes.
-                </p>
-              </div>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-amber-600 transition-colors">
-                <span>Ingresar al módulo</span>
-                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-              </span>
+            {/* Logo de la empresa centrado en la parte superior como las demás vistas */}
+            <div className="flex justify-center pt-4 pb-1">
+              <button
+                type="button"
+                onClick={() => handleSubmoduloChange(null)}
+                className="cursor-pointer select-none"
+                title="Módulos de Reportes y Trazabilidad"
+              >
+                {!logoError ? (
+                  <img
+                    src="/logo-supplychain.png"
+                    alt="SupplyChain México"
+                    className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
+                )}
+              </button>
             </div>
 
-            {/* Módulo 3: Outbound */}
-            <div
-              onClick={() => handleSubmoduloChange("outbound")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
-            >
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-blue-600 transition-colors duration-300" />
-              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                Despachos Courier
-              </span>
-              <div className="flex flex-col items-center w-full">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-blue-50 text-blue-600">
-                  <Truck className="w-7 h-7" />
-                </div>
-                <h3 className="text-lg font-bold text-[#233762] mt-4">Outbound</h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Trazabilidad de equipos asignados a usuarios, empaque, carriers, números de guía y confirmación de entrega.
-                </p>
+            {/* Header Centralizado con Badge y Título */}
+            <div className="text-center max-w-2xl mx-auto mt-2 mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+                <span>Asset Management</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">Reportes</span>
               </div>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-blue-600 transition-colors">
-                <span>Ingresar al módulo</span>
-                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-              </span>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                Módulos de Reportes y Trazabilidad
+              </h1>
+              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                Selecciona un submódulo operativo para consultar reportes, métricas en tiempo real, conciliación de garantías y estatus de equipos.
+              </p>
             </div>
 
-            {/* Módulo 4: Refurb */}
-            <div
-              onClick={() => handleSubmoduloChange("refurb")}
-              className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 min-h-[260px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
-            >
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-purple-600 transition-colors duration-300" />
-              <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                Línea NIST 800-88
-              </span>
-              <div className="flex flex-col items-center w-full">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-purple-50 text-purple-600">
-                  <RefreshCw className="w-7 h-7" />
+            {/* Grid de 4 Módulos Estandarizados (Colores Oficiales y Tamaños Exactamente Iguales) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl mx-auto">
+              {/* Módulo 1: Devoluciones */}
+              <div
+                onClick={() => handleSubmoduloChange("devoluciones")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] border border-[#233762]/20">
+                  {total.toLocaleString()} Equipos
+                </span>
+                <div className="flex flex-col items-center w-full mt-2">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-[#EFF3F9] text-[#233762]">
+                    <FileSpreadsheet className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">
+                    Devoluciones
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
+                    Conciliación semanal Kyndryl / Seko, estatus ServiceNow, garantías Lenovo / Dell y trazabilidad de retornos.
+                  </p>
                 </div>
-                <h3 className="text-lg font-bold text-[#233762] mt-4">Refurb</h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Borrado seguro de datos (NIST 800-88 / Blancco), reinstalación de imagen, auditoría cosmética y reingreso a almacén.
-                </p>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                  <span>Ingresar al módulo</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </span>
               </div>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-purple-600 transition-colors">
-                <span>Ingresar al módulo</span>
-                <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-              </span>
+
+              {/* Módulo 2: Equipos en Reparación */}
+              <div
+                onClick={() => handleSubmoduloChange("reparacion")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/20">
+                  0 en Taller
+                </span>
+                <div className="flex flex-col items-center w-full mt-2">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-[#FDF2F2] text-[#CE3A39]">
+                    <Wrench className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">
+                    Equipos en Reparación
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
+                    Monitoreo de diagnósticos técnicos, piezas solicitadas, garantías RMA Lenovo/Dell y dictámenes.
+                  </p>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                  <span>Ingresar al módulo</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </div>
+
+              {/* Módulo 3: Outbound */}
+              <div
+                onClick={() => handleSubmoduloChange("outbound")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] border border-[#233762]/20">
+                  0 Despachos
+                </span>
+                <div className="flex flex-col items-center w-full mt-2">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-[#EFF3F9] text-[#233762]">
+                    <Truck className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">
+                    Outbound
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
+                    Trazabilidad de equipos asignados a usuarios, empaque, carriers, números de guía y confirmación de entrega.
+                  </p>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                  <span>Ingresar al módulo</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </div>
+
+              {/* Módulo 4: Refurb */}
+              <div
+                onClick={() => handleSubmoduloChange("refurb")}
+                className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+              >
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/20">
+                  0 en Refurb
+                </span>
+                <div className="flex flex-col items-center w-full mt-2">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs bg-[#FDF2F2] text-[#CE3A39]">
+                    <RefreshCw className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">
+                    Refurb
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
+                    Borrado seguro de datos (NIST 800-88 / Blancco), reinstalación de imagen, auditoría cosmética y reingreso a almacén.
+                  </p>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                  <span>Ingresar al módulo</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </div>
             </div>
           </div>
         </div>
       )}
-
       {/* Submódulo 2: Equipos en Reparación (Vista Individual) */}
       {activeSubmodulo === "reparacion" && (
         <ReparacionView onBack={() => handleSubmoduloChange(null)} />
@@ -654,7 +693,7 @@ export default function ReportesView({
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 mb-6">
             <button
               onClick={() => handleSubmoduloChange(null)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#233762] hover:border-slate-300 shadow-2xs transition-all group"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group text-xs"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
               <span>Volver a Módulos de Reportes</span>
@@ -1533,6 +1572,7 @@ export default function ReportesView({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

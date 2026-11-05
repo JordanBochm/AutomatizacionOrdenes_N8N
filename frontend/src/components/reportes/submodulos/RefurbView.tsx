@@ -114,7 +114,7 @@ export default function RefurbView({ onBack }: RefurbViewProps = {}) {
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#233762] hover:border-slate-300 shadow-2xs transition-all group"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group text-xs"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
             <span>Volver a Módulos de Reportes</span>
@@ -124,7 +124,7 @@ export default function RefurbView({ onBack }: RefurbViewProps = {}) {
             <span className="text-slate-400">/</span>
             <span>Reportes</span>
             <span className="text-slate-400">/</span>
-            <span className="text-purple-600 font-bold">Refurb</span>
+            <span className="text-[#CE3A39] font-bold">Refurb</span>
           </div>
         </div>
       )}
@@ -133,7 +133,7 @@ export default function RefurbView({ onBack }: RefurbViewProps = {}) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-[#233762] flex items-center gap-3">
-            <RefreshCw className="w-8 h-8 text-purple-600" />
+            <RefreshCw className="w-8 h-8 text-[#CE3A39]" />
             Línea de Reacondicionamiento (Refurb) y Stock
           </h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -263,8 +263,18 @@ export default function RefurbView({ onBack }: RefurbViewProps = {}) {
             <tbody className="divide-y divide-slate-200">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-10 text-center text-slate-400">
-                    No se encontraron equipos en reacondicionamiento con los filtros seleccionados.
+                  <td colSpan={9} className="py-16 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
+                      <div className="w-14 h-14 rounded-2xl bg-[#FDF2F2] border border-[#CE3A39]/15 flex items-center justify-center text-[#CE3A39]">
+                        <RefreshCw className="w-7 h-7 text-[#CE3A39]" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">Laboratorio Refurb Limpio</h4>
+                        <p className="text-xs text-slate-500 mt-1">
+                          No hay equipos en reacondicionamiento o pruebas NIST cargados actualmente.
+                        </p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (
