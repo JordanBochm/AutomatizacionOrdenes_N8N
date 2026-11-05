@@ -46,7 +46,6 @@ import {
   Plus,
   Trash2,
   Calendar,
-  MapPin,
 } from "lucide-react";
 
 // ==============================================================================
@@ -1352,29 +1351,15 @@ export default function DashboardPage() {
     tone: "navy" | "red";
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
-    {
-      name: "Rastreo de envíos",
-      description: "Monitoreo en vivo de guías FedEx y Estafeta, trazabilidad de entregas, incidencias y reportes.",
-      Icon: Truck,
-      target: "rastreo_envios",
-      tone: "red",
-      statusBadge: "Activo",
-    },
-    {
-      name: "Asignación y Rutas",
-      description: "Planificación de rutas de transporte local, control de flotilla y programación de entregas directas.",
-      Icon: MapPin,
-      tone: "navy",
-      statusBadge: "En desarrollo",
-    },
-    {
-      name: "Manifiestos de Carga",
-      description: "Generación y resguardo de manifiestos de salida, remisiones de carga y comprobantes de recolección.",
-      Icon: FileText,
-      tone: "navy",
-      statusBadge: "En desarrollo",
-    },
-  ];
+      {
+        name: "Rastreo de envíos",
+        description: "Monitoreo en vivo de guías FedEx y Estafeta, trazabilidad de entregas, incidencias y reportes.",
+        Icon: Truck,
+        target: "rastreo_envios",
+        tone: "red",
+        statusBadge: "Activo",
+      },
+    ];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
@@ -2320,8 +2305,8 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Grid de Módulos Estandarizados (h-[275px] min-h-[275px], Colores Oficiales) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl">
+            {/* Grid / Contenedor de Módulo Estandarizado (h-[275px] min-h-[275px], max-w-[340px] centrado) */}
+            <div className="flex justify-center w-full max-w-5xl">
               {transporteModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
                 const isActive = Boolean(target);
                 const isNavy = tone === "navy";
@@ -2342,14 +2327,13 @@ export default function DashboardPage() {
                       }
                       setActiveModule(target);
                     }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 h-[275px] min-h-[275px] w-full max-w-[340px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
                     <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${
-                        isActive
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
                           ? "bg-[#233762] group-hover:bg-[#CE3A39]"
                           : "bg-transparent group-hover:bg-[#233762]/30"
-                      }`}
+                        }`}
                     />
                     <span
                       className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeStyle}`}
@@ -2370,11 +2354,10 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                        isActive
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive
                           ? "text-[#233762] group-hover:text-[#CE3A39]"
                           : "text-slate-400 font-medium"
-                      }`}
+                        }`}
                     >
                       {isActive ? (
                         <>
@@ -3914,11 +3897,10 @@ export default function DashboardPage() {
                           Teléfono de Contacto (10 dígitos)
                         </label>
                         <span
-                          className={`text-[10px] font-mono font-bold ${
-                            editFormData.phone.replace(/\D/g, "").length === 10
+                          className={`text-[10px] font-mono font-bold ${editFormData.phone.replace(/\D/g, "").length === 10
                               ? "text-emerald-600"
                               : "text-[#CE3A39]"
-                          }`}
+                            }`}
                         >
                           {editFormData.phone.replace(/\D/g, "").length}/10 dígitos
                         </span>
