@@ -494,18 +494,18 @@ export const STATUS_UI_CONFIG: Record<
   },
   EN_TRANSITO: {
     label: "En Tránsito",
-    badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-    dotClass: "bg-blue-500",
+    badgeClass: "bg-[#EFF3F9] text-[#233762] border-[#233762]/20",
+    dotClass: "bg-[#233762]",
   },
   RECOLECTADO: {
     label: "Recolectado",
-    badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    dotClass: "bg-indigo-500",
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-300",
+    dotClass: "bg-slate-500",
   },
   EN_REPARTO: {
     label: "En Reparto",
-    badgeClass: "bg-amber-50 text-amber-800 border-amber-300",
-    dotClass: "bg-amber-500",
+    badgeClass: "bg-[#EFF3F9] text-[#233762] border-[#233762]/30",
+    dotClass: "bg-[#233762]",
   },
   INCIDENCIA: {
     label: "Incidencia",
@@ -1094,18 +1094,18 @@ export default function TransportTracker({
           type="button"
           onClick={() => setStatusFilter("EN_TRANSITO")}
           className={`bg-white rounded-xl border p-4 text-left transition-all shadow-xs hover:shadow-md cursor-pointer ${
-            statusFilter === "EN_TRANSITO" ? "border-blue-600 ring-1 ring-blue-600/20" : "border-slate-200"
+            statusFilter === "EN_TRANSITO" ? "border-[#233762] ring-1 ring-[#233762]/20" : "border-slate-200"
           }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               En Tránsito / Reparto
             </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#EFF3F9] text-[#233762] flex items-center justify-center">
               <Truck className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-extrabold text-blue-700 mt-2 font-mono">{metrics.enRuta}</p>
+          <p className="text-2xl font-extrabold text-[#233762] mt-2 font-mono">{metrics.enRuta}</p>
           <p className="text-[11px] text-slate-500 mt-0.5">Unidades en movimiento activo</p>
         </button>
 
@@ -1156,7 +1156,7 @@ export default function TransportTracker({
                 <span className="inline-flex items-center gap-1 font-mono font-bold text-[#233762]">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      carrierConfig.FEDEX ? "bg-emerald-500" : "bg-amber-500"
+                      carrierConfig.FEDEX ? "bg-emerald-500" : "bg-slate-400"
                     }`}
                   />
                   FedEx {carrierConfig.FEDEX ? "Live" : "Simulador"}
@@ -1165,7 +1165,7 @@ export default function TransportTracker({
                 <span className="inline-flex items-center gap-1 font-mono font-bold text-[#CE3A39]">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      carrierConfig.ESTAFETA ? "bg-emerald-500" : "bg-amber-500"
+                      carrierConfig.ESTAFETA ? "bg-emerald-500" : "bg-slate-400"
                     }`}
                   />
                   Estafeta {carrierConfig.ESTAFETA ? "Live" : "Simulador"}
@@ -1279,7 +1279,7 @@ export default function TransportTracker({
                   </span>
                 )}
                 {inputPreviewSummary.ambiguo > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-mono text-[11px] font-bold border border-amber-200">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-bold border border-slate-300">
                     {inputPreviewSummary.ambiguo} Ambigua(s) (se probarán ambos)
                   </span>
                 )}
@@ -1550,7 +1550,7 @@ export default function TransportTracker({
                       onClick={() => setSelectedGuideKey(item.guia)}
                       className={`transition-colors cursor-pointer ${
                         isSelected
-                          ? "bg-blue-50/70 hover:bg-blue-100/60"
+                          ? "bg-[#EFF3F9]/80 hover:bg-[#EFF3F9]"
                           : isIssueOrDelayed
                           ? "bg-red-50/35 hover:bg-red-50/70"
                           : "hover:bg-slate-50"
@@ -1583,7 +1583,7 @@ export default function TransportTracker({
                           )}
                           {item.modo_simulacion && (
                             <span
-                              className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                              className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200"
                               title="Respuesta generada en modo simulador (configura tus API keys en .env para consulta en vivo)"
                             >
                               Simulación
@@ -1591,7 +1591,7 @@ export default function TransportTracker({
                           )}
                           {item.es_ambiguo && (
                             <span
-                              className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200"
+                              className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#EFF3F9] text-[#233762] border border-[#233762]/20"
                               title={`Formato compatible con: ${(item.candidatos_carrier || []).join(" / ")}`}
                             >
                               Ambiguo
@@ -1860,9 +1860,9 @@ export default function TransportTracker({
 
               {/* Opción de cambiar carrier si la guía es ambigua */}
               {selectedItem.es_ambiguo && (
-                <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-900">
+                <div className="flex items-center justify-between bg-[#EFF3F9] border border-[#233762]/20 rounded-xl px-3 py-2 text-xs text-[#233762]">
                   <div className="flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                    <Info className="w-4 h-4 text-[#233762] shrink-0" />
                     <span>Formato compatible con ambos carriers.</span>
                   </div>
                   <button
