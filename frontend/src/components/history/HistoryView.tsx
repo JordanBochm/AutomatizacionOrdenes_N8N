@@ -25,6 +25,8 @@ import {
   type HistorySource,
   type HistoryStatus,
 } from "@/lib/history";
+import ClientSwitcherPill from "@/components/layout/ClientSwitcherPill";
+import type { ActiveClientFilter } from "@/lib/assetClients";
 
 interface HistoryViewProps {
   apiBase: string;
@@ -32,6 +34,8 @@ interface HistoryViewProps {
   onNavigateHome?: () => void;
   triggerToast: (message: string, type: "success" | "error" | "info") => void;
   userEmail?: string;
+  activeClient?: ActiveClientFilter;
+  onClientChange?: (client: ActiveClientFilter) => void;
 }
 
 const MESES_ES = [
@@ -105,6 +109,8 @@ export default function HistoryView({
   onNavigateHome,
   triggerToast,
   userEmail,
+  activeClient,
+  onClientChange,
 }: HistoryViewProps) {
   const repository = useMemo(() => getHistoryRepository(), []);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -298,6 +304,7 @@ export default function HistoryView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <ClientSwitcherPill value={activeClient} onChange={onClientChange} />
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
             Local (este navegador)
           </span>
