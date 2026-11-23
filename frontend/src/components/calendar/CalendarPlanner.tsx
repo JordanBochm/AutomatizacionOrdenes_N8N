@@ -20,6 +20,8 @@ import {
   CalendarDays,
   User,
 } from "lucide-react";
+import ClientSwitcherPill from "@/components/layout/ClientSwitcherPill";
+import type { ActiveClientFilter } from "@/lib/assetClients";
 
 export type EventCategory = "entrega" | "recoleccion" | "cierre" | "mantenimiento";
 
@@ -136,9 +138,16 @@ const INITIAL_EVENTS: ScheduledEvent[] = [
 interface CalendarPlannerProps {
   onBack: () => void;
   onNavigateHome?: () => void;
+  activeClient?: ActiveClientFilter;
+  onClientChange?: (client: ActiveClientFilter) => void;
 }
 
-export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlannerProps) {
+export default function CalendarPlanner({
+  onBack,
+  onNavigateHome,
+  activeClient,
+  onClientChange,
+}: CalendarPlannerProps) {
   const [currentDate, setCurrentDate] = useState(() => new Date(2026, 10, 3)); // Noviembre 2026
   const [selectedDate, setSelectedDate] = useState<string>("2026-11-03");
   const [events, setEvents] = useState<ScheduledEvent[]>(INITIAL_EVENTS);
@@ -298,13 +307,14 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
             </button>
           )}
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="p-1.5 bg-[#EFF3F9] text-[#233762] rounded-lg">
                 <CalendarDays className="w-5 h-5" />
               </span>
               <h1 className="text-xl sm:text-2xl font-bold text-[#233762] tracking-tight">
                 Calendario de Planificaciones y Citas
               </h1>
+              <ClientSwitcherPill value={activeClient} onChange={onClientChange} />
             </div>
             <p className="text-xs text-slate-500 mt-1">
               Agenda de citas de entrega, recolecciones de paquetería (Pickups) y cierres de lote programados.
@@ -335,8 +345,8 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
         <button
           onClick={() => setFilterCategory("all")}
           className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${filterCategory === "all"
-              ? "bg-[#233762] text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            ? "bg-[#233762] text-white"
+            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
         >
           Todos ({events.length})
@@ -350,8 +360,8 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
               key={cat}
               onClick={() => setFilterCategory(cat)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold border transition-colors ${isSelected
-                  ? "bg-[#233762] text-white border-[#233762]"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                ? "bg-[#233762] text-white border-[#233762]"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                 }`}
             >
               <span className={`w-2 h-2 rounded-full ${isSelected ? "bg-white" : cfg.dotColor}`} />
@@ -416,24 +426,24 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
                   key={dateStr}
                   onClick={() => setSelectedDate(dateStr)}
                   className={`min-h-[85px] p-1.5 rounded-lg border transition-all cursor-pointer flex flex-col justify-between ${isSelected
-                      ? "border-[#233762] bg-[#EFF3F9]/60 shadow-xs ring-2 ring-[#233762]/30"
-                      : isToday
-                        ? "border-[#233762]/40 bg-[#EFF3F9]/30 hover:border-slate-300"
-                        : isCurrentMonth
-                          ? "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
-                          : "border-slate-100 bg-slate-50/50 text-slate-300 hover:bg-slate-100/50"
+                    ? "border-[#233762] bg-[#EFF3F9]/60 shadow-xs ring-2 ring-[#233762]/30"
+                    : isToday
+                      ? "border-[#233762]/40 bg-[#EFF3F9]/30 hover:border-slate-300"
+                      : isCurrentMonth
+                        ? "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                        : "border-slate-100 bg-slate-50/50 text-slate-300 hover:bg-slate-100/50"
                     }`}
                 >
                   {/* Encabezado del día */}
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-xs font-mono font-bold w-6 h-6 rounded-full flex items-center justify-center ${isSelected
-                          ? "bg-[#233762] text-white"
-                          : isToday
-                            ? "bg-[#EFF3F9] text-[#233762] border border-[#233762]/30"
-                            : isCurrentMonth
-                              ? "text-slate-700"
-                              : "text-slate-300"
+                        ? "bg-[#233762] text-white"
+                        : isToday
+                          ? "bg-[#EFF3F9] text-[#233762] border border-[#233762]/30"
+                          : isCurrentMonth
+                            ? "text-slate-700"
+                            : "text-slate-300"
                         }`}
                     >
                       {dayNum}
@@ -526,8 +536,8 @@ export default function CalendarPlanner({ onBack, onNavigateHome }: CalendarPlan
                   <div
                     key={ev.id}
                     className={`p-3.5 rounded-xl border transition-all flex flex-col gap-2 relative overflow-hidden ${isDone
-                        ? "bg-slate-50 border-slate-200 opacity-70"
-                        : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+                      ? "bg-slate-50 border-slate-200 opacity-70"
+                      : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
                       }`}
                   >
                     <div className="flex items-start justify-between gap-2">

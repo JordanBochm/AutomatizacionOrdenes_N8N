@@ -8,7 +8,20 @@ import TrackingGenerator from "@/components/tracking/TrackingGenerator";
 import TransportTracker from "@/components/tracking/TransportTracker";
 import CalendarPlanner from "@/components/calendar/CalendarPlanner";
 import HistoryView from "@/components/history/HistoryView";
+import ClientSwitcherPill from "@/components/layout/ClientSwitcherPill";
+import ClientRequiredEmptyState from "@/components/layout/ClientRequiredEmptyState";
 import { useHistoryCapture } from "@/hooks/useHistoryCapture";
+import {
+  ASSET_CLIENTS,
+  ASSET_CLIENTS_MAP,
+  AssetClientId,
+  ActiveClientFilter,
+  OPERATION_TOOLS,
+  OperationToolId,
+  isSpecificAssetClient,
+  loadActiveClientFromStorage,
+  saveActiveClientToStorage,
+} from "@/lib/assetClients";
 import {
   UploadCloud,
   CheckCircle2,
@@ -46,6 +59,7 @@ import {
   Plus,
   Trash2,
   Calendar,
+  Building2,
 } from "lucide-react";
 
 // ==============================================================================
@@ -380,10 +394,26 @@ export default function DashboardPage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Vista activa:
-  // 'login' | 'hub' (las 3 opciones principales) | 'modules' (cuadricula de 3x3) | 'operacion_dia' | 'generador_tracking' | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
+  // 'login' | 'hub' (las 3 opciones principales) | 'clientes_asset' (selección de clientes Asset) | 'modules' (cuadricula de 3x3) | 'operacion_dia' | 'generador_tracking' | 'asset_management' | 'csm' | 'almacen' | 'users' | 'roles' | 'profile'
   const [activeModule, setActiveModule] = useState<
-    "login" | "hub" | "modules" | "operacion_dia" | "transporte" | "rastreo_envios" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile" | "calendario" | "historial"
+    "login" | "hub" | "clientes_asset" | "modules" | "operacion_dia" | "transporte" | "rastreo_envios" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile" | "calendario" | "historial"
   >("login");
+  const [activeClient, setActiveClient] = useState<ActiveClientFilter>("ALL");
+  const [historyReturnTarget, setHistoryReturnTarget] = useState<"modules" | "operacion_dia">("modules");
+  const currentClientConfig = isSpecificAssetClient(activeClient)
+    ? ASSET_CLIENTS_MAP[activeClient]
+    : {
+        id: "KYNDRYL" as AssetClientId,
+        name: "Todos los clientes",
+        shortBadge: "Todos los clientes",
+        segment: "Multi-cliente",
+        description: "Vista consolidada de todos los clientes de Asset Management.",
+        tone: "navy" as const,
+        statusBadge: "Activo" as const,
+        enabledModules: ["operacion_dia", "transporte", "facturacion", "reportes", "calendario", "historial", "sop"],
+        enabledOperacionSubmodules: ["asset_management", "generador_tracking", "historial"],
+        enabledTransporteSubmodules: ["rastreo_envios"],
+      };
   const [initialTracking, setInitialTracking] = useState<string>("");
 
   // Estado de Autenticación y RBAC
@@ -479,6 +509,7 @@ export default function DashboardPage() {
   // 1. Inicialización en el cliente: Cargar usuarios de localStorage y sesión de sessionStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
+      setActiveClient(loadActiveClientFromStorage());
       const loadedUsers = loadUsersFromStorage();
       setUsersList(loadedUsers);
 
@@ -627,6 +658,23 @@ export default function DashboardPage() {
   const canEnterAsset = activeRole === "ADMIN" || activeRole === "ASSET_MANAGER";
   const canEnterCSM = activeRole === "ADMIN" || activeRole === "CSM";
   const canEnterAlmacen = activeRole === "ADMIN" || activeRole === "ALMACEN";
+
+  const handleSelectClient = (clientId: ActiveClientFilter, goToModules = false) => {
+    setActiveClient(clientId);
+    saveActiveClientToStorage(clientId);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("sc-asset-client-changed", { detail: clientId }));
+    }
+    const label = isSpecificAssetClient(clientId)
+      ? ASSET_CLIENTS_MAP[clientId].name
+      : "Todos los clientes";
+    if (goToModules) {
+      setActiveModule("modules");
+      triggerToast(`Cliente activo: ${label}`, "info");
+    } else {
+      triggerToast(`Cambiado a cliente: ${label}`, "info");
+    }
+  };
 
   const handleHubNavigation = (target: "asset" | "csm" | "almacen") => {
     if (target === "asset") {
@@ -1284,8 +1332,9 @@ export default function DashboardPage() {
     return (name[0] || "U").toUpperCase();
   }, [currentUser?.name]);
 
-  // Catálogo de módulos de Asset Management (6 módulos operativos)
+  // Catálogo único de módulos de Asset Management (descripciones genéricas sin mencionar cliente específico)
   const hubModules: {
+    key: string;
     name: string;
     description: string;
     Icon: React.ElementType;
@@ -1293,28 +1342,64 @@ export default function DashboardPage() {
     tone: "navy" | "red";
   }[] = [
       {
+        key: "operacion_dia",
         name: "Operación del día",
-        description: "Automatización operativa, generación de tracking e historial de cierres.",
+        description: "Automatización operativa, generación de tracking e historial de cierres diarios.",
         Icon: Zap,
-        target: "operacion_dia",
-        tone: "navy",
+        target: "operacion_dia" as const,
+        tone: "navy" as const,
       },
-      { name: "Transporte", description: "Módulos de logística, rastreo de envíos y control de transporte.", Icon: Truck, target: "transporte", tone: "red" },
-      { name: "Facturación", description: "Facturación mensual.", Icon: FileText, tone: "navy" },
       {
+        key: "transporte",
+        name: "Transporte",
+        description: "Módulos de logística, rastreo de envíos y control de transporte.",
+        Icon: Truck,
+        target: "transporte" as const,
+        tone: "red" as const,
+      },
+      {
+        key: "facturacion",
+        name: "Facturación",
+        description: "Facturación mensual y conciliación de servicios logísticos.",
+        Icon: FileText,
+        tone: "navy" as const,
+      },
+      {
+        key: "reportes",
         name: "Reportes",
-        description: "Reportes de devoluciones, estatus ServiceNow y conciliación KST.",
+        description: "Reportes de devoluciones, estatus operativo, garantías y conciliación de activos.",
         Icon: FileSpreadsheet,
         target: "reportes" as any,
-        tone: "red",
+        tone: "red" as const,
       },
-      { name: "Calendario", description: "Planificación de operaciones, agenda de entregas, citas y recolecciones programadas.", Icon: Calendar, target: "calendario", tone: "navy" },
-      { name: "Historial de lotes", description: "Trackings rastreados, cierres del día y movimientos recientes.", Icon: Archive, target: "historial", tone: "red" },
-      { name: "Mesa de ayuda (SOP)", description: "Manuales, ayuda manuales técnicos acerca de la operación.", Icon: HelpCircle, tone: "red" },
+      {
+        key: "calendario",
+        name: "Calendario",
+        description: "Planificación de operaciones, agenda de entregas, citas y recolecciones programadas.",
+        Icon: Calendar,
+        target: "calendario" as const,
+        tone: "navy" as const,
+      },
+      {
+        key: "historial",
+        name: "Historial de lotes",
+        description: "Trackings rastreados, cierres del día y movimientos recientes.",
+        Icon: Archive,
+        target: "historial" as const,
+        tone: "red" as const,
+      },
+      {
+        key: "sop",
+        name: "Mesa de ayuda (SOP)",
+        description: "Manuales, ayuda y procedimientos técnicos acerca de la operación.",
+        Icon: HelpCircle,
+        tone: "red" as const,
+      },
     ];
 
-  // Submódulos de Operación del día (3 opciones solicitadas)
+  // Submódulos de Operación del día (filtrados según OPERATION_TOOLS del cliente activo)
   const operacionDiaModules: {
+    key: OperationToolId;
     name: string;
     description: string;
     Icon: React.ElementType;
@@ -1323,33 +1408,41 @@ export default function DashboardPage() {
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
       {
+        key: "automatizador" as const,
         name: "Automatizador de operación",
-        description: "Órdenes KST / Kyndryl, validación SEPOMEX y timbrado de guías Techship.",
+        description: `Órdenes ${currentClientConfig.shortBadge}, validación SEPOMEX y timbrado de guías Techship.`,
         Icon: Zap,
-        target: "asset_management",
-        tone: "navy",
-        statusBadge: "Activo",
+        target: "asset_management" as const,
+        tone: "navy" as const,
+        statusBadge: "Activo" as const,
       },
       {
+        key: "generador_tracking" as const,
         name: "Generador tracking",
         description: "Generación y vista previa en vivo del PDF de guías y trazabilidad de envíos.",
         Icon: Truck,
-        target: "generador_tracking",
-        tone: "red",
-        statusBadge: "Activo",
+        target: "generador_tracking" as const,
+        tone: "red" as const,
+        statusBadge: "Activo" as const,
       },
       {
+        key: "historial" as const,
         name: "Historial",
-        description: "Consulta de archivos de cierre diarios, trackings.",
+        description: "Consulta de archivos de cierre diarios y trackings procesados.",
         Icon: Archive,
-        target: "historial",
-        tone: "navy",
-        statusBadge: "Activo",
+        target: "historial" as const,
+        tone: "navy" as const,
+        statusBadge: "Activo" as const,
       },
-    ];
+    ].filter((m) =>
+      isSpecificAssetClient(activeClient)
+        ? OPERATION_TOOLS[activeClient].includes(m.key)
+        : false
+    );
 
-  // Submódulos de Transporte y Logística (estandarizados)
+  // Submódulos de Transporte y Logística (filtrados por cliente activo)
   const transporteModules: {
+    key: string;
     name: string;
     description: string;
     Icon: React.ElementType;
@@ -1358,14 +1451,15 @@ export default function DashboardPage() {
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
       {
+        key: "rastreo_envios",
         name: "Rastreo de envíos",
         description: "Monitoreo en vivo de guías FedEx y Estafeta, trazabilidad de entregas, incidencias y reportes.",
         Icon: Truck,
-        target: "rastreo_envios",
-        tone: "red",
-        statusBadge: "Activo",
+        target: "rastreo_envios" as const,
+        tone: "red" as const,
+        statusBadge: "Activo" as const,
       },
-    ];
+    ].filter((m) => currentClientConfig.enabledTransporteSubmodules.includes(m.key));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
@@ -1879,23 +1973,158 @@ export default function DashboardPage() {
             SupplyChain México &bull; Plataforma Logística Integral
           </p>
         </div>
+      ) : activeModule === "clientes_asset" ? (
+        /* ==================================================================== */
+        /* VISTA DE SELECCIÓN DE CLIENTES DE ASSET MANAGEMENT                   */
+        /* ==================================================================== */
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
+          <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group"
+              title="Regresar al Hub Principal"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
+              <span>Regresar al Hub</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-medium text-slate-600">{currentUser?.email}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
+                  {roleConfig.code}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-semibold shadow-2xs cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col items-center pt-2 pb-10">
+            <button
+              type="button"
+              onClick={() => setActiveModule("hub")}
+              className="cursor-pointer select-none"
+              title="Regresar al Hub"
+            >
+              {!logoError ? (
+                <img
+                  src="/logo-supplychain.png"
+                  alt="SupplyChain México"
+                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
+              )}
+            </button>
+
+            <div className="text-center max-w-2xl mx-auto mt-4 mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+                <span>Asset Management</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">Clientes</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                Clientes de Asset Management
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Selecciona una cuenta corporativa para acceder a sus módulos operativos y herramientas.
+              </p>
+            </div>
+
+            {/* Cuadrícula de Clientes (Dimensiones Estandarizadas: w-[300px] h-[275px] min-h-[275px]) */}
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl mx-auto">
+              {ASSET_CLIENTS.map((client) => {
+                const isSelected = activeClient === client.id;
+                const iconTone =
+                  client.tone === "red"
+                    ? "bg-[#FDF2F2] text-[#CE3A39]"
+                    : "bg-[#EFF3F9] text-[#233762]";
+                const badgeStyle =
+                  client.tone === "red"
+                    ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20"
+                    : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20";
+
+                return (
+                  <div
+                    key={client.id}
+                    onClick={() => handleSelectClient(client.id, true)}
+                    className={`bg-white rounded-xl border transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1 shadow-md hover:shadow-xl ${
+                      isSelected
+                        ? "border-[#233762] ring-2 ring-[#233762]/15"
+                        : "border-slate-200/80"
+                    }`}
+                  >
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
+                    <span
+                      className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeStyle}`}
+                    >
+                      {client.statusBadge}
+                    </span>
+                    <div className="flex flex-col items-center w-full mt-2">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                      >
+                        <Building2 className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">
+                        {client.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
+                        {client.description}
+                      </p>
+                    </div>
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors">
+                      <span>Ingresar a {client.name}</span>
+                      <span className="group-hover:translate-x-1 transition-transform duration-200">
+                        →
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       ) : activeModule === "modules" ? (
         /* ==================================================================== */
-        /* VISTA DE CUADRÍCULA DE MÓDULOS (3 por fila hacia abajo)             */
+        /* VISTA DE CUADRÍCULA DE MÓDULOS POR CLIENTE (3 por fila hacia abajo)  */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
           <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
             <button
               type="button"
               onClick={() => setActiveModule("hub")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group"
               title="Regresar al Hub Principal"
             >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
               <span>Regresar al Hub</span>
             </button>
 
             <div className="flex items-center gap-3">
+              <ClientSwitcherPill
+                value={activeClient}
+                onChange={(c) => handleSelectClient(c, false)}
+              />
+              <button
+                type="button"
+                onClick={() => setActiveModule("hub")}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-semibold transition shadow-2xs cursor-pointer"
+                title="Ir al Hub Principal"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Hub</span>
+              </button>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-medium text-slate-600">{currentUser?.email}</span>
@@ -1919,7 +2148,7 @@ export default function DashboardPage() {
               type="button"
               onClick={() => setActiveModule("hub")}
               className="cursor-pointer select-none"
-              title="Regresar al Hub"
+              title="Regresar al Hub Principal"
             >
               {!logoError ? (
                 <img
@@ -1934,8 +2163,17 @@ export default function DashboardPage() {
             </button>
 
             <div className="text-center mt-4 mb-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">Asset Management</h2>
-              <p className="text-sm text-slate-500 mt-1">Selecciona un módulo operativo para continuar.</p>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+                <span>Asset Management</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">{currentClientConfig.name}</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                Asset Management
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Selecciona un módulo operativo para continuar.
+              </p>
             </div>
 
             {/* Contenedor de Módulos (Diseño estandarizado: w-[300px] h-[275px]) */}
@@ -1951,6 +2189,9 @@ export default function DashboardPage() {
                       if (target === "reportes" as any) {
                         window.location.href = "/reportes";
                       } else if (target) {
+                        if (target === "historial") {
+                          setHistoryReturnTarget("modules");
+                        }
                         setActiveModule(target);
                       } else {
                         triggerToast(`Módulo ${name} en construcción`, "info");
@@ -2018,6 +2259,10 @@ export default function DashboardPage() {
             </button>
 
             <div className="flex items-center gap-3">
+              <ClientSwitcherPill
+                value={activeClient}
+                onChange={(c) => handleSelectClient(c, false)}
+              />
               <button
                 type="button"
                 onClick={() => setActiveModule("hub")}
@@ -2069,78 +2314,106 @@ export default function DashboardPage() {
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
+                <span>{currentClientConfig.name}</span>
+                <span className="text-slate-400">/</span>
                 <span className="text-[#CE3A39] font-bold">Operación del día</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">Operación del día</h2>
-              <p className="text-sm text-slate-500 mt-1">Selecciona una herramienta operativa para continuar.</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                {activeClient === "ALL"
+                  ? "Operación del día"
+                  : `Operación del día — ${currentClientConfig.name}`}
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {activeClient === "ALL"
+                  ? "Selecciona un cliente para visualizar sus herramientas operativas del día."
+                  : "Selecciona una herramienta operativa para continuar."}
+              </p>
             </div>
 
-            {/* Submódulos Operación del Día (Diseño estandarizado: w-[300px] h-[275px]) */}
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
-              {operacionDiaModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
-                const isActive = Boolean(target);
-                const iconTone =
-                  tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
-                return (
-                  <div
-                    key={name}
-                    onClick={() => {
-                      if (!target) {
-                        triggerToast(`Módulo ${name} en construcción`, "info");
-                        return;
-                      }
-                      if (!canEnterAsset) {
-                        triggerToast(
-                          `Acceso restringido: El rol ${roleConfig.label} no tiene autorización para ingresar a este módulo.`,
-                          "error"
-                        );
-                        return;
-                      }
-                      setActiveModule(target);
-                    }}
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
-                  >
+            {activeClient === "ALL" ? (
+              <ClientRequiredEmptyState
+                mode="select_client"
+                moduleName="Operación del día"
+                onSelectClient={(c) => handleSelectClient(c, false)}
+              />
+            ) : operacionDiaModules.length === 0 ? (
+              <ClientRequiredEmptyState
+                mode="coming_soon"
+                moduleName="Operación del día"
+                clientName={currentClientConfig.name}
+                onSelectClient={(c) => handleSelectClient(c, false)}
+              />
+            ) : (
+              /* Submódulos Operación del Día (Diseño estandarizado: w-[300px] h-[275px]) */
+              <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
+                {operacionDiaModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
+                  const isActive = Boolean(target);
+                  const iconTone =
+                    tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
+                  return (
                     <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
-                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                        : "bg-transparent group-hover:bg-[#233762]/30"
-                        }`}
-                    />
-                    {statusBadge === "Activo" ? (
-                      <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
-                        Activo
-                      </span>
-                    ) : (
-                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                        En desarrollo
-                      </span>
-                    )}
-                    <div className="flex flex-col items-center w-full mt-2">
-                      <div
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
-                      >
-                        <Icon className="w-7 h-7" />
-                      </div>
-                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
-                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
-                    </div>
-                    <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
-                        }`}
+                      key={name}
+                      onClick={() => {
+                        if (!target) {
+                          triggerToast(`Módulo ${name} en construcción`, "info");
+                          return;
+                        }
+                        if (!canEnterAsset) {
+                          triggerToast(
+                            `Acceso restringido: El rol ${roleConfig.label} no tiene autorización para ingresar a este módulo.`,
+                            "error"
+                          );
+                          return;
+                        }
+                        if (target === "historial") {
+                          setHistoryReturnTarget("operacion_dia");
+                        }
+                        setActiveModule(target);
+                      }}
+                      className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                     >
-                      {isActive ? (
-                        <>
-                          <span>Ingresar al módulo</span>
-                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                        </>
+                      <div
+                        className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                          : "bg-transparent group-hover:bg-[#233762]/30"
+                          }`}
+                      />
+                      {statusBadge === "Activo" ? (
+                        <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
+                          Activo
+                        </span>
                       ) : (
-                        <span>En desarrollo</span>
+                        <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                          En desarrollo
+                        </span>
                       )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                      <div className="flex flex-col items-center w-full mt-2">
+                        <div
+                          className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                        >
+                          <Icon className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
+                        <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
+                      </div>
+                      <span
+                        className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                          }`}
+                      >
+                        {isActive ? (
+                          <>
+                            <span>Ingresar al módulo</span>
+                            <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                          </>
+                        ) : (
+                          <span>En desarrollo</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       ) : activeModule === "generador_tracking" ? (
@@ -2188,9 +2461,10 @@ export default function DashboardPage() {
                   <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                     Generador de Tracking
                   </h1>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold border border-slate-200">
-                    KYNDRYL & BASF
-                  </span>
+                  <ClientSwitcherPill
+                    value={activeClient}
+                    onChange={(c) => handleSelectClient(c, false)}
+                  />
                 </div>
               </div>
 
@@ -2226,13 +2500,32 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          {/* Componente Modular TrackingGenerator */}
-          <TrackingGenerator
-            batchData={batchData}
-            apiBase={API_BASE}
-            triggerToast={triggerToast}
-            userName={currentUser?.name || "Usuario Seko"}
-          />
+          {/* Componente Modular TrackingGenerator o estado vacío según cliente */}
+          {activeClient === "ALL" ? (
+            <div className="p-6">
+              <ClientRequiredEmptyState
+                mode="select_client"
+                moduleName="Generador de Tracking"
+                onSelectClient={(c) => handleSelectClient(c, false)}
+              />
+            </div>
+          ) : !OPERATION_TOOLS[activeClient].includes("generador_tracking") ? (
+            <div className="p-6">
+              <ClientRequiredEmptyState
+                mode="coming_soon"
+                moduleName="Generador de Tracking"
+                clientName={currentClientConfig.name}
+                onSelectClient={(c) => handleSelectClient(c, false)}
+              />
+            </div>
+          ) : (
+            <TrackingGenerator
+              batchData={batchData}
+              apiBase={API_BASE}
+              triggerToast={triggerToast}
+              userName={currentUser?.name || "Usuario Seko"}
+            />
+          )}
         </div>
       ) : activeModule === "transporte" ? (
         /* ==================================================================== */
@@ -2252,6 +2545,10 @@ export default function DashboardPage() {
             </button>
 
             <div className="flex items-center gap-3">
+              <ClientSwitcherPill
+                value={activeClient}
+                onChange={(c) => handleSelectClient(c, false)}
+              />
               <button
                 type="button"
                 onClick={() => setActiveModule("hub")}
@@ -2307,10 +2604,12 @@ export default function DashboardPage() {
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
+                <span>{currentClientConfig.name}</span>
+                <span className="text-slate-400">/</span>
                 <span className="text-[#CE3A39] font-bold">Transporte</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
-                Módulos de Transporte y Logística
+                Módulos de Transporte y Logística — {currentClientConfig.name}
               </h1>
               <p className="text-sm text-slate-500 mt-1 leading-relaxed">
                 Selecciona un submódulo operativo para monitorear envíos, trazabilidad de guías y logística de transporte.
@@ -2437,6 +2736,10 @@ export default function DashboardPage() {
                     <span className="text-slate-400">/</span>
                     <span className="text-[#233762] font-bold">Rastreo de Envíos</span>
                   </div>
+                  <ClientSwitcherPill
+                    value={activeClient}
+                    onChange={(c) => handleSelectClient(c, false)}
+                  />
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold border border-slate-200">
                     FEDEX & ESTAFETA
                   </span>
@@ -2492,10 +2795,12 @@ export default function DashboardPage() {
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
           <HistoryView
             apiBase={API_BASE}
-            onBack={() => setActiveModule("operacion_dia")}
+            onBack={() => setActiveModule(historyReturnTarget)}
             onNavigateHome={() => setActiveModule("hub")}
             triggerToast={triggerToast}
             userEmail={currentUser?.email}
+            activeClient={activeClient}
+            onClientChange={(c) => handleSelectClient(c, false)}
           />
         </div>
       ) : activeModule === "calendario" ? (
@@ -2506,6 +2811,8 @@ export default function DashboardPage() {
           <CalendarPlanner
             onBack={() => setActiveModule("modules")}
             onNavigateHome={() => setActiveModule("hub")}
+            activeClient={activeClient}
+            onClientChange={(c) => handleSelectClient(c, false)}
           />
         </div>
       ) : activeModule === "csm" ? (
@@ -3222,9 +3529,10 @@ export default function DashboardPage() {
                   <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                     Automatizador de operación
                   </h1>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold border border-slate-200">
-                    KST / Kyndryl
-                  </span>
+                  <ClientSwitcherPill
+                    value={activeClient}
+                    onChange={(c) => handleSelectClient(c, false)}
+                  />
                 </div>
               </div>
 
@@ -3260,6 +3568,21 @@ export default function DashboardPage() {
           </header>
 
           <main className="flex-1 w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 py-6 space-y-8 relative z-10">
+            {activeClient === "ALL" ? (
+              <ClientRequiredEmptyState
+                mode="select_client"
+                moduleName="Automatizador de operación"
+                onSelectClient={(c) => handleSelectClient(c, false)}
+              />
+            ) : !OPERATION_TOOLS[activeClient].includes("automatizador") ? (
+              <ClientRequiredEmptyState
+                mode="coming_soon"
+                moduleName="Automatizador de operación"
+                clientName={currentClientConfig.name}
+                onSelectClient={(c) => handleSelectClient(c, false)}
+              />
+            ) : (
+              <>
             {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
             <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
               <div className="flex items-center gap-2">
@@ -3831,6 +4154,8 @@ export default function DashboardPage() {
                 </table>
               </div>
             </section>
+              </>
+            )}
           </main>
 
           {/* MODAL DE CONFIRMACIÓN: ELIMINAR FILAS DEL LOTE OPERATIVO */}
