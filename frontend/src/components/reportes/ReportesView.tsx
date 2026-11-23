@@ -3,6 +3,15 @@
 import React, { useState, useEffect, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import ClientSwitcherPill from "@/components/layout/ClientSwitcherPill";
+import ClientRequiredEmptyState from "@/components/layout/ClientRequiredEmptyState";
+import {
+  ActiveClientFilter,
+  ASSET_CLIENTS_MAP,
+  isSpecificAssetClient,
+  loadActiveClientFromStorage,
+  saveActiveClientToStorage,
+} from "@/lib/assetClients";
 import {
   FileSpreadsheet,
   Search,
@@ -70,6 +79,33 @@ export default function ReportesView({
   const [activeSubmodulo, setActiveSubmodulo] = useState<ReportesSubmodulo | null>(
     (searchParams.get("submodulo") as ReportesSubmodulo) || null
   );
+  const [activeClient, setActiveClient] = useState<ActiveClientFilter>("ALL");
+
+  useEffect(() => {
+    setActiveClient(loadActiveClientFromStorage());
+    const handleStorage = (e: CustomEvent<ActiveClientFilter>) => {
+      const next = e.detail;
+      if (next === "ALL" || (next && next in ASSET_CLIENTS_MAP)) {
+        setActiveClient(next);
+      }
+    };
+    window.addEventListener("sc-asset-client-changed" as any, handleStorage as any);
+    return () => {
+      window.removeEventListener("sc-asset-client-changed" as any, handleStorage as any);
+    };
+  }, []);
+
+  const handleClientChange = (nextClient: ActiveClientFilter) => {
+    setActiveClient(nextClient);
+    saveActiveClientToStorage(nextClient);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("sc-asset-client-changed", { detail: nextClient }));
+    }
+  };
+
+  const activeClientLabel = isSpecificAssetClient(activeClient)
+    ? ASSET_CLIENTS_MAP[activeClient].name
+    : "Todos los clientes";
 
   const handleSubmoduloChange = (sub: ReportesSubmodulo | null) => {
     setActiveSubmodulo(sub);
@@ -513,15 +549,18 @@ export default function ReportesView({
         <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-between py-2">
           <div>
             {/* Barra Superior con Navegación al Hub Principal */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 gap-3 flex-wrap">
               <Link
                 href="/"
                 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs text-xs font-semibold cursor-pointer group"
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
-                <span>Volver al Hub Principal</span>
+                <span>Volver a Asset Management</span>
               </Link>
-              <span className="text-xs font-mono text-slate-400">Seko Supply Chain México</span>
+              <div className="flex items-center gap-3">
+                <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+                <span className="text-xs font-mono text-slate-400 hidden sm:inline">Seko Supply Chain México</span>
+              </div>
             </div>
 
             {/* Logo de la empresa centrado en la parte superior como las demás vistas */}
@@ -550,17 +589,28 @@ export default function ReportesView({
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
+                <span>{activeClientLabel}</span>
+                <span className="text-slate-400">/</span>
                 <span className="text-[#CE3A39] font-bold">Reportes</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
-                Módulos de Reportes y Trazabilidad
+                {activeClient === "ALL"
+                  ? "Módulos de Reportes y Trazabilidad"
+                  : `Módulos de Reportes y Trazabilidad — ${activeClientLabel}`}
               </h1>
               <p className="text-sm text-slate-500 mt-1 leading-relaxed">
                 Selecciona un submódulo operativo para consultar reportes, métricas en tiempo real, conciliación de garantías y estatus de equipos.
               </p>
             </div>
 
-            {/* Grid de 4 Módulos Estandarizados (Dimensiones Idénticas: w-[300px] h-[275px]) */}
+            {activeClient === "ALL" ? (
+              <ClientRequiredEmptyState
+                mode="select_client"
+                moduleName="Reportes"
+                onSelectClient={(c) => handleClientChange(c)}
+              />
+            ) : (
+            /* Grid de 4 Módulos Estandarizados (Dimensiones Idénticas: w-[300px] h-[275px]) */
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl mx-auto">
               {/* Módulo 1: Devoluciones */}
               <div
@@ -666,26 +716,66 @@ export default function ReportesView({
                 </span>
               </div>
             </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Si hay un submódulo seleccionado pero se cambia el filtro a "ALL", pedir selección de cliente */}
+      {activeSubmodulo !== null && activeClient === "ALL" && (
+        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 mb-6">
+            <button
+              onClick={() => handleSubmoduloChange(null)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group text-xs"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
+              <span>Volver a Módulos de Reportes</span>
+            </button>
+            <div className="flex items-center gap-3">
+              <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+            </div>
+          </div>
+          <ClientRequiredEmptyState
+            mode="select_client"
+            moduleName="Reportes"
+            onSelectClient={(c) => handleClientChange(c)}
+          />
+        </div>
+      )}
+
       {/* Submódulo 2: Equipos en Reparación (Vista Individual) */}
-      {activeSubmodulo === "reparacion" && (
-        <ReparacionView onBack={() => handleSubmoduloChange(null)} />
+      {activeSubmodulo === "reparacion" && activeClient !== "ALL" && (
+        <div className="flex-1 flex flex-col">
+          <div className="flex justify-end mb-2">
+            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+          </div>
+          <ReparacionView onBack={() => handleSubmoduloChange(null)} />
+        </div>
       )}
 
       {/* Submódulo 3: Outbound (Vista Individual) */}
-      {activeSubmodulo === "outbound" && (
-        <OutboundView onBack={() => handleSubmoduloChange(null)} />
+      {activeSubmodulo === "outbound" && activeClient !== "ALL" && (
+        <div className="flex-1 flex flex-col">
+          <div className="flex justify-end mb-2">
+            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+          </div>
+          <OutboundView onBack={() => handleSubmoduloChange(null)} />
+        </div>
       )}
 
       {/* Submódulo 4: Refurb (Vista Individual) */}
-      {activeSubmodulo === "refurb" && (
-        <RefurbView onBack={() => handleSubmoduloChange(null)} />
+      {activeSubmodulo === "refurb" && activeClient !== "ALL" && (
+        <div className="flex-1 flex flex-col">
+          <div className="flex justify-end mb-2">
+            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+          </div>
+          <RefurbView onBack={() => handleSubmoduloChange(null)} />
+        </div>
       )}
 
       {/* Submódulo 1: Devoluciones de Equipos (Vista Individual) */}
-      {activeSubmodulo === "devoluciones" && (
+      {activeSubmodulo === "devoluciones" && activeClient !== "ALL" && (
         <>
           {/* Barra Superior con Navegación al Hub de Reportes */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 mb-6">
@@ -696,12 +786,15 @@ export default function ReportesView({
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
               <span>Volver a Módulos de Reportes</span>
             </button>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold">
-              <span>Asset Management</span>
-              <span className="text-slate-400">/</span>
-              <span>Reportes</span>
-              <span className="text-slate-400">/</span>
-              <span className="text-[#CE3A39] font-bold">Devoluciones de Equipos</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold">
+                <span>Asset Management</span>
+                <span className="text-slate-400">/</span>
+                <span>Reportes</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">Devoluciones de Equipos</span>
+              </div>
             </div>
           </div>
 
