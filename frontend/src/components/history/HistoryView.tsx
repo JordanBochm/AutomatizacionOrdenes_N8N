@@ -272,39 +272,20 @@ export default function HistoryView({
     <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="p-2 text-slate-500 hover:text-[#233762] hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-            title="Volver"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          {onNavigateHome && (
-            <button
-              onClick={onNavigateHome}
-              className="p-2 text-slate-500 hover:text-[#233762] hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-              title="Ir al Menú Principal"
-            >
-              <Home className="w-5 h-5" />
-            </button>
-          )}
+          <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+            <Archive className="w-5 h-5" />
+          </span>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-[#EFF3F9] text-[#233762] rounded-lg">
-                <Archive className="w-5 h-5" />
-              </span>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#233762] tracking-tight">
-                Historial de Trackings y Cierres
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">
+              Historial de Trackings y Cierres
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
               Consulta de trackings rastreados, cierres generados y movimientos por día.
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <ClientSwitcherPill value={activeClient} onChange={onClientChange} />
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
             Local (este navegador)
           </span>

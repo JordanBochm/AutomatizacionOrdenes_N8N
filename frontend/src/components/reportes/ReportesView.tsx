@@ -525,6 +525,48 @@ export default function ReportesView({
         <div className="w-1/2 bg-[#CE3A39]" />
       </div>
 
+      {/* Encabezado unificado para cada submódulo de Reportes */}
+      {activeSubmodulo !== null && (
+        <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 mt-[3px]">
+          <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <button
+                type="button"
+                onClick={() => handleSubmoduloChange(null)}
+                className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                title="Regresar a Módulos de Reportes"
+                aria-label="Regresar a Módulos de Reportes"
+              >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+              </button>
+
+              <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+              <Link
+                href="/"
+                className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                title="Regresar al Hub Principal"
+              >
+                <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+              </Link>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2.5">
+              <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                {activeSubmodulo === "devoluciones"
+                  ? "Devoluciones de equipos"
+                  : activeSubmodulo === "reparacion"
+                  ? "Equipos en reparación"
+                  : activeSubmodulo === "outbound"
+                  ? "Outbound y despacho"
+                  : "Reacondicionamiento (Refurb)"}
+              </h1>
+              <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+            </div>
+          </div>
+        </header>
+      )}
+
       <div className="p-4 md:p-8 pt-6 flex-1 flex flex-col">
       {/* Toast Flotante */}
       {toast && (
@@ -724,18 +766,6 @@ export default function ReportesView({
       {/* Si hay un submódulo seleccionado pero se cambia el filtro a "ALL", pedir selección de cliente */}
       {activeSubmodulo !== null && activeClient === "ALL" && (
         <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col py-2">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 mb-6">
-            <button
-              onClick={() => handleSubmoduloChange(null)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group text-xs"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
-              <span>Volver a Módulos de Reportes</span>
-            </button>
-            <div className="flex items-center gap-3">
-              <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
-            </div>
-          </div>
           <ClientRequiredEmptyState
             mode="select_client"
             moduleName="Reportes"
@@ -747,56 +777,27 @@ export default function ReportesView({
       {/* Submódulo 2: Equipos en Reparación (Vista Individual) */}
       {activeSubmodulo === "reparacion" && activeClient !== "ALL" && (
         <div className="flex-1 flex flex-col">
-          <div className="flex justify-end mb-2">
-            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
-          </div>
-          <ReparacionView onBack={() => handleSubmoduloChange(null)} />
+          <ReparacionView />
         </div>
       )}
 
       {/* Submódulo 3: Outbound (Vista Individual) */}
       {activeSubmodulo === "outbound" && activeClient !== "ALL" && (
         <div className="flex-1 flex flex-col">
-          <div className="flex justify-end mb-2">
-            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
-          </div>
-          <OutboundView onBack={() => handleSubmoduloChange(null)} />
+          <OutboundView />
         </div>
       )}
 
       {/* Submódulo 4: Refurb (Vista Individual) */}
       {activeSubmodulo === "refurb" && activeClient !== "ALL" && (
         <div className="flex-1 flex flex-col">
-          <div className="flex justify-end mb-2">
-            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
-          </div>
-          <RefurbView onBack={() => handleSubmoduloChange(null)} />
+          <RefurbView />
         </div>
       )}
 
       {/* Submódulo 1: Devoluciones de Equipos (Vista Individual) */}
       {activeSubmodulo === "devoluciones" && activeClient !== "ALL" && (
         <>
-          {/* Barra Superior con Navegación al Hub de Reportes */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 mb-6">
-            <button
-              onClick={() => handleSubmoduloChange(null)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group text-xs"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#CE3A39]" />
-              <span>Volver a Módulos de Reportes</span>
-            </button>
-            <div className="flex flex-wrap items-center gap-3">
-              <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold">
-                <span>Asset Management</span>
-                <span className="text-slate-400">/</span>
-                <span>Reportes</span>
-                <span className="text-slate-400">/</span>
-                <span className="text-[#CE3A39] font-bold">Devoluciones de Equipos</span>
-              </div>
-            </div>
-          </div>
 
           {/* Header Institucional de Devoluciones */}
           <header className="mb-8">

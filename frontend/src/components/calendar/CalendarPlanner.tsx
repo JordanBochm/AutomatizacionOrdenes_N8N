@@ -287,36 +287,17 @@ export default function CalendarPlanner({
 
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6 animate-fade-in">
-      {/* 1. Header con navegación institucional y botón de acción */}
+      {/* 1. Header de sección y botón de acción */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="p-2 text-slate-500 hover:text-[#233762] hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-            title="Volver"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          {onNavigateHome && (
-            <button
-              onClick={onNavigateHome}
-              className="p-2 text-slate-500 hover:text-[#233762] hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-              title="Ir al Menú Principal"
-            >
-              <Home className="w-5 h-5" />
-            </button>
-          )}
+          <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+            <CalendarDays className="w-5 h-5" />
+          </span>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="p-1.5 bg-[#EFF3F9] text-[#233762] rounded-lg">
-                <CalendarDays className="w-5 h-5" />
-              </span>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#233762] tracking-tight">
-                Calendario de Planificaciones y Citas
-              </h1>
-              <ClientSwitcherPill value={activeClient} onChange={onClientChange} />
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">
+              Calendario de Planificaciones y Citas
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
               Agenda de citas de entrega, recolecciones de paquetería (Pickups) y cierres de lote programados.
             </p>
           </div>
