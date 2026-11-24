@@ -3706,92 +3706,11 @@ export default function DashboardPage() {
                       Comienza tu operación del día
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500">
-                      Sigue estos 4 pasos para generar las guías y el cierre.
+                      Sube el reporte de ServiceNow para validar direcciones y generar las guías.
                     </p>
                   </div>
 
-                  {/* 2. Stepper horizontal de 4 pasos (vertical en móvil) */}
-                  <div
-                    className="grid grid-cols-1 md:grid-cols-4 gap-3 relative"
-                    role="list"
-                    aria-label="Pasos de la operación del día"
-                  >
-                    {(
-                      [
-                        {
-                          step: 1,
-                          title: "Sube el reporte",
-                          desc: "Carga el archivo.",
-                          Icon: UploadCloud,
-                        },
-                        {
-                          step: 2,
-                          title: "Revisa las direcciones",
-                          desc: "El sistema valida con SEPOMEX. Corrige las órdenes marcadas en amarillo o rojo.",
-                          Icon: CheckCircle2,
-                        },
-                        {
-                          step: 3,
-                          title: "Descarga el Excel para Techship",
-                          desc: "Súbelo al portal de Techship para crear las guías.",
-                          Icon: FileSpreadsheet,
-                        },
-                        {
-                          step: 4,
-                          title: "Detecta guías y genera el cierre",
-                          desc: "Obtén el Cierre.xlsx con los trackings de 22 dígitos.",
-                          Icon: Truck,
-                        },
-                      ] as const
-                    ).map(({ step, title, desc, Icon }, idx) => {
-                      const isFirst = step === 1;
-                      return (
-                        <div
-                          key={step}
-                          role="listitem"
-                          className={`relative rounded-2xl border p-4 transition ${isFirst
-                            ? "bg-white border-[#233762] shadow-sm"
-                            : "bg-white/80 border-slate-200 opacity-70"
-                            }`}
-                        >
-                          {/* Línea conectora en escritorio entre pasos */}
-                          {idx < 3 && (
-                            <div
-                              aria-hidden="true"
-                              className="hidden md:block absolute top-7 -right-3 w-3 h-px bg-slate-300 z-10"
-                            />
-                          )}
-
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <span
-                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold shrink-0 ${isFirst
-                                ? "bg-[#233762] text-white"
-                                : "bg-slate-200 text-slate-600"
-                                }`}
-                            >
-                              {step}
-                            </span>
-                            <Icon
-                              className={`w-4 h-4 shrink-0 ${isFirst ? "text-[#CE3A39]" : "text-slate-400"
-                                }`}
-                            />
-                          </div>
-
-                          <h3
-                            className={`text-xs font-bold leading-snug ${isFirst ? "text-[#233762]" : "text-slate-700"
-                              }`}
-                          >
-                            {title}
-                          </h3>
-                          <p className="text-[11px] text-slate-500 mt-1 leading-snug line-clamp-2">
-                            {desc}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* 3. Dropzone (Paso 1 en acción) */}
+                  {/* 2. Dropzone (Paso 1 en acción) */}
                   <div
                     onDragOver={(e) => {
                       e.preventDefault();
