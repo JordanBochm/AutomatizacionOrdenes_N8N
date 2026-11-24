@@ -1775,16 +1775,6 @@ export default function DashboardPage() {
 
             <div className="absolute inset-0 bg-gradient-to-t from-[#233762]/85 via-transparent to-black/20 pointer-events-none" />
 
-            <div className="absolute bottom-8 left-8 z-20 max-w-lg text-white">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[11px] font-bold tracking-wider uppercase mb-2">
-                <span className="w-2 h-2 rounded-full bg-[#CE3A39] animate-pulse" />
-                <span>SupplyChain México</span>
-              </div>
-              <h3 className="text-lg font-bold text-white drop-shadow-md">
-                Plataforma de Orquestación Logística y Última Milla Nacional
-              </h3>
-            </div>
-
             <div className="absolute bottom-8 right-8 z-20 flex items-center gap-2">
               {LOGISTICS_IMAGES.map((_, dotIdx) => (
                 <button
@@ -3740,7 +3730,7 @@ export default function DashboardPage() {
                         {
                           step: 1,
                           title: "Sube el reporte",
-                          desc: "Carga el archivo de ServiceNow (SCTASK_SHP_Combined_Report_MX_*.xlsx).",
+                          desc: "Carga el archivo.",
                           Icon: UploadCloud,
                         },
                         {
@@ -3768,11 +3758,10 @@ export default function DashboardPage() {
                         <div
                           key={step}
                           role="listitem"
-                          className={`relative rounded-2xl border p-4 transition ${
-                            isFirst
-                              ? "bg-white border-[#233762] shadow-sm"
-                              : "bg-white/80 border-slate-200 opacity-70"
-                          }`}
+                          className={`relative rounded-2xl border p-4 transition ${isFirst
+                            ? "bg-white border-[#233762] shadow-sm"
+                            : "bg-white/80 border-slate-200 opacity-70"
+                            }`}
                         >
                           {/* Línea conectora en escritorio entre pasos */}
                           {idx < 3 && (
@@ -3784,25 +3773,22 @@ export default function DashboardPage() {
 
                           <div className="flex items-center justify-between gap-2 mb-2">
                             <span
-                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
-                                isFirst
-                                  ? "bg-[#233762] text-white"
-                                  : "bg-slate-200 text-slate-600"
-                              }`}
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold shrink-0 ${isFirst
+                                ? "bg-[#233762] text-white"
+                                : "bg-slate-200 text-slate-600"
+                                }`}
                             >
                               {step}
                             </span>
                             <Icon
-                              className={`w-4 h-4 shrink-0 ${
-                                isFirst ? "text-[#CE3A39]" : "text-slate-400"
-                              }`}
+                              className={`w-4 h-4 shrink-0 ${isFirst ? "text-[#CE3A39]" : "text-slate-400"
+                                }`}
                             />
                           </div>
 
                           <h3
-                            className={`text-xs font-bold leading-snug ${
-                              isFirst ? "text-[#233762]" : "text-slate-700"
-                            }`}
+                            className={`text-xs font-bold leading-snug ${isFirst ? "text-[#233762]" : "text-slate-700"
+                              }`}
                           >
                             {title}
                           </h3>
@@ -3837,11 +3823,10 @@ export default function DashboardPage() {
                         } as React.ChangeEvent<HTMLInputElement>);
                       }
                     }}
-                    className={`w-full rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center shadow-sm transition-colors relative group ${
-                      isDraggingFile
-                        ? "bg-[#EFF3F9] border-[#233762]"
-                        : "bg-white border-slate-300 hover:border-[#233762]"
-                    }`}
+                    className={`w-full rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center shadow-sm transition-colors relative group ${isDraggingFile
+                      ? "bg-[#EFF3F9] border-[#233762]"
+                      : "bg-white border-slate-300 hover:border-[#233762]"
+                      }`}
                   >
                     <input
                       type="file"
