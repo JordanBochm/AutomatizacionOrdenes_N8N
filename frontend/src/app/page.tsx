@@ -1650,8 +1650,7 @@ export default function DashboardPage() {
 
             {/* 2. Bloque Central del Formulario */}
             <div className="max-w-sm w-full mx-auto my-auto py-6">
-              <h2 className="text-2xl font-bold text-[#233762] mb-1 text-center">Iniciar sesión</h2>
-
+              <h2 className="text-2xl font-bold text-[#233762] mb-6 text-center">Iniciar sesión</h2>
 
               <form onSubmit={handleLoginSubmit} className="space-y-5">
                 {/* Campo Email */}
@@ -1750,7 +1749,7 @@ export default function DashboardPage() {
 
             {/* 3. Pie del Panel Izquierdo */}
             <div className="text-xs text-slate-400 pt-4 font-normal text-center">
-              © 2026 SupplyChain México • Operación SEKO Logistics / KST
+              © 2026 SupplyChain México
             </div>
           </div>
 
