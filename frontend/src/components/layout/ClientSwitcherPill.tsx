@@ -161,12 +161,9 @@ export default function ClientSwitcherPill({
                     : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                <div className="min-w-0">
-                  <div className={`truncate ${selected ? "font-bold" : "font-semibold"}`}>
-                    {c.name}
-                  </div>
-                  <div className="text-[10px] text-slate-400 truncate">{c.segment}</div>
-                </div>
+                <span className={`truncate ${selected ? "font-bold" : "font-semibold"}`}>
+                  {c.name}
+                </span>
                 {selected && <Check className="w-3.5 h-3.5 text-[#233762] shrink-0" />}
               </button>
             );
