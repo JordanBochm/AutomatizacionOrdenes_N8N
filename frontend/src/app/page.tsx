@@ -3706,7 +3706,7 @@ export default function DashboardPage() {
                       Comienza tu operación del día
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500">
-                      Sube el reporte de ServiceNow para validar direcciones y generar las guías.
+                      Sube el reporte de órdenes para validar direcciones y generar las guías.
                     </p>
                   </div>
 
@@ -3779,11 +3779,7 @@ export default function DashboardPage() {
 
                   {/* 4. Pie de ayuda */}
                   <p className="text-center text-xs text-slate-400">
-                    ¿Primera vez? Descarga el reporte desde ServiceNow con el nombre{" "}
-                    <span className="font-mono text-slate-500">
-                      SCTASK_SHP_Combined_Report_MX_*.xlsx
-                    </span>{" "}
-                    y súbelo aquí.
+                    Descarga el reporte y súbelo aquí.
                   </p>
                 </div>
               </section>
@@ -4066,12 +4062,6 @@ export default function DashboardPage() {
                                     label: "Cierre.xlsx",
                                     hint: "Reporte final con trackings de 22 dígitos",
                                     needsSync: true,
-                                  },
-                                  {
-                                    type: "auditoria_excel",
-                                    label: "Auditoría.xlsx",
-                                    hint: "Diagnóstico detallado SEPOMEX",
-                                    needsSync: false,
                                   },
                                 ] as const
                               ).map(({ type, label, hint, needsSync }) => {
