@@ -594,12 +594,12 @@ export default function DashboardPage() {
     fetchHealthAndBatch();
   }, []);
 
-  // 2. Rotación automática de imágenes del carrusel de login cada 8 segundos
+  // 2. Rotación automática de imágenes del carrusel de login cada 12 segundos
   useEffect(() => {
     if (activeModule !== "login") return;
     const timer = setInterval(() => {
       setCurrentImageIndex((prev) => (prev + 1) % LOGISTICS_IMAGES.length);
-    }, 8000);
+    }, 12000);
     return () => clearInterval(timer);
   }, [activeModule]);
 
@@ -1771,18 +1771,6 @@ export default function DashboardPage() {
             ))}
 
             <div className="absolute inset-0 bg-gradient-to-t from-[#233762]/85 via-transparent to-black/20 pointer-events-none" />
-
-            <div className="absolute bottom-8 right-8 z-20 flex items-center gap-2">
-              {LOGISTICS_IMAGES.map((_, dotIdx) => (
-                <button
-                  key={dotIdx}
-                  onClick={() => setCurrentImageIndex(dotIdx)}
-                  className={`h-2 rounded-full transition-all duration-300 ${dotIdx === currentImageIndex ? "w-8 bg-[#CE3A39]" : "w-2 bg-white/60 hover:bg-white"
-                    }`}
-                  aria-label={`Ir a foto ${dotIdx + 1}`}
-                />
-              ))}
-            </div>
           </div>
         </div>
       ) : activeModule === "hub" ? (
