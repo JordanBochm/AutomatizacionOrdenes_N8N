@@ -2536,18 +2536,18 @@ export default function DashboardPage() {
         /* VISTA GENERADOR DE TRACKING (VISTA PREVIA EN VIVO + TABLA EDITABLE) */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
-          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
-            <div className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 {/* Botón para volver a Operación del día */}
                 <button
                   type="button"
                   onClick={() => setActiveModule("operacion_dia")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs group cursor-pointer"
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
                   title="Regresar a Operación del día"
+                  aria-label="Regresar a Operación del día"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                  <span className="hidden sm:inline">Operación del día</span>
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                 </button>
 
                 <div className="h-7 w-px bg-slate-200 hidden sm:block" />
@@ -2558,59 +2558,18 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  {!logoError ? (
-                    <img
-                      src="/logo-supplychain.png"
-                      alt="SupplyChain México"
-                      className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 drop-shadow-xs"
-                      onError={() => setLogoError(true)}
-                    />
-                  ) : (
-                    <AnimatedLogo className="h-10 sm:h-12 w-auto" cycleDuration={8} />
-                  )}
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
-
-                <div className="h-9 w-px bg-slate-200 hidden md:block" />
-
-                <div className="hidden sm:flex items-center gap-2.5">
-                  <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                    Generador de Tracking
-                  </h1>
-                  <ClientSwitcherPill
-                    value={activeClient}
-                    onChange={(c) => handleSelectClient(c, false)}
-                  />
-                </div>
               </div>
 
-              {/* Botones de navegación y sesión */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveModule("hub")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition shadow-2xs cursor-pointer"
-                  title="Ir al Hub Principal"
-                >
-                  <Home className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Hub</span>
-                </button>
-
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
-                    {roleConfig.code}
-                  </span>
-                </div>
-
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
-                  title="Cerrar sesión"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Cerrar sesión</span>
-                </button>
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Generador de Tracking
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
+                />
               </div>
             </div>
           </header>
@@ -2805,90 +2764,40 @@ export default function DashboardPage() {
         /* VISTA RASTREO DE ENVÍOS - VENTANA DE TRABAJO (FEDEX / ESTAFETA)       */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
-          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs sticky top-0 z-40">
-            <div className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Botón para volver a Transporte (Pill button con flecha roja) */}
+                {/* Botón para volver a Transporte */}
                 <button
                   type="button"
                   onClick={() => setActiveModule("transporte")}
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group text-xs"
-                  title="Volver a Transporte"
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar a Transporte"
+                  aria-label="Regresar a Transporte"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
-                  <span>Volver a Transporte</span>
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                 </button>
 
                 <div className="h-7 w-px bg-slate-200 hidden sm:block" />
 
-                {/* Logo institucional */}
                 <button
                   type="button"
                   onClick={() => setActiveModule("hub")}
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  {!logoError ? (
-                    <img
-                      src="/logo-supplychain.png"
-                      alt="SupplyChain México"
-                      className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 drop-shadow-xs"
-                      onError={() => setLogoError(true)}
-                    />
-                  ) : (
-                    <AnimatedLogo className="h-10 sm:h-12 w-auto" cycleDuration={8} />
-                  )}
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
-
-                <div className="h-9 w-px bg-slate-200 hidden md:block" />
-
-                {/* Breadcrumb Pill Estandarizado y Título */}
-                <div className="hidden sm:flex items-center gap-2.5">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold">
-                    <span>Asset Management</span>
-                    <span className="text-slate-400">/</span>
-                    <span>Transporte</span>
-                    <span className="text-slate-400">/</span>
-                    <span className="text-[#233762] font-bold">Rastreo de Envíos</span>
-                  </div>
-                  <ClientSwitcherPill
-                    value={activeClient}
-                    onChange={(c) => handleSelectClient(c, false)}
-                  />
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono font-bold border border-slate-200">
-                    FEDEX & ESTAFETA
-                  </span>
-                </div>
               </div>
 
-              {/* Botones de navegación y sesión estandarizados */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveModule("hub")}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-semibold transition shadow-2xs cursor-pointer"
-                  title="Ir al Hub Principal"
-                >
-                  <Home className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Hub</span>
-                </button>
-
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs text-slate-700 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
-                    {roleConfig.code}
-                  </span>
-                </div>
-
-                <button
-                  onClick={handleLogout}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition shadow-2xs cursor-pointer"
-                  title="Cerrar sesión"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Cerrar sesión</span>
-                </button>
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Rastreo de envíos
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
+                />
               </div>
             </div>
           </header>
@@ -2908,6 +2817,43 @@ export default function DashboardPage() {
         /* VISTA HISTORIAL - TRACKINGS Y CIERRES DEL DÍA (LOCAL)                */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule(historyReturnTarget)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar"
+                  aria-label="Regresar"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
+
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Historial de trackings y cierres
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
+                />
+              </div>
+            </div>
+          </header>
+
           <HistoryView
             apiBase={API_BASE}
             onBack={() => setActiveModule(historyReturnTarget)}
@@ -2923,6 +2869,43 @@ export default function DashboardPage() {
         /* VISTA CALENDARIO - PLANIFICACIONES, CITAS Y RECOLECCIONES            */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("modules")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar a Asset Management"
+                  aria-label="Regresar a Asset Management"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
+
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Calendario de planificaciones y citas
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
+                />
+              </div>
+            </div>
+          </header>
+
           <CalendarPlanner
             onBack={() => setActiveModule("modules")}
             onNavigateHome={() => setActiveModule("hub")}
@@ -3620,11 +3603,11 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setActiveModule("operacion_dia")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition group cursor-pointer"
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
                   title="Regresar a Operación del día"
+                  aria-label="Regresar a Operación del día"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                  <span className="hidden sm:inline">Operación del día</span>
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                 </button>
 
                 <div className="h-7 w-px bg-slate-200 hidden sm:block" />
@@ -3635,49 +3618,18 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-12 sm:h-14 w-auto" cycleDuration={8} />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
-
-                <div className="h-9 w-px bg-slate-200 hidden md:block" />
-
-                <div className="hidden sm:flex items-center gap-2.5">
-                  <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                    Automatizador de operación
-                  </h1>
-                  <ClientSwitcherPill
-                    value={activeClient}
-                    onChange={(c) => handleSelectClient(c, false)}
-                  />
-                </div>
               </div>
 
-              {/* Usuario activo y Cerrar sesión */}
-              <div className="flex items-center gap-3">
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs text-slate-700">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-medium font-mono text-slate-600">{currentUser?.email}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                    {roleConfig.code}
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => setActiveModule("hub")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition cursor-pointer"
-                  title="Ir al Hub"
-                >
-                  <Home className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Hub</span>
-                </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition cursor-pointer"
-                  title="Cerrar sesión"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Cerrar sesión</span>
-                </button>
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Automatizador de operación
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
+                />
               </div>
             </div>
           </header>
