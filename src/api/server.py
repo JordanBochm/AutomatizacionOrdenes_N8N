@@ -72,12 +72,22 @@ from src.validador_postal import (
     formatear_direccion_inteligente,
 )
 
-_VALIDADOR_POSTAL_SINGLETON: Optional[ValidadorPostal] = None
+import sqlite3
+import threading
+
+_VALIDADOR_POSTAL_TLS = threading.local()
 
 def _get_validador_postal() -> ValidadorPostal:
-    global _VALIDADOR_POSTAL_SINGLETON
-    if _VALIDADOR_POSTAL_SINGLETON is None:
+    val = getattr(_VALIDADOR_POSTAL_TLS, "validador", None)
+    if val is None:
         val = ValidadorPostal()
+        if getattr(val, "db_path", None) and val.db_path.exists():
+            try:
+                if val._conn:
+                    val._conn.close()
+            except Exception:
+                pass
+            val._conn = sqlite3.connect(str(val.db_path), check_same_thread=False)
         if not hasattr(val, "buscar_cp"):
             def _buscar_cp(cp_val):
                 conn = val._get_conn()
@@ -92,19 +102,30 @@ def _get_validador_postal() -> ValidadorPostal:
                 ).fetchall()
                 if not regs:
                     return None
+                muns = sorted({r[1] for r in regs if r[1]})
                 return {
                     "existe": True,
                     "cp": cp_clean,
                     "estado": regs[0][2] if regs else "",
-                    "municipio": regs[0][1] if regs else "",
-                    "colonias": sorted({r[0] for r in regs}),
+                    "municipio": muns[0] if muns else "",
+                    "municipios": muns,
+                    "colonias": sorted({r[0] for r in regs if r[0]}),
                 }
             val.buscar_cp = _buscar_cp
-        _VALIDADOR_POSTAL_SINGLETON = val
-    return _VALIDADOR_POSTAL_SINGLETON
+        _VALIDADOR_POSTAL_TLS.validador = val
+    return val
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import TableColumn
 from src.techship_client import (
     procesar_archivo_techship,
     sincronizar_tracking_desde_api,
+    get_auth_headers,
+    _fila_limite,
+    ANCHOS_CIERRE,
+    RELLENO_ERROR,
+    FUENTE_ERROR,
     CLIENT_CODE_KST,
     TECHSHIP_BASE_URL,
 )
@@ -515,7 +536,7 @@ def get_current_batch():
 
 
 @app.post("/api/batches/upload")
-async def upload_batch(file: UploadFile = File(...)):
+def upload_batch(file: UploadFile = File(...)):
     """
     Recibe el reporte Excel de ServiceNow (SCTASK_*.xlsx), ejecuta el motor
     postal SEPOMEX y genera la estructura oficial de 61 columnas con auditoría.
@@ -831,53 +852,351 @@ def process_techship(req: TechshipProcessRequest):
     }
 
 
+def _consultar_guia_rapida_techship(
+    customer_order: str,
+    headers: Dict[str, str],
+    client_code: str = CLIENT_CODE_KST,
+    timeout: int = 8,
+) -> Dict[str, Any]:
+    """
+    Consulta rápida en Techship API v3 sin conversión ni descarga de PDFs de etiquetas.
+    Obtiene únicamente el número de guía (Tracking 22 dígitos), estatus e ID del envío.
+    """
+    order_str = str(customer_order).strip()
+    candidatos = [order_str]
+    if order_str.startswith("KYNDRYL_"):
+        candidatos.append(order_str.replace("KYNDRYL_", ""))
+    else:
+        candidatos.append(f"KYNDRYL_{order_str}")
+
+    url_list = f"{TECHSHIP_BASE_URL}/api/v3/shipments"
+
+    # Buscar primero por customerOrder y como respaldo por transactionNumber (PickOrder)
+    for param_key in ("customerOrder", "transactionNumber"):
+        for cand in candidatos:
+            try:
+                r = requests.get(
+                    url_list,
+                    headers=headers,
+                    params={"clientCode": client_code, param_key: cand},
+                    timeout=timeout,
+                )
+                if r.status_code != 200:
+                    continue
+                shipments = r.json()
+                if not isinstance(shipments, list) or not shipments:
+                    continue
+
+                # Priorizar envíos ya procesados o con guía asignada
+                target = None
+                for s in shipments:
+                    if s.get("TrackingNumber") or s.get("Status") in ("Processed", "Shipped"):
+                        target = s
+                        break
+                if not target:
+                    target = shipments[0]
+
+                s_id = target.get("Id")
+                status = target.get("Status") or "Registered"
+                trk = target.get("TrackingNumber")
+                if not trk:
+                    pkgs = target.get("Packages") or []
+                    if pkgs and isinstance(pkgs, list):
+                        trk = pkgs[0].get("TrackingNumber")
+
+                # Si la lista no incluyó el tracking pero sí el ID, consultar detalle ligero SIN PDF
+                if not trk and s_id:
+                    r_det = requests.get(
+                        f"{TECHSHIP_BASE_URL}/api/v3/shipments/{s_id}",
+                        headers=headers,
+                        timeout=timeout,
+                    )
+                    if r_det.status_code == 200:
+                        det = r_det.json()
+                        trk = det.get("TrackingNumber")
+                        if not trk:
+                            det_pkgs = det.get("Packages") or []
+                            if det_pkgs and isinstance(det_pkgs, list):
+                                trk = det_pkgs[0].get("TrackingNumber")
+                        status = det.get("Status") or status
+
+                if trk:
+                    return {
+                        "order": order_str,
+                        "found": True,
+                        "tracking": str(trk).strip(),
+                        "techship_status": str(status),
+                        "shipment_id": s_id,
+                    }
+            except Exception:
+                continue
+
+    return {
+        "order": order_str,
+        "found": False,
+        "tracking": None,
+        "techship_status": "No encontrada",
+        "shipment_id": None,
+    }
+
+
+def _sincronizar_cierre_rapido_api(
+    sctask_path: str,
+    guias_path: Optional[Path] = None,
+    output_path: Optional[str] = None,
+    client_code: str = CLIENT_CODE_KST,
+) -> Dict[str, Any]:
+    """
+    Detecta de forma concurrente en Techship API v3 las guías generadas (22 dígitos)
+    para las órdenes activas del lote, sin descargar PDFs de etiquetas, y genera
+    el archivo oficial Cierre_DD_Mes_AAAA.xlsx (12 columnas de ServiceNow) + resumen.
+    """
+    headers = get_auth_headers()
+
+    # Mapa de órdenes activas en Guias_Techship_Importada_*.xlsx (respeta filas eliminadas o editadas)
+    active_orders_meta: Dict[str, Dict[str, str]] = {}
+    if guias_path and guias_path.is_file():
+        try:
+            df_guias = pd.read_excel(guias_path, sheet_name="Import Orders")
+            for _, row in df_guias.iterrows():
+                co = str(row.get("CustomerOrder", "")).strip()
+                if not co or co.lower() == "nan":
+                    continue
+                is_ret = co.endswith("-1")
+                rec_name = (
+                    str(row.get("ShipFromName", "")).strip()
+                    if is_ret and pd.notna(row.get("ShipFromName"))
+                    else str(row.get("ShipToName", "")).strip()
+                )
+                active_orders_meta[co] = {
+                    "type": "RETORNO" if is_ret else "ENTREGA",
+                    "recipient_name": rec_name if rec_name.lower() != "nan" else "",
+                }
+        except Exception:
+            pass
+
+    wb = openpyxl.load_workbook(sctask_path)
+    if "Combined Report" not in wb.sheetnames:
+        raise ValueError(f"La hoja 'Combined Report' no existe en {sctask_path}")
+
+    ws = wb["Combined Report"]
+
+    encabezados = {}
+    for col_idx in range(1, ws.max_column + 1):
+        v = ws.cell(1, col_idx).value
+        if v is not None:
+            encabezados[str(v).strip().lower()] = col_idx
+
+    if "parent" not in encabezados:
+        raise ValueError("Columna 'Parent' no encontrada en la hoja 'Combined Report'.")
+
+    col_parent = encabezados["parent"]
+    col_first_name = encabezados.get("recipient first name")
+    col_last_name = encabezados.get("recipient last name")
+    col_serial = encabezados.get("ticket age") or encabezados.get("serial number") or 6
+    col_tracking = encabezados.get("dispatched in 360?") or encabezados.get("tracking number") or 7
+
+    limite = _fila_limite(ws)
+
+    # Identificar filas válidas antes de la línea negra
+    filas_a_procesar = []
+    filas_eliminadas_por_usuario = []
+    has_active_filter = len(active_orders_meta) > 0
+
+    for r in range(2, limite):
+        parent_val = ws.cell(r, col_parent).value
+        if parent_val in (None, ""):
+            continue
+        parent = str(parent_val).strip()
+        if has_active_filter and parent not in active_orders_meta:
+            filas_eliminadas_por_usuario.append(r)
+            continue
+
+        fn = str(ws.cell(r, col_first_name).value or "").strip() if col_first_name else ""
+        ln = str(ws.cell(r, col_last_name).value or "").strip() if col_last_name else ""
+        fallback_name = f"{fn} {ln}".strip()
+        meta = active_orders_meta.get(parent, {})
+        rec_name = meta.get("recipient_name") or fallback_name
+        es_retorno = parent.endswith("-1")
+        filas_a_procesar.append((r, parent, es_retorno, rec_name))
+
+    # Consultar Techship API en paralelo (solo números de guía, sin PDF)
+    unique_orders = list({item[1] for item in filas_a_procesar})
+    resultados_api: Dict[str, Dict[str, Any]] = {}
+
+    if unique_orders:
+        max_workers = min(8, len(unique_orders))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_map = {
+                executor.submit(_consultar_guia_rapida_techship, oid, headers, client_code): oid
+                for oid in unique_orders
+            }
+            for fut in as_completed(future_map):
+                oid = future_map[fut]
+                try:
+                    resultados_api[oid] = fut.result()
+                except Exception:
+                    resultados_api[oid] = {
+                        "order": oid,
+                        "found": False,
+                        "tracking": None,
+                        "techship_status": "Error de consulta",
+                        "shipment_id": None,
+                    }
+
+    detectadas = 0
+    pendientes = 0
+    detalles_conciliacion = []
+
+    for r, parent, es_retorno, rec_name in filas_a_procesar:
+        celda_serial = ws.cell(r, col_serial)
+        celda_trk = ws.cell(r, col_tracking)
+        celda_serial.value = None
+
+        info = resultados_api.get(parent, {})
+        trk = info.get("tracking")
+
+        if trk:
+            celda_trk.value = str(trk)
+            celda_trk.number_format = "@"
+            detectadas += 1
+            detalles_conciliacion.append({
+                "order": parent,
+                "type": "RETORNO" if es_retorno else "ENTREGA",
+                "recipient_name": rec_name,
+                "status": "DETECTADA",
+                "tracking": str(trk),
+                "techship_status": info.get("techship_status", "Processed"),
+                "shipment_id": info.get("shipment_id"),
+                "message": "Guía detectada en Techship y asignada al cierre",
+            })
+        else:
+            celda_trk.value = "ERROR: Tracking no encontrado en Techship"
+            celda_trk.fill = RELLENO_ERROR
+            celda_trk.font = FUENTE_ERROR
+            pendientes += 1
+            detalles_conciliacion.append({
+                "order": parent,
+                "type": "RETORNO" if es_retorno else "ENTREGA",
+                "recipient_name": rec_name,
+                "status": "PENDIENTE",
+                "tracking": None,
+                "techship_status": info.get("techship_status", "No encontrada"),
+                "shipment_id": info.get("shipment_id"),
+                "message": "Pendiente: aún no se detecta guía timbrada en Techship",
+            })
+
+    # Renombrar columnas clave
+    ws.cell(1, col_serial).value = "Serial Number"
+    ws.cell(1, col_tracking).value = "Tracking Number"
+
+    # Eliminar filas después de la línea negra
+    if limite <= ws.max_row:
+        ws.delete_rows(limite, ws.max_row - limite + 1)
+
+    # Si el usuario eliminó órdenes del lote activo en la tabla, excluirlas también del Cierre
+    for r_del in sorted(filas_eliminadas_por_usuario, reverse=True):
+        if r_del <= ws.max_row:
+            ws.delete_rows(r_del, 1)
+
+    # Conservar exactamente las 12 columnas oficiales de Cierre
+    COLUMNAS_DESEADAS = [
+        "parent", "request", "ship", "state", "created",
+        "serial number", "tracking number", "product number", "product description",
+        "assignment group", "recipient first name", "recipient last name",
+    ]
+    for c in range(ws.max_column, 0, -1):
+        nombre_col = str(ws.cell(1, c).value or "").strip().lower()
+        if nombre_col not in COLUMNAS_DESEADAS:
+            ws.delete_cols(c, 1)
+
+    ws.conditional_formatting._cf_rules.clear()
+    for t in list(ws.tables.values()):
+        t.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+        if t.autoFilter:
+            t.autoFilter.ref = t.ref
+        t.tableColumns = [
+            TableColumn(id=i, name=str(ws.cell(1, i).value))
+            for i in range(1, ws.max_column + 1)
+        ]
+        t.sortState = None
+
+    ws.freeze_panes = "A2"
+    ws.column_dimensions.clear()
+    for col, ancho in ANCHOS_CIERRE.items():
+        ws.column_dimensions[col].width = ancho
+
+    now = datetime.date.today()
+    meses_es = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    ]
+    nombre_salida = f"Cierre_{now.day}_{meses_es[now.month - 1]}_{now.year}.xlsx"
+
+    out_dir = Path(output_path) if output_path else DATA_OUTPUT
+    out_dir.mkdir(parents=True, exist_ok=True)
+    salida = str(out_dir / nombre_salida)
+
+    try:
+        wb.save(salida)
+    except PermissionError:
+        salida = str(Path(salida).with_name(f"Cierre_{now.day}_{meses_es[now.month - 1]}_{now.year}_API.xlsx"))
+        wb.save(salida)
+
+    return {
+        "cierre_path": salida,
+        "summary": {
+            "total": len(filas_a_procesar),
+            "detected": detectadas,
+            "pending": pendientes,
+        },
+        "details": detalles_conciliacion,
+    }
+
+
 @app.post("/api/techship/sync-closing")
 def sync_closing(req: TechshipSyncRequest = Body(default_factory=TechshipSyncRequest)):
     """
-    Sincroniza los trackings de Techship API y genera:
-      - Cierre_DD_Mes_AAAA.xlsx (12 columnas oficiales de ServiceNow)
-      - Etiquetas_Lote_DD_Mes_AAAA.pdf (consolidado en pares consecutivos)
+    Detecta de forma rápida y concurrente las guías de 22 dígitos en Techship API,
+    genera Cierre_DD_Mes_AAAA.xlsx (12 columnas oficiales de ServiceNow) y devuelve
+    el resumen de conciliación + el lote actualizado con los trackings.
     """
-    guias_path, _, sctask_path = _encontrar_archivos_lote_activo()
-    
+    guias_path, audit_path, sctask_path = _encontrar_archivos_lote_activo()
+
     target_sctask = req.sctask_path if req.sctask_path else (str(sctask_path) if sctask_path else None)
     if not target_sctask or not os.path.isfile(target_sctask):
         raise HTTPException(
             status_code=400,
-            detail="No se encontró el reporte SCTASK original para sincronizar el cierre. Sube el archivo primero."
+            detail="No se encontró el reporte SCTASK original para sincronizar el cierre. Sube el archivo primero.",
         )
-        
+
     try:
-        ruta_cierre = sincronizar_tracking_desde_api(
+        res_cierre = _sincronizar_cierre_rapido_api(
             sctask_path=target_sctask,
+            guias_path=guias_path,
             output_path=str(DATA_OUTPUT),
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al sincronizar con Techship: {str(e)}")
-        
-    # Detectar el PDF generado
-    pdf_path = _encontrar_etiquetas_lote(guias_path, _fecha_de_archivo(guias_path)) if guias_path else None
-    if not pdf_path or not pdf_path.is_file():
-        now = datetime.date.today()
-        meses_es = [
-            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-        ]
-        pdf_cand = DATA_OUTPUT / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}.pdf"
-        if pdf_cand.is_file():
-            pdf_path = pdf_cand
-        else:
-            pdf_cand_api = DATA_OUTPUT / f"Etiquetas_Lote_{now.day}_{meses_es[now.month - 1]}_{now.year}_API.pdf"
-            if pdf_cand_api.is_file():
-                pdf_path = pdf_cand_api
-        
+        raise HTTPException(status_code=500, detail=f"Error al sincronizar guías con Techship: {str(e)}")
+
+    ruta_cierre = res_cierre["cierre_path"]
+    summary = res_cierre["summary"]
+    details = res_cierre["details"]
+    estado_lote = _parsear_estado_lote(guias_path, audit_path) if guias_path else None
+
     return {
         "success": True,
         "cierre_excel_path": str(ruta_cierre),
         "cierre_excel_filename": os.path.basename(ruta_cierre),
-        "etiquetas_pdf_path": str(pdf_path) if pdf_path and pdf_path.is_file() else None,
-        "etiquetas_pdf_filename": pdf_path.name if pdf_path and pdf_path.is_file() else None,
-        "message": "Cierre y PDF de etiquetas sincronizados correctamente desde Techship.",
+        "etiquetas_pdf_path": None,
+        "etiquetas_pdf_filename": None,
+        "summary": summary,
+        "details": details,
+        "batch": estado_lote,
+        "message": (
+            f"Conciliación completada: {summary['detected']} de {summary['total']} guías detectadas en Techship. "
+            f"Archivo {os.path.basename(ruta_cierre)} generado."
+        ),
     }
 
 

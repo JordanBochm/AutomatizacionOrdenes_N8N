@@ -388,9 +388,25 @@ export default function DashboardPage() {
   } | null>(null);
 
   // Modales de Techship y Archivo
+  // Modales de Techship, Conciliación de Cierre y Archivo
   const [showLiveModal, setShowLiveModal] = useState<boolean>(false);
   const [archivePreview, setArchivePreview] = useState<any | null>(null);
   const [simResults, setSimResults] = useState<any | null>(null);
+  const [closingSummary, setClosingSummary] = useState<{
+    cierre_excel_filename: string;
+    summary: { total: number; detected: number; pending: number };
+    details: {
+      order: string;
+      type: string;
+      recipient_name: string;
+      status: "DETECTADA" | "PENDIENTE";
+      tracking: string | null;
+      techship_status: string;
+      shipment_id?: number | string | null;
+      message: string;
+    }[];
+  } | null>(null);
+  const [closingSummaryFilter, setClosingSummaryFilter] = useState<"ALL" | "DETECTADA" | "PENDIENTE">("ALL");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Vista activa:
@@ -843,6 +859,8 @@ export default function DashboardPage() {
 
       const data = await res.json();
       setBatchData(data);
+      setClosingSummary(null);
+      setClosingSummaryFilter("ALL");
       setSelectedOrderIds(new Set());
       void captureBatch({
         batch_filename: data.batch_filename || file.name,
@@ -1187,30 +1205,51 @@ export default function DashboardPage() {
       }
 
       const data = await res.json();
+      const totalEval = Number(data.summary?.total ?? batchData?.metrics.total_orders ?? 0);
+      const detectedCount = Number(
+        data.summary?.detected ??
+          batchData?.orders.filter((order) => Boolean(order.tracking_number)).length ??
+          0
+      );
+      const pendingCount = Number(data.summary?.pending ?? Math.max(0, totalEval - detectedCount));
+
+      if (data.summary && Array.isArray(data.details)) {
+        setClosingSummary({
+          cierre_excel_filename: data.cierre_excel_filename || "Cierre.xlsx",
+          summary: {
+            total: totalEval,
+            detected: detectedCount,
+            pending: pendingCount,
+          },
+          details: data.details,
+        });
+        setClosingSummaryFilter("ALL");
+      }
+
       void captureClosing(
         {
           cierre_file: data.cierre_excel_filename,
           etiquetas_file: data.etiquetas_pdf_filename || undefined,
-          total_orders: Number(batchData?.metrics.total_orders) || 0,
-          assigned: batchData?.orders.filter((order) => Boolean(order.tracking_number)).length || 0,
-          errors: 0,
+          total_orders: totalEval,
+          assigned: detectedCount,
+          errors: pendingCount,
           cp_alerts: 0,
         },
         { batch_filename: batchData?.batch_filename }
       );
-      triggerToast(data.message || "Cierre y PDF de etiquetas sincronizados correctamente.", "success");
-      setBatchData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          files_available: {
-            ...prev.files_available,
-            cierre_excel: true,
-            etiquetas_pdf: Boolean(data.etiquetas_pdf_filename || prev.files_available?.etiquetas_pdf || true),
-          },
-        };
-      });
-      await fetchHealthAndBatch();
+      triggerToast(
+        data.message || `Guías detectadas (${detectedCount}/${totalEval}) y Cierre.xlsx generado.`,
+        pendingCount === 0 && detectedCount > 0 ? "success" : "info"
+      );
+
+      if (data.batch) {
+        setBatchData({
+          ...data.batch,
+          active: true,
+        });
+      } else {
+        await fetchHealthAndBatch();
+      }
     } catch (err: any) {
       triggerToast(err.message || "Error en sincronización de cierre", "error");
     } finally {
@@ -1221,6 +1260,14 @@ export default function DashboardPage() {
   const handleDownload = (fileType: string) => {
     const url = `${API_BASE}/api/files/download/${fileType}`;
     window.open(url, "_blank");
+  };
+
+  const handleDownloadTechshipExcelStep = () => {
+    handleDownload("techship_excel");
+    triggerToast(
+      "Archivo Techship.xlsx descargado. Súbelo al portal de Techship para crear las guías y luego ejecuta el Paso 2.",
+      "info"
+    );
   };
 
   const callArchive = async (dryRun: boolean, cleanAll: boolean = true) => {
@@ -1258,6 +1305,8 @@ export default function DashboardPage() {
       setActionLoading("archive");
       const data = await callArchive(false, true);
       setBatchData(null);
+      setClosingSummary(null);
+      setClosingSummaryFilter("ALL");
       setSearchTerm("");
       setActiveTab("ALL");
       setOrderTypeFilter("ALL");
@@ -1301,12 +1350,56 @@ export default function DashboardPage() {
         order.city.toLowerCase().includes(term) ||
         order.zip.includes(term) ||
         order.phone.includes(term) ||
-        order.address1.toLowerCase().includes(term)
+        order.address1.toLowerCase().includes(term) ||
+        Boolean(order.tracking_number && order.tracking_number.toLowerCase().includes(term))
       );
     });
   }, [batchData, searchTerm, activeTab, orderTypeFilter]);
 
   const hasOrders = Boolean(batchData?.orders && batchData.orders.length > 0);
+
+  // Resumen activo de conciliación Techship + Cierre Final (proviene de la última sincronización o del archivo Cierre.xlsx existente)
+  const activeClosingSummary = useMemo(() => {
+    if (closingSummary) return closingSummary;
+    if (!batchData?.orders || batchData.orders.length === 0) return null;
+    const hasCierreFile = Boolean(batchData.files_available?.cierre_excel);
+    const hasAnyTracking = batchData.orders.some((o) => Boolean(o.tracking_number));
+    if (!hasCierreFile && !hasAnyTracking) return null;
+
+    const details = batchData.orders.map((o) => {
+      const trk = o.tracking_number ? String(o.tracking_number).trim() : null;
+      const isDetected = Boolean(trk && !trk.toUpperCase().startsWith("ERROR"));
+      return {
+        order: o.order_id,
+        type: o.type === "RETURN" ? "RETORNO" : "ENTREGA",
+        recipient_name: o.recipient_name,
+        status: (isDetected ? "DETECTADA" : "PENDIENTE") as "DETECTADA" | "PENDIENTE",
+        tracking: isDetected ? trk : null,
+        techship_status: isDetected ? "Processed" : "No encontrada",
+        shipment_id: null,
+        message: isDetected
+          ? "Guía detectada en Techship y asignada al cierre"
+          : "Pendiente: aún no se detecta guía timbrada en Techship",
+      };
+    });
+    const detected = details.filter((d) => d.status === "DETECTADA").length;
+    return {
+      cierre_excel_filename: "Cierre.xlsx",
+      summary: {
+        total: details.length,
+        detected,
+        pending: details.length - detected,
+      },
+      details,
+    };
+  }, [closingSummary, batchData]);
+
+  const filteredClosingDetails = useMemo(() => {
+    if (!activeClosingSummary) return [];
+    if (closingSummaryFilter === "ALL") return activeClosingSummary.details;
+    return activeClosingSummary.details.filter((d) => d.status === closingSummaryFilter);
+  }, [activeClosingSummary, closingSummaryFilter]);
+
   const outboundCount = useMemo(
     () => (batchData?.orders ? batchData.orders.filter((o) => o.type === "OUTBOUND").length : 0),
     [batchData?.orders]
@@ -1410,7 +1503,7 @@ export default function DashboardPage() {
       {
         key: "automatizador" as const,
         name: "Automatizador de operación",
-        description: `Órdenes ${currentClientConfig.shortBadge}, validación SEPOMEX y timbrado de guías Techship.`,
+        description: `Órdenes ${currentClientConfig.shortBadge}, validación SEPOMEX, plantilla Techship y cierre automático.`,
         Icon: Zap,
         target: "asset_management" as const,
         tone: "navy" as const,
@@ -3711,91 +3804,81 @@ export default function DashboardPage() {
               })}
             </section>
 
-            {/* ZONA 2: Flujo en 3 pasos + Descargas */}
+            {/* ZONA 2: Flujo Rápido en 2 pasos (Techship Manual + Conciliación API y Cierre) + Descargas */}
             <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
-              {/* ---------- Flujo en pasos ---------- */}
+              {/* ---------- Flujo en 2 pasos ---------- */}
               <div>
-                <h3 className="text-xs font-semibold text-slate-500 mb-3">Flujo Techship</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <h3 className="text-xs font-semibold text-slate-500">
+                    Flujo Rápido Techship (Importación Manual + Detección Automática de Cierre)
+                  </h3>
+                  <span className="text-[11px] text-slate-400">
+                    1. Descarga el Excel acomodado y súbelo en Techship → 2. Detecta las guías vía API para armar el Cierre
+                  </span>
+                </div>
 
                 <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-0">
-                  {/* Paso 1: Simular (secundario) */}
+                  {/* Paso 1: Descargar Excel acomodado para Techship */}
                   <button
                     type="button"
-                    onClick={handleTechshipDryRun}
-                    disabled={!hasOrders || actionLoading === "dry_run" || actionLoading === "live"}
-                    title="Verifica en Techship cuáles órdenes ya tienen guía (anti-duplicados) y cuáles están listas sin consumir guías reales"
+                    onClick={handleDownloadTechshipExcelStep}
+                    disabled={!hasOrders || batchData?.files_available?.techship_excel === false}
+                    title="Descarga el archivo Guias_Techship_Importada_*.xlsx ya validado con SEPOMEX para subirlo en el portal de Techship"
                     className="group flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-[#233762]/40 hover:border-[#233762] hover:bg-[#EFF3F9] text-[#233762] text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <span className="w-6 h-6 rounded-full bg-[#EFF3F9] group-hover:bg-white border border-[#233762]/30 flex items-center justify-center text-xs font-mono">
                       1
                     </span>
-                    <span>{actionLoading === "dry_run" ? "Verificando..." : "Simular y revisar duplicados"}</span>
+                    <FileSpreadsheet className="w-4 h-4 text-[#233762]" />
+                    <span>Descargar Excel para Techship</span>
                   </button>
 
                   {/* Conector */}
                   <div className="hidden md:block h-px w-8 bg-slate-300" aria-hidden="true" />
                   <div className="md:hidden w-px h-3 bg-slate-300 ml-7" aria-hidden="true" />
 
-                  {/* Paso 2: Timbrar (acción principal) */}
+                  {/* Paso 2: Detectar guías en Techship y Generar Cierre (acción principal única de la vista) */}
                   <button
                     type="button"
-                    onClick={() => setShowLiveModal(true)}
-                    disabled={!hasOrders || actionLoading === "live"}
+                    onClick={handleSyncClosing}
+                    disabled={!hasOrders || actionLoading === "sync"}
+                    title="Consulta en paralelo la API de Techship v3 para extraer las guías de 22 dígitos ya creadas y generar el archivo Cierre.xlsx"
                     className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-mono">
                       2
                     </span>
-                    <span>{actionLoading === "live" ? "Timbrando..." : "Timbrar guías en Techship"}</span>
-                  </button>
-
-                  {/* Conector */}
-                  <div className="hidden md:block h-px w-8 bg-slate-300" aria-hidden="true" />
-                  <div className="md:hidden w-px h-3 bg-slate-300 ml-7" aria-hidden="true" />
-
-                  {/* Paso 3: Sincronizar (secundario) */}
-                  <button
-                    type="button"
-                    onClick={handleSyncClosing}
-                    disabled={!hasOrders || actionLoading === "sync"}
-                    className="group flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-[#233762]/40 hover:border-[#233762] hover:bg-[#EFF3F9] text-[#233762] text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <span className="w-6 h-6 rounded-full bg-[#EFF3F9] group-hover:bg-white border border-[#233762]/30 flex items-center justify-center text-xs font-mono">
-                      3
+                    <span>
+                      {actionLoading === "sync"
+                        ? "Detectando guías en Techship y generando Cierre..."
+                        : "Detectar guías en Techship y Generar Cierre"}
                     </span>
-                    <span>{actionLoading === "sync" ? "Sincronizando..." : "Sincronizar cierre y etiquetas"}</span>
                   </button>
                 </div>
               </div>
 
-              {/* ---------- Descargas (mismo estilo para las 4) ---------- */}
+              {/* ---------- Descargas Operativas (estilo neutro unificado) ---------- */}
               <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500 mr-1">Descargas</span>
+                <span className="text-xs font-semibold text-slate-500 mr-1">Archivos del lote</span>
 
                 {batchData && hasOrders ? (
                   (
                     [
                       {
-                        type: "cierre_excel",
-                        label: "Cierre.xlsx",
-                        Icon: FileSpreadsheet,
-                        needsSync: true,
-                      },
-                      {
-                        type: "etiquetas_pdf",
-                        label: "Etiquetas.pdf",
-                        Icon: FileText,
-                        needsSync: true,
-                      },
-                      {
                         type: "techship_excel",
-                        label: "Techship.xlsx",
+                        label: "Techship.xlsx (Para subir a Techship)",
                         Icon: FileSpreadsheet,
                         needsSync: false,
                       },
                       {
+                        type: "cierre_excel",
+                        label: "Cierre.xlsx (Con Trackings 22 dígitos)",
+                        Icon: FileSpreadsheet,
+                        needsSync: true,
+                      },
+                      {
                         type: "auditoria_excel",
-                        label: "Auditoría.xlsx",
+                        label: "Auditoría.xlsx (Diagnóstico SEPOMEX)",
                         Icon: FileSpreadsheet,
                         needsSync: false,
                       },
@@ -3812,10 +3895,10 @@ export default function DashboardPage() {
                           available
                             ? `Descargar ${label}`
                             : needsSync
-                              ? "Disponible después del paso 3: Sincronizar cierre y etiquetas"
+                              ? "Disponible después del Paso 2: Detectar guías en Techship y Generar Cierre"
                               : "Aún no disponible"
                         }
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-[#EFF3F9] hover:text-[#233762] hover:border-[#233762]/30 text-slate-700 border border-slate-200 text-xs font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {available ? (
                           <Icon className="w-3.5 h-3.5 text-slate-500" />
@@ -3831,6 +3914,202 @@ export default function DashboardPage() {
                 )}
               </div>
             </section>
+
+            {/* ZONA 2.5: Resumen de Conciliación Techship y Cierre Final (aparece tras detectar guías) */}
+            {activeClosingSummary && hasOrders && (
+              <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-[#233762]">
+                        Resumen de Conciliación Techship y Cierre Final
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
+                        {activeClosingSummary.cierre_excel_filename}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Estado de las guías detectadas en Techship API v3 y consolidadas en el archivo de cierre final.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSyncClosing}
+                      disabled={actionLoading === "sync"}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#EFF3F9] text-[#233762] border border-slate-200 hover:border-[#233762]/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                      title="Volver a consultar en Techship si ya se timbraron las órdenes pendientes"
+                    >
+                      <span>{actionLoading === "sync" ? "Actualizando..." : "Actualizar detección"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDownload("cierre_excel")}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs transition cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Descargar Cierre.xlsx</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3 Tarjetas KPI del Resumen de Conciliación (estándar limpio: fondo blanco, punto 8px, número en #233762) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {(
+                    [
+                      {
+                        key: "ALL" as const,
+                        label: "Órdenes en cierre",
+                        value: activeClosingSummary.summary.total,
+                        hint: "Total evaluadas contra Techship API",
+                        dot: "bg-[#233762]",
+                      },
+                      {
+                        key: "DETECTADA" as const,
+                        label: "Con guía detectada",
+                        value: activeClosingSummary.summary.detected,
+                        hint: "Tracking de 22 dígitos asignado",
+                        dot: "bg-emerald-500",
+                      },
+                      {
+                        key: "PENDIENTE" as const,
+                        label: "Pendientes / Sin guía",
+                        value: activeClosingSummary.summary.pending,
+                        hint: "Aún sin guía procesada en Techship",
+                        dot: activeClosingSummary.summary.pending > 0 ? "bg-[#CE3A39]" : "bg-amber-500",
+                      },
+                    ]
+                  ).map(({ key, label, value, hint, dot }) => {
+                    const isSelected = closingSummaryFilter === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setClosingSummaryFilter(key)}
+                        className={`text-left bg-white border rounded-2xl p-4 flex flex-col justify-between shadow-sm transition cursor-pointer ${
+                          isSelected
+                            ? "border-[#233762] ring-2 ring-[#233762]/15"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                            <span className={`w-2 h-2 rounded-full ${dot}`} />
+                            {label}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-3xl font-bold font-mono text-[#233762] mt-2">
+                            {value}
+                          </span>
+                          <p className="text-xs text-slate-400 mt-1">{hint}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Tabla compacta del resumen de conciliación */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-[#233762]">
+                      Detalle de Guías y Cierre ({filteredClosingDetails.length})
+                    </span>
+                    <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-200/70 text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setClosingSummaryFilter("ALL")}
+                        className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                          closingSummaryFilter === "ALL"
+                            ? "bg-[#233762] text-white"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Todas ({activeClosingSummary.summary.total})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClosingSummaryFilter("DETECTADA")}
+                        className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                          closingSummaryFilter === "DETECTADA"
+                            ? "bg-[#233762] text-white"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Detectadas ({activeClosingSummary.summary.detected})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClosingSummaryFilter("PENDIENTE")}
+                        className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                          closingSummaryFilter === "PENDIENTE"
+                            ? "bg-[#233762] text-white"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Pendientes ({activeClosingSummary.summary.pending})
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
+                          <th className="py-2.5 px-4">Orden (RITM)</th>
+                          <th className="py-2.5 px-4">Tipo</th>
+                          <th className="py-2.5 px-4">Destinatario / Empleado</th>
+                          <th className="py-2.5 px-4">Estado en Techship</th>
+                          <th className="py-2.5 px-4">Tracking Number (Cierre)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {filteredClosingDetails.map((item) => {
+                          const isDetected = item.status === "DETECTADA";
+                          return (
+                            <tr key={item.order} className="hover:bg-slate-50 transition-colors">
+                              <td className="py-2.5 px-4 font-mono font-bold text-[#233762] whitespace-nowrap">
+                                {item.order}
+                              </td>
+                              <td className="py-2.5 px-4 whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
+                                  {item.type}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 text-slate-700 font-medium truncate max-w-[220px]">
+                                {item.recipient_name || "—"}
+                              </td>
+                              <td className="py-2.5 px-4 whitespace-nowrap">
+                                <span
+                                  className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"
+                                  title={item.message}
+                                >
+                                  <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                      isDetected ? "bg-emerald-500" : "bg-[#CE3A39]"
+                                    }`}
+                                  />
+                                  <span>{isDetected ? "Guía detectada" : "Pendiente en Techship"}</span>
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 font-mono whitespace-nowrap">
+                                {isDetected && item.tracking ? (
+                                  <span className="font-bold text-[#233762]">{item.tracking}</span>
+                                ) : (
+                                  <span className="text-[#CE3A39] font-semibold">Sin guía asignada</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* ZONA 3: Tabla de Órdenes y Auditoría */}
             <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
@@ -3993,20 +4272,18 @@ export default function DashboardPage() {
                           aria-label="Seleccionar todas las órdenes"
                         />
                       </th>
-                      <th className="py-3 px-4">Tipo</th>
-                      <th className="py-3 px-4">Orden (RITM)</th>
-                      <th className="py-3 px-4">Semáforo</th>
-                      <th className="py-3 px-4">Destinatario / Empleado</th>
-                      <th className="py-3 px-4">Teléfono</th>
-                      <th className="py-3 px-4">Dirección (1: Calle / 2: Col / 3: Ref)</th>
-                      <th className="py-3 px-4">CP / Ciudad</th>
-                      <th className="py-3 px-4 text-center">Acciones</th>
+                      <th className="py-3 px-3">Orden</th>
+                      <th className="py-3 px-3">Estado y motivo</th>
+                      <th className="py-3 px-3">Destinatario / Tel.</th>
+                      <th className="py-3 px-3">Dirección</th>
+                      <th className="py-3 px-3">CP / Ciudad</th>
+                      <th className="py-3 px-3 text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-12 text-center text-slate-400 font-medium">
+                        <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
                           {batchData
                             ? "No hay órdenes que coincidan con los filtros seleccionados."
                             : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
@@ -4025,6 +4302,25 @@ export default function DashboardPage() {
                             : isGreen
                               ? "Dirección 100% confirmada en SEPOMEX"
                               : order.status_text;
+
+                        // Extraer motivo concreto y legible para mostrar debajo de Bloqueada / Revisar
+                        let reasonText = "";
+                        if (!isGreen) {
+                          const relevantIncidents = (order.incidents || []).filter((inc) =>
+                            isError ? inc.startsWith("[ERROR]") : inc.startsWith("[REVISAR]")
+                          );
+                          const primary = relevantIncidents[0] || (order.incidents || [])[0] || order.status_text || "";
+                          reasonText = primary
+                            .replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/i, "")
+                            .replace(/\s*Opciones oficiales:.*$/i, "")
+                            .replace(/\s*Confirmar con solicitante\.?$/i, "")
+                            .trim();
+                          if (!reasonText && (order.phone.includes("ERROR") || order.phone.length !== 10)) {
+                            reasonText = `Teléfono inválido (${order.phone || "faltante"})`;
+                          }
+                        }
+
+                        const phoneInvalid = order.phone.includes("ERROR") || order.phone.length !== 10;
 
                         return (
                           <tr
@@ -4046,30 +4342,36 @@ export default function DashboardPage() {
                                 aria-label={`Seleccionar orden ${order.order_id}`}
                               />
                             </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
-                                {order.type === "RETURN" ? "RETORNO" : "ENTREGA"}
-                              </span>
-                            </td>
 
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <div className="font-mono font-bold text-[#233762]">{order.order_id}</div>
-                              {order.tracking_number && (
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-[#233762]">{order.order_id}</span>
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[9px] font-bold">
+                                  {order.type === "RETURN" ? "RETORNO" : "ENTREGA"}
+                                </span>
+                              </div>
+                              {order.tracking_number ? (
                                 <div
-                                  className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono font-semibold"
-                                  title="Guía Estafeta asignada en Techship"
+                                  className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono font-semibold"
+                                  title="Guía Estafeta detectada en Techship y asignada al Cierre"
                                 >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                                   <Truck className="w-2.5 h-2.5" />
                                   <span>{order.tracking_number}</span>
                                 </div>
-                              )}
+                              ) : activeClosingSummary ? (
+                                <div
+                                  className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-[#CE3A39] border border-slate-200 text-[10px] font-mono font-semibold"
+                                  title="Pendiente: aún no se detecta guía timbrada en Techship para esta orden"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#CE3A39] shrink-0" />
+                                  <span>Sin guía en Techship</span>
+                                </div>
+                              ) : null}
                             </td>
 
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <span
-                                className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"
-                                title={incidentTooltip}
-                              >
+                            <td className="py-3 px-3 max-w-[230px]" title={incidentTooltip}>
+                              <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
                                 <span
                                   className={`w-2 h-2 rounded-full shrink-0 ${
                                     isGreen
@@ -4081,56 +4383,60 @@ export default function DashboardPage() {
                                 />
                                 <span>{isGreen ? "OK" : isWarning ? "Revisar" : "Bloqueada"}</span>
                               </span>
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <div className="font-bold text-slate-800">{order.recipient_name}</div>
-                              <div className="text-[11px] text-slate-500 truncate max-w-[180px]">{order.email}</div>
-                            </td>
-
-                            <td className="py-3 px-4 whitespace-nowrap font-mono">
-                              {order.phone.includes("ERROR") || order.phone.length !== 10 ? (
-                                <span className="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded border border-red-300">
-                                  {order.phone || "FALTA"}
-                                </span>
-                              ) : (
-                                <span className="text-slate-700 font-semibold">{order.phone}</span>
+                              {reasonText && (
+                                <p
+                                  className={`mt-0.5 text-[11px] leading-snug line-clamp-2 ${
+                                    isError ? "text-[#CE3A39] font-medium" : "text-slate-500"
+                                  }`}
+                                >
+                                  {reasonText}
+                                </p>
                               )}
                             </td>
 
-                            <td className="py-3 px-4 max-w-xs">
+                            <td className="py-3 px-3 whitespace-nowrap" title={order.email || order.recipient_name}>
+                              <div className="font-bold text-slate-800 truncate max-w-[180px]">{order.recipient_name}</div>
+                              <div className="mt-0.5 font-mono text-[11px]">
+                                {phoneInvalid ? (
+                                  <span className="text-[#CE3A39] font-bold">
+                                    Tel: {order.phone || "FALTA"}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500">{order.phone}</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3 max-w-[240px]">
                               <div className="text-slate-800 font-mono text-[11px] truncate font-semibold" title={order.address1}>
-                                <span className="text-slate-400 font-normal mr-1">1:</span>
                                 {order.address1}
                               </div>
-                              <div className="text-[11px] text-slate-600 truncate" title={order.address2}>
-                                <span className="text-slate-400 font-mono mr-1">2:</span>
+                              <div className="text-[11px] text-slate-500 truncate" title={order.address2}>
                                 {order.address2 || "—"}
                               </div>
                               {order.address3 && (
                                 <div
                                   className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 truncate font-mono border border-slate-200"
-                                  title={`Dirección 3 (Referencias / Int): ${order.address3}`}
+                                  title={`Referencias / Int: ${order.address3}`}
                                 >
-                                  <span className="font-bold mr-1">3:</span>
-                                  {order.address3}
+                                  Ref: {order.address3}
                                 </div>
                               )}
                             </td>
 
-                            <td className="py-3 px-4 whitespace-nowrap">
+                            <td className="py-3 px-3 whitespace-nowrap">
                               <div className="font-mono text-[#233762] font-bold">CP {order.zip}</div>
-                              <div className="text-[11px] text-slate-500">
+                              <div className="text-[11px] text-slate-500 truncate max-w-[160px]" title={`${order.city}, ${order.state}`}>
                                 {order.city}, {order.state}
                               </div>
                             </td>
 
-                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5">
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEdit(order)}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition cursor-pointer"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                   <span>Corregir</span>
@@ -4139,10 +4445,10 @@ export default function DashboardPage() {
                                   type="button"
                                   onClick={() => handleRequestDeleteSingleOrder(order)}
                                   title="Eliminar fila del lote (no procesar)"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-500 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 text-xs font-semibold transition cursor-pointer"
+                                  aria-label={`Eliminar orden ${order.order_id}`}
+                                  className="p-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-400 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 transition cursor-pointer"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Eliminar</span>
                                 </button>
                               </div>
                             </td>
@@ -4237,186 +4543,98 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* MODAL DE EDICIÓN EN CALIENTE */}
+          {/* MODAL DE EDICIÓN EN CALIENTE (DISEÑO LIMPIO Y DE BAJA SATURACIÓN) */}
           {editingOrder && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-[#EFF3F9] text-[#233762]">
-                      <Edit3 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-extrabold text-[#233762] flex items-center gap-2">
-                        Corregir Orden <span className="font-mono text-[#CE3A39]">{editingOrder.order_id}</span>
-                        <span className="text-xs font-medium text-slate-500">({editingOrder.recipient_name})</span>
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Edita las 3 líneas de dirección para la guía Estafeta y re-evalúa con SEPOMEX en tiempo real.
-                      </p>
-                    </div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+              <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <h3 className="text-base font-bold text-[#233762] font-mono">
+                      {editingOrder.order_id}
+                    </h3>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-sm font-medium text-slate-600 truncate">
+                      {editingOrder.recipient_name}
+                    </span>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setEditingOrder(null)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    aria-label="Cerrar modal"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <form onSubmit={handleSavePatch} className="p-6 space-y-3.5 overflow-y-auto">
-                  {/* Banner de incidencias detectadas en la orden */}
+                <form onSubmit={handleSavePatch} className="p-6 space-y-4 overflow-y-auto">
+                  {/* Incidencias detectadas (estilo neutro con punto semántico) */}
                   {editingOrder.incidents && editingOrder.incidents.length > 0 && (
-                    <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
-                      <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                        <AlertTriangle className="w-4 h-4 text-[#CE3A39] shrink-0" />
-                        <span>Diagnóstico SEPOMEX / Incidencias detectadas en esta orden:</span>
-                      </div>
-                      <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-900/90 font-mono">
-                        {editingOrder.incidents.map((inc, i) => (
-                          <li key={i}>{inc}</li>
-                        ))}
-                      </ul>
+                    <div className="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 space-y-1">
+                      {editingOrder.incidents.map((inc, i) => {
+                        const isErr = inc.startsWith("[ERROR]");
+                        const cleanInc = inc.replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/i, "");
+                        return (
+                          <div key={i} className="flex items-start gap-2 leading-snug">
+                            <span
+                              className={`w-2 h-2 rounded-full mt-1 shrink-0 ${
+                                isErr ? "bg-[#CE3A39]" : "bg-amber-500"
+                              }`}
+                            />
+                            <span className={isErr ? "text-[#CE3A39] font-medium" : "text-slate-600"}>
+                              {cleanInc}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
+                  {/* Fila 1: Teléfono y Servicio */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-[#233762]">
-                          Teléfono de Contacto (10 dígitos)
-                        </label>
+                        <label className="text-xs font-semibold text-slate-600">Teléfono</label>
                         <span
-                          className={`text-[10px] font-mono font-bold ${editFormData.phone.replace(/\D/g, "").length === 10
-                              ? "text-emerald-600"
-                              : "text-[#CE3A39]"
-                            }`}
+                          className={`text-[10px] font-mono ${
+                            editFormData.phone.replace(/\D/g, "").length === 10
+                              ? "text-slate-400"
+                              : "text-[#CE3A39] font-bold"
+                          }`}
                         >
-                          {editFormData.phone.replace(/\D/g, "").length}/10 dígitos
+                          {editFormData.phone.replace(/\D/g, "").length}/10
                         </span>
                       </div>
-                      <div className="relative">
-                        <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          required
-                          maxLength={10}
-                          value={editFormData.phone}
-                          onChange={(e) =>
-                            setEditFormData({ ...editFormData, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })
-                          }
-                          className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
-                          placeholder="Ej. 5576682213"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        required
+                        maxLength={10}
+                        value={editFormData.phone}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })
+                        }
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 font-mono text-slate-900 focus:outline-none focus:border-[#233762] focus:bg-white transition"
+                        placeholder="10 dígitos"
+                      />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#233762] mb-1">
-                        Servicio Estafeta (Techship)
-                      </label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Servicio</label>
                       <select
                         value={editFormData.service_code}
                         onChange={(e) => setEditFormData({ ...editFormData, service_code: e.target.value })}
-                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-semibold text-slate-800 focus:outline-none focus:border-[#233762]"
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 font-medium text-slate-800 focus:outline-none focus:border-[#233762] focus:bg-white transition"
                       >
-                        <option value="70">70 - Estafeta Express (Día Siguiente)</option>
-                        <option value="60">60 - Estafeta Terrestre (Estándar)</option>
+                        <option value="70">70 - Estafeta Express</option>
+                        <option value="60">60 - Estafeta Terrestre</option>
                       </select>
                     </div>
                   </div>
 
-                  {/* Línea 1: Address 1 */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold text-[#233762]">
-                        Dirección 1: Calle y Número Exterior (Address 1)
-                      </label>
-                      <span className="text-[10px] font-mono text-slate-500">
-                        {editFormData.address1.length}/50 chars
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      maxLength={50}
-                      value={editFormData.address1}
-                      onChange={(e) => setEditFormData({ ...editFormData, address1: e.target.value })}
-                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
-                      placeholder="Calle y número exterior..."
-                    />
-                  </div>
-
-                  {/* Línea 2: Address 2 (Colonia con Selector Oficial SEPOMEX) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold text-[#233762]">
-                        Dirección 2: Colonia / Asentamiento Oficial SEPOMEX (Address 2)
-                      </label>
-                      <span className="text-[10px] font-mono text-slate-500">
-                        {editFormData.address2.length}/50 chars
-                      </span>
-                    </div>
-                    {sepomexColonias.length > 0 && (
-                      <div className="mb-1.5">
-                        <select
-                          value={sepomexColonias.includes(editFormData.address2) ? editFormData.address2 : ""}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              setEditFormData({ ...editFormData, address2: e.target.value.slice(0, 50) });
-                            }
-                          }}
-                          className="w-full px-3 py-1.5 text-xs rounded-xl bg-[#EFF3F9] border border-[#233762]/25 text-[#233762] font-semibold focus:outline-none focus:border-[#233762] cursor-pointer"
-                        >
-                          <option value="">
-                            ✨ Seleccionar colonia oficial del CP {editFormData.zip} ({sepomexColonias.length} disponibles)...
-                          </option>
-                          {sepomexColonias.map((col, idx) => (
-                            <option key={idx} value={col}>
-                              {col}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    <input
-                      type="text"
-                      maxLength={50}
-                      value={editFormData.address2}
-                      onChange={(e) => setEditFormData({ ...editFormData, address2: e.target.value })}
-                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
-                      placeholder="Colonia oficial..."
-                    />
-                  </div>
-
-                  {/* Línea 3: Address 3 (Referencias, Edificio, Piso, Interior) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold text-[#233762] flex items-center gap-1.5">
-                        <span>Dirección 3: Referencias / Edificio / Piso / Interior (Address 3)</span>
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono">
-                          Impresa en Guía
-                        </span>
-                      </label>
-                      <span className="text-[10px] font-mono text-slate-500">
-                        {editFormData.address3.length}/50 chars
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      maxLength={50}
-                      value={editFormData.address3}
-                      onChange={(e) => setEditFormData({ ...editFormData, address3: e.target.value })}
-                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-slate-900 focus:outline-none focus:border-[#233762]"
-                      placeholder="Ej. Edificio B Depto 302, Entre calles X y Y, Portón negro..."
-                    />
-                  </div>
-
+                  {/* Fila 2: Código Postal, Ciudad y Estado */}
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-[#233762] mb-1">
-                        Código Postal (Auto-SEPOMEX)
-                      </label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Código Postal</label>
                       <input
                         type="text"
                         maxLength={5}
@@ -4428,51 +4646,127 @@ export default function DashboardPage() {
                             void fetchSepomexByCp(val, true);
                           }
                         }}
-                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 font-mono text-[#233762] font-bold focus:outline-none focus:border-[#233762]"
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 font-mono text-[#233762] font-bold focus:outline-none focus:border-[#233762] focus:bg-white transition"
                         placeholder="5 dígitos"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-[#233762] mb-1">Ciudad / Municipio</label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Ciudad / Municipio</label>
                       <input
                         type="text"
                         value={editFormData.city}
                         onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
-                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#233762] focus:bg-white transition"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-[#233762] mb-1">Estado</label>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Estado</label>
                       <input
                         type="text"
                         value={editFormData.state}
                         onChange={(e) => setEditFormData({ ...editFormData, state: e.target.value })}
-                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-[#233762]"
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#233762] focus:bg-white transition"
                       />
                     </div>
                   </div>
 
+                  {/* Fila 3: Calle y número */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-600">Calle y número</label>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {editFormData.address1.length}/50
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      maxLength={50}
+                      value={editFormData.address1}
+                      onChange={(e) => setEditFormData({ ...editFormData, address1: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#233762] focus:bg-white transition"
+                      placeholder="Calle y número exterior"
+                    />
+                  </div>
+
+                  {/* Fila 4: Colonia */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-600">Colonia</label>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {editFormData.address2.length}/50
+                      </span>
+                    </div>
+                    {sepomexColonias.length > 0 && (
+                      <select
+                        value={sepomexColonias.includes(editFormData.address2) ? editFormData.address2 : ""}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setEditFormData({ ...editFormData, address2: e.target.value.slice(0, 50) });
+                          }
+                        }}
+                        className="w-full mb-1.5 px-3 py-1.5 text-xs rounded-xl bg-[#EFF3F9] border border-[#233762]/20 text-[#233762] font-semibold focus:outline-none focus:border-[#233762] cursor-pointer"
+                      >
+                        <option value="">
+                          Seleccionar colonia del CP {editFormData.zip} ({sepomexColonias.length} opciones)...
+                        </option>
+                        {sepomexColonias.map((col, idx) => (
+                          <option key={idx} value={col}>
+                            {col}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={editFormData.address2}
+                      onChange={(e) => setEditFormData({ ...editFormData, address2: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#233762] focus:bg-white transition"
+                      placeholder="Colonia oficial"
+                    />
+                  </div>
+
+                  {/* Fila 5: Referencias / Interior */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-600">
+                        Referencias / Interior <span className="text-slate-400 font-normal">(opcional)</span>
+                      </label>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {editFormData.address3.length}/50
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={editFormData.address3}
+                      onChange={(e) => setEditFormData({ ...editFormData, address3: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#233762] focus:bg-white transition"
+                      placeholder="Edificio, depto, piso o referencias"
+                    />
+                  </div>
+
                   {!editingOrder.order_id.endsWith("-1") && (
-                    <div className="flex items-center gap-2 pt-1">
+                    <label className="flex items-center gap-2 pt-0.5 text-xs text-slate-600 cursor-pointer">
                       <input
                         type="checkbox"
-                        id="syncCounterpart"
                         checked={editFormData.sync_counterpart}
                         onChange={(e) => setEditFormData({ ...editFormData, sync_counterpart: e.target.checked })}
                         className="w-4 h-4 rounded text-[#233762] focus:ring-[#233762] border-slate-300"
                       />
-                      <label htmlFor="syncCounterpart" className="text-xs text-slate-700 cursor-pointer font-medium">
-                        Sincronizar y corregir también su orden par de Retorno (
-                        <span className="font-mono text-[#233762] font-bold">{editingOrder.order_id}-1</span>)
-                      </label>
-                    </div>
+                      <span>
+                        Aplicar también al retorno{" "}
+                        <span className="font-mono text-[#233762] font-semibold">{editingOrder.order_id}-1</span>
+                      </span>
+                    </label>
                   )}
 
-                  <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => setEditingOrder(null)}
-                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold transition cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
                     >
                       Cancelar
                     </button>
@@ -4481,16 +4775,16 @@ export default function DashboardPage() {
                         type="button"
                         disabled={actionLoading === "patch"}
                         onClick={() => void submitOrderPatch(true)}
-                        className="px-4 py-2 rounded-xl bg-[#EFF3F9] hover:bg-[#E2E8F0] text-[#233762] border border-[#233762]/30 text-xs sm:text-sm font-bold transition cursor-pointer disabled:opacity-50"
+                        className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#EFF3F9] text-[#233762] border border-[#233762]/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
                       >
-                        Guardar y Siguiente con Incidencia →
+                        Guardar y siguiente →
                       </button>
                       <button
                         type="submit"
                         disabled={actionLoading === "patch"}
-                        className="px-5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs sm:text-sm font-bold shadow-sm transition cursor-pointer disabled:opacity-50"
+                        className="px-5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
                       >
-                        {actionLoading === "patch" ? "Guardando..." : "Guardar y Revalidar"}
+                        {actionLoading === "patch" ? "Guardando..." : "Guardar"}
                       </button>
                     </div>
                   </div>
