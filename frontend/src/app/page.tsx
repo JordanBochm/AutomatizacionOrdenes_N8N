@@ -363,6 +363,7 @@ export default function DashboardPage() {
 
   // Estado para modal de edición en caliente
   const [editingOrder, setEditingOrder] = useState<OrderItem | null>(null);
+  const [inspectingIncidentOrder, setInspectingIncidentOrder] = useState<OrderItem | null>(null);
   const [sepomexColonias, setSepomexColonias] = useState<string[]>([]);
   const [editFormData, setEditFormData] = useState({
     phone: "",
@@ -539,9 +540,7 @@ export default function DashboardPage() {
         if (data.active) {
           setBatchData((prev) => {
             if (!prev || prev.batch_filename !== data.batch_filename) {
-              const initialIssues =
-                (Number(data.metrics?.error_blocked) || 0) + (Number(data.metrics?.review) || 0);
-              setActiveTab(initialIssues > 0 ? "ISSUES" : "ALL");
+              setActiveTab("ALL");
             }
             return data;
           });
@@ -892,10 +891,8 @@ export default function DashboardPage() {
       }
 
       const data = await res.json();
-      const uploadedIssues =
-        (Number(data.metrics?.error_blocked) || 0) + (Number(data.metrics?.review) || 0);
       setBatchData(data);
-      setActiveTab(uploadedIssues > 0 ? "ISSUES" : "ALL");
+      setActiveTab("ALL");
       setClosingSummary(null);
       setClosingSummaryFilter("ALL");
       setClosingSummaryExpanded(false);
@@ -4596,30 +4593,40 @@ export default function DashboardPage() {
                                 </td>
 
                                 <td className="py-3 px-3 max-w-[260px]" title={incidentTooltip}>
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span
-                                      className={`w-2 h-2 rounded-full shrink-0 ${isGreen
-                                        ? "bg-emerald-500"
-                                        : isWarning
-                                          ? "bg-amber-500"
-                                          : "bg-[#CE3A39]"
-                                        }`}
-                                    />
-                                    <span className="text-xs font-semibold text-slate-700 shrink-0">
-                                      {isGreen ? "OK" : isWarning ? "Revisar" : "Bloqueada"}
-                                    </span>
-                                    {reasonText && (
-                                      <>
-                                        <span className="text-slate-300 shrink-0">·</span>
-                                        <span
-                                          className={`text-[11px] truncate ${isError ? "text-[#CE3A39] font-medium" : "text-slate-500"
-                                            }`}
-                                        >
-                                          {reasonText}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
+                                  {!isGreen ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setInspectingIncidentOrder(order)}
+                                      aria-label={`Ver detalle de incidencia de ${order.order_id}`}
+                                      className="w-full text-left flex items-center gap-1.5 min-w-0 rounded-md px-1 -mx-1 py-0.5 hover:bg-slate-100/80 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762] group"
+                                    >
+                                      <span
+                                        className={`w-2 h-2 rounded-full shrink-0 ${isWarning ? "bg-amber-500" : "bg-[#CE3A39]"
+                                          }`}
+                                      />
+                                      <span className="text-xs font-semibold text-slate-700 shrink-0">
+                                        {isWarning ? "Revisar" : "Bloqueada"}
+                                      </span>
+                                      {reasonText && (
+                                        <>
+                                          <span className="text-slate-300 shrink-0">·</span>
+                                          <span
+                                            className={`text-[11px] truncate group-hover:underline ${isError ? "text-[#CE3A39] font-medium" : "text-slate-600"
+                                              }`}
+                                          >
+                                            {reasonText}
+                                          </span>
+                                        </>
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500" />
+                                      <span className="text-xs font-semibold text-slate-700 shrink-0">
+                                        OK
+                                      </span>
+                                    </div>
+                                  )}
                                 </td>
 
                                 <td className="py-3 px-3 whitespace-nowrap" title={order.email || order.recipient_name}>
@@ -5022,6 +5029,122 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* MODAL DE DETALLE DE INCIDENCIA (AL HACER CLIC EN EL MENSAJE DEL SEMÁFORO) */}
+          {inspectingIncidentOrder && (() => {
+            const isBlockedOrder =
+              inspectingIncidentOrder.status_semaphore === "ROJO" ||
+              inspectingIncidentOrder.phone.includes("ERROR") ||
+              inspectingIncidentOrder.zip.includes("ERROR") ||
+              inspectingIncidentOrder.address1.includes("ERROR");
+            const incidentList =
+              inspectingIncidentOrder.incidents && inspectingIncidentOrder.incidents.length > 0
+                ? inspectingIncidentOrder.incidents
+                : [inspectingIncidentOrder.status_text || "Requiere revisión antes de generar guía."];
+
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+                onClick={() => setInspectingIncidentOrder(null)}
+              >
+                <div
+                  className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${isBlockedOrder ? "bg-[#CE3A39]" : "bg-amber-500"
+                          }`}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-bold text-[#233762]">
+                            {isBlockedOrder ? "Orden bloqueada" : "Orden por revisar"} ·{" "}
+                            <span className="font-mono">{inspectingIncidentOrder.order_id}</span>
+                          </h3>
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
+                            {inspectingIncidentOrder.type === "RETURN" ? "RETORNO" : "ENTREGA"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          {inspectingIncidentOrder.recipient_name}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInspectingIncidentOrder(null)}
+                      aria-label="Cerrar detalle de incidencia"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition cursor-pointer shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        ¿Qué sucede con esta orden?
+                      </p>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                        {incidentList.map((inc, idx) => {
+                          const isErrLine = inc.startsWith("[ERROR]");
+                          const cleanInc = inc.replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/i, "").trim();
+                          return (
+                            <div key={idx} className="flex items-start gap-2 text-xs leading-relaxed">
+                              <span
+                                className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${isErrLine || isBlockedOrder ? "bg-[#CE3A39]" : "bg-amber-500"
+                                  }`}
+                              />
+                              <span className={isErrLine ? "text-[#CE3A39] font-medium" : "text-slate-700"}>
+                                {cleanInc}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-500 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 space-y-1">
+                      <div className="truncate">
+                        <span className="font-semibold text-slate-700">Dirección:</span>{" "}
+                        {inspectingIncidentOrder.address1}
+                        {inspectingIncidentOrder.address2 ? `, ${inspectingIncidentOrder.address2}` : ""}
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-500">
+                        CP {inspectingIncidentOrder.zip.replace("ERROR:", "").trim() || "—"} ·{" "}
+                        {inspectingIncidentOrder.city}, {inspectingIncidentOrder.state} · Tel:{" "}
+                        {inspectingIncidentOrder.phone || "FALTA"}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInspectingIncidentOrder(null)}
+                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
+                      >
+                        Cerrar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = inspectingIncidentOrder;
+                          setInspectingIncidentOrder(null);
+                          handleOpenEdit(target);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs transition cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Modificar orden
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* MODAL DE CONFIRMACIÓN: LIMPIAR TABLA Y ARCHIVAR LOTE */}
           {archivePreview && (
