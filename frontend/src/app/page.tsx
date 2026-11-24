@@ -1797,11 +1797,21 @@ export default function DashboardPage() {
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-6 px-6 sm:px-10 max-w-7xl mx-auto w-full">
           {/* Barra superior de usuario, roles de admin y logout */}
           <div className="w-full flex items-center justify-between gap-3 text-xs mb-4 pb-3 border-b border-slate-200/60">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[#233762] tracking-wide uppercase">SupplyChain Portal</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-bold border border-[#233762]/20">
-                México
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#233762] tracking-wide uppercase">SupplyChain Portal</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] font-bold border border-[#233762]/20">
+                  México
+                </span>
+              </div>
+              {todayLabel && (
+                <>
+                  <span className="hidden sm:inline text-slate-300">|</span>
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
+                    {todayLabel}
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
@@ -1876,28 +1886,12 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Saludo dinámico + Nombre completo + Rol + Fecha operativa */}
+            {/* Saludo dinámico + Nombre completo */}
             <div className="text-center flex flex-col items-center mt-6 mb-8 max-w-xl">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#233762] tracking-tight">
                 ¡{greeting}
                 {currentUser?.name && <span className="text-[#CE3A39]">, {currentUser.name}</span>}!
               </h1>
-
-              {/* Badge del Rol Activo */}
-              <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-[#CE3A39]/30 text-xs font-mono font-bold text-[#CE3A39] shadow-2xs">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>ROL: {roleConfig.roleBadge}</span>
-              </div>
-
-              {/* Subtítulo de bienvenida */}
-              <p className="text-sm text-slate-500 mt-3 max-w-md text-center leading-relaxed">
-                Bienvenido a tu ventana de inicio para las operaciones del día. Selecciona un módulo para comenzar.
-              </p>
-
-              {/* Fecha operativa actual */}
-              <p className="text-xs font-mono uppercase tracking-widest text-[#CE3A39] mt-3 min-h-4 font-bold">
-                {todayLabel}
-              </p>
             </div>
 
             {/* ================================================================ */}
