@@ -60,6 +60,8 @@ import {
   Trash2,
   Calendar,
   Building2,
+  ChevronDown,
+  Download,
 } from "lucide-react";
 
 // ==============================================================================
@@ -407,6 +409,10 @@ export default function DashboardPage() {
     }[];
   } | null>(null);
   const [closingSummaryFilter, setClosingSummaryFilter] = useState<"ALL" | "DETECTADA" | "PENDIENTE">("ALL");
+  const [techshipDownloaded, setTechshipDownloaded] = useState<boolean>(false);
+  const [downloadsMenuOpen, setDownloadsMenuOpen] = useState<boolean>(false);
+  const [closingSummaryExpanded, setClosingSummaryExpanded] = useState<boolean>(false);
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Vista activa:
@@ -419,17 +425,17 @@ export default function DashboardPage() {
   const currentClientConfig = isSpecificAssetClient(activeClient)
     ? ASSET_CLIENTS_MAP[activeClient]
     : {
-        id: "KYNDRYL" as AssetClientId,
-        name: "Todos los clientes",
-        shortBadge: "Todos los clientes",
-        segment: "Multi-cliente",
-        description: "Vista consolidada de todos los clientes de Asset Management.",
-        tone: "navy" as const,
-        statusBadge: "Activo" as const,
-        enabledModules: ["operacion_dia", "transporte", "facturacion", "reportes", "calendario", "historial", "sop"],
-        enabledOperacionSubmodules: ["asset_management", "generador_tracking", "historial"],
-        enabledTransporteSubmodules: ["rastreo_envios"],
-      };
+      id: "KYNDRYL" as AssetClientId,
+      name: "Todos los clientes",
+      shortBadge: "Todos los clientes",
+      segment: "Multi-cliente",
+      description: "Vista consolidada de todos los clientes de Asset Management.",
+      tone: "navy" as const,
+      statusBadge: "Activo" as const,
+      enabledModules: ["operacion_dia", "transporte", "facturacion", "reportes", "calendario", "historial", "sop"],
+      enabledOperacionSubmodules: ["asset_management", "generador_tracking", "historial"],
+      enabledTransporteSubmodules: ["rastreo_envios"],
+    };
   const [initialTracking, setInitialTracking] = useState<string>("");
 
   // Estado de Autenticación y RBAC
@@ -479,6 +485,27 @@ export default function DashboardPage() {
   }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const downloadsMenuRef = useRef<HTMLDivElement>(null);
+  const ordersTableRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!downloadsMenuOpen) return;
+    const handleOutsideOrEscape = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent) {
+        if (e.key === "Escape") setDownloadsMenuOpen(false);
+        return;
+      }
+      if (downloadsMenuRef.current && !downloadsMenuRef.current.contains(e.target as Node)) {
+        setDownloadsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideOrEscape);
+    document.addEventListener("keydown", handleOutsideOrEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideOrEscape);
+      document.removeEventListener("keydown", handleOutsideOrEscape);
+    };
+  }, [downloadsMenuOpen]);
 
   // Mostrar toast auto-ocultable
   const triggerToast = (message: string, type: "success" | "error" | "info" = "info") => {
@@ -510,7 +537,14 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.active) {
-          setBatchData(data);
+          setBatchData((prev) => {
+            if (!prev || prev.batch_filename !== data.batch_filename) {
+              const initialIssues =
+                (Number(data.metrics?.error_blocked) || 0) + (Number(data.metrics?.review) || 0);
+              setActiveTab(initialIssues > 0 ? "ISSUES" : "ALL");
+            }
+            return data;
+          });
         } else {
           setBatchData(null);
         }
@@ -858,9 +892,15 @@ export default function DashboardPage() {
       }
 
       const data = await res.json();
+      const uploadedIssues =
+        (Number(data.metrics?.error_blocked) || 0) + (Number(data.metrics?.review) || 0);
       setBatchData(data);
+      setActiveTab(uploadedIssues > 0 ? "ISSUES" : "ALL");
       setClosingSummary(null);
       setClosingSummaryFilter("ALL");
+      setClosingSummaryExpanded(false);
+      setTechshipDownloaded(false);
+      setDownloadsMenuOpen(false);
       setSelectedOrderIds(new Set());
       void captureBatch({
         batch_filename: data.batch_filename || file.name,
@@ -1208,8 +1248,8 @@ export default function DashboardPage() {
       const totalEval = Number(data.summary?.total ?? batchData?.metrics.total_orders ?? 0);
       const detectedCount = Number(
         data.summary?.detected ??
-          batchData?.orders.filter((order) => Boolean(order.tracking_number)).length ??
-          0
+        batchData?.orders.filter((order) => Boolean(order.tracking_number)).length ??
+        0
       );
       const pendingCount = Number(data.summary?.pending ?? Math.max(0, totalEval - detectedCount));
 
@@ -1224,6 +1264,7 @@ export default function DashboardPage() {
           details: data.details,
         });
         setClosingSummaryFilter("ALL");
+        setClosingSummaryExpanded(false);
       }
 
       void captureClosing(
@@ -1263,9 +1304,10 @@ export default function DashboardPage() {
   };
 
   const handleDownloadTechshipExcelStep = () => {
+    setTechshipDownloaded(true);
     handleDownload("techship_excel");
     triggerToast(
-      "Archivo Techship.xlsx descargado. Súbelo al portal de Techship para crear las guías y luego ejecuta el Paso 2.",
+      "Archivo Techship.xlsx descargado. Súbelo al portal de Techship para crear las guías y luego ejecuta el Paso 3.",
       "info"
     );
   };
@@ -1307,6 +1349,9 @@ export default function DashboardPage() {
       setBatchData(null);
       setClosingSummary(null);
       setClosingSummaryFilter("ALL");
+      setClosingSummaryExpanded(false);
+      setTechshipDownloaded(false);
+      setDownloadsMenuOpen(false);
       setSearchTerm("");
       setActiveTab("ALL");
       setOrderTypeFilter("ALL");
@@ -1500,38 +1545,38 @@ export default function DashboardPage() {
     tone: "navy" | "red";
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
-      {
-        key: "automatizador" as const,
-        name: "Automatizador de operación",
-        description: `Órdenes ${currentClientConfig.shortBadge}, validación SEPOMEX, plantilla Techship y cierre automático.`,
-        Icon: Zap,
-        target: "asset_management" as const,
-        tone: "navy" as const,
-        statusBadge: "Activo" as const,
-      },
-      {
-        key: "generador_tracking" as const,
-        name: "Generador tracking",
-        description: "Generación y vista previa en vivo del PDF de guías y trazabilidad de envíos.",
-        Icon: Truck,
-        target: "generador_tracking" as const,
-        tone: "red" as const,
-        statusBadge: "Activo" as const,
-      },
-      {
-        key: "historial" as const,
-        name: "Historial",
-        description: "Consulta de archivos de cierre diarios y trackings procesados.",
-        Icon: Archive,
-        target: "historial" as const,
-        tone: "navy" as const,
-        statusBadge: "Activo" as const,
-      },
-    ].filter((m) =>
-      isSpecificAssetClient(activeClient)
-        ? OPERATION_TOOLS[activeClient].includes(m.key)
-        : false
-    );
+    {
+      key: "automatizador" as const,
+      name: "Automatizador de operación",
+      description: `Órdenes ${currentClientConfig.shortBadge}, validación SEPOMEX, plantilla Techship y cierre automático.`,
+      Icon: Zap,
+      target: "asset_management" as const,
+      tone: "navy" as const,
+      statusBadge: "Activo" as const,
+    },
+    {
+      key: "generador_tracking" as const,
+      name: "Generador tracking",
+      description: "Generación y vista previa en vivo del PDF de guías y trazabilidad de envíos.",
+      Icon: Truck,
+      target: "generador_tracking" as const,
+      tone: "red" as const,
+      statusBadge: "Activo" as const,
+    },
+    {
+      key: "historial" as const,
+      name: "Historial",
+      description: "Consulta de archivos de cierre diarios y trackings procesados.",
+      Icon: Archive,
+      target: "historial" as const,
+      tone: "navy" as const,
+      statusBadge: "Activo" as const,
+    },
+  ].filter((m) =>
+    isSpecificAssetClient(activeClient)
+      ? OPERATION_TOOLS[activeClient].includes(m.key)
+      : false
+  );
 
   // Submódulos de Transporte y Logística (filtrados por cliente activo)
   const transporteModules: {
@@ -1543,16 +1588,16 @@ export default function DashboardPage() {
     tone: "navy" | "red";
     statusBadge: "Activo" | "En desarrollo";
   }[] = [
-      {
-        key: "rastreo_envios",
-        name: "Rastreo de envíos",
-        description: "Monitoreo en vivo de guías FedEx y Estafeta, trazabilidad de entregas, incidencias y reportes.",
-        Icon: Truck,
-        target: "rastreo_envios" as const,
-        tone: "red" as const,
-        statusBadge: "Activo" as const,
-      },
-    ].filter((m) => currentClientConfig.enabledTransporteSubmodules.includes(m.key));
+    {
+      key: "rastreo_envios",
+      name: "Rastreo de envíos",
+      description: "Monitoreo en vivo de guías FedEx y Estafeta, trazabilidad de entregas, incidencias y reportes.",
+      Icon: Truck,
+      target: "rastreo_envios" as const,
+      tone: "red" as const,
+      statusBadge: "Activo" as const,
+    },
+  ].filter((m) => currentClientConfig.enabledTransporteSubmodules.includes(m.key));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
@@ -2151,11 +2196,10 @@ export default function DashboardPage() {
                   <div
                     key={client.id}
                     onClick={() => handleSelectClient(client.id, true)}
-                    className={`bg-white rounded-xl border transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1 shadow-md hover:shadow-xl ${
-                      isSelected
-                        ? "border-[#233762] ring-2 ring-[#233762]/15"
-                        : "border-slate-200/80"
-                    }`}
+                    className={`bg-white rounded-xl border transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1 shadow-md hover:shadow-xl ${isSelected
+                      ? "border-[#233762] ring-2 ring-[#233762]/15"
+                      : "border-slate-200/80"
+                      }`}
                   >
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#233762] group-hover:bg-[#CE3A39] transition-colors duration-300" />
                     <span
@@ -2735,8 +2779,8 @@ export default function DashboardPage() {
                   >
                     <div
                       className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
-                          ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                          : "bg-transparent group-hover:bg-[#233762]/30"
+                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                        : "bg-transparent group-hover:bg-[#233762]/30"
                         }`}
                     />
                     <span
@@ -2759,8 +2803,8 @@ export default function DashboardPage() {
                     </div>
                     <span
                       className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive
-                          ? "text-[#233762] group-hover:text-[#CE3A39]"
-                          : "text-slate-400 font-medium"
+                        ? "text-[#233762] group-hover:text-[#CE3A39]"
+                        : "text-slate-400 font-medium"
                         }`}
                     >
                       {isActive ? (
@@ -3660,7 +3704,7 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <main className="flex-1 w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 py-6 space-y-8 relative z-10">
+          <main className="flex-1 w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5 space-y-4 relative z-10">
             {activeClient === "ALL" ? (
               <ClientRequiredEmptyState
                 mode="select_client"
@@ -3674,792 +3718,976 @@ export default function DashboardPage() {
                 clientName={currentClientConfig.name}
                 onSelectClient={(c) => handleSelectClient(c, false)}
               />
+            ) : !hasOrders ? (
+              /* ESTADO VACÍO: Guía clara de 4 pasos + Dropzone con drag & drop real */
+              <section className="py-6 sm:py-10 flex flex-col items-center">
+                <div className="w-full max-w-4xl mx-auto space-y-6">
+                  {/* 1. Encabezado corto */}
+                  <div className="text-center space-y-1">
+                    <h2 className="text-xl sm:text-2xl font-bold text-[#233762] tracking-tight">
+                      Comienza tu operación del día
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-500">
+                      Sigue estos 4 pasos para generar las guías y el cierre.
+                    </p>
+                  </div>
+
+                  {/* 2. Stepper horizontal de 4 pasos (vertical en móvil) */}
+                  <div
+                    className="grid grid-cols-1 md:grid-cols-4 gap-3 relative"
+                    role="list"
+                    aria-label="Pasos de la operación del día"
+                  >
+                    {(
+                      [
+                        {
+                          step: 1,
+                          title: "Sube el reporte",
+                          desc: "Carga el archivo de ServiceNow (SCTASK_SHP_Combined_Report_MX_*.xlsx).",
+                          Icon: UploadCloud,
+                        },
+                        {
+                          step: 2,
+                          title: "Revisa las direcciones",
+                          desc: "El sistema valida con SEPOMEX. Corrige las órdenes marcadas en amarillo o rojo.",
+                          Icon: CheckCircle2,
+                        },
+                        {
+                          step: 3,
+                          title: "Descarga el Excel para Techship",
+                          desc: "Súbelo al portal de Techship para crear las guías.",
+                          Icon: FileSpreadsheet,
+                        },
+                        {
+                          step: 4,
+                          title: "Detecta guías y genera el cierre",
+                          desc: "Obtén el Cierre.xlsx con los trackings de 22 dígitos.",
+                          Icon: Truck,
+                        },
+                      ] as const
+                    ).map(({ step, title, desc, Icon }, idx) => {
+                      const isFirst = step === 1;
+                      return (
+                        <div
+                          key={step}
+                          role="listitem"
+                          className={`relative rounded-2xl border p-4 transition ${
+                            isFirst
+                              ? "bg-white border-[#233762] shadow-sm"
+                              : "bg-white/80 border-slate-200 opacity-70"
+                          }`}
+                        >
+                          {/* Línea conectora en escritorio entre pasos */}
+                          {idx < 3 && (
+                            <div
+                              aria-hidden="true"
+                              className="hidden md:block absolute top-7 -right-3 w-3 h-px bg-slate-300 z-10"
+                            />
+                          )}
+
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+                                isFirst
+                                  ? "bg-[#233762] text-white"
+                                  : "bg-slate-200 text-slate-600"
+                              }`}
+                            >
+                              {step}
+                            </span>
+                            <Icon
+                              className={`w-4 h-4 shrink-0 ${
+                                isFirst ? "text-[#CE3A39]" : "text-slate-400"
+                              }`}
+                            />
+                          </div>
+
+                          <h3
+                            className={`text-xs font-bold leading-snug ${
+                              isFirst ? "text-[#233762]" : "text-slate-700"
+                            }`}
+                          >
+                            {title}
+                          </h3>
+                          <p className="text-[11px] text-slate-500 mt-1 leading-snug line-clamp-2">
+                            {desc}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 3. Dropzone (Paso 1 en acción) */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (!uploading && !isDraggingFile) setIsDraggingFile(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setIsDraggingFile(false);
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingFile(false);
+                      if (uploading || !e.dataTransfer.files?.length) return;
+                      if (fileInputRef.current) {
+                        fileInputRef.current.files = e.dataTransfer.files;
+                        handleFileUpload({
+                          target: fileInputRef.current,
+                        } as React.ChangeEvent<HTMLInputElement>);
+                      }
+                    }}
+                    className={`w-full rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center shadow-sm transition-colors relative group ${
+                      isDraggingFile
+                        ? "bg-[#EFF3F9] border-[#233762]"
+                        : "bg-white border-slate-300 hover:border-[#233762]"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept=".xlsx,.xls"
+                      aria-label="Subir reporte Excel de ServiceNow"
+                      className="sr-only"
+                      disabled={uploading}
+                    />
+                    <div
+                      onClick={() => !uploading && fileInputRef.current?.click()}
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                        <UploadCloud className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-bold text-[#233762]">
+                        {uploading
+                          ? "Procesando..."
+                          : "Arrastra aquí tu archivo o haz clic para seleccionarlo"}
+                      </p>
+                      <p className="text-xs font-mono text-slate-500 mt-1">
+                        Formato aceptado: .xlsx / .xls
+                      </p>
+                      <button
+                        type="button"
+                        disabled={uploading}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                        className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#233762] disabled:opacity-50 cursor-pointer"
+                      >
+                        <UploadCloud className="w-4 h-4" />
+                        <span>{uploading ? "Procesando..." : "Seleccionar archivo Excel"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4. Pie de ayuda */}
+                  <p className="text-center text-xs text-slate-400">
+                    ¿Primera vez? Descarga el reporte desde ServiceNow con el nombre{" "}
+                    <span className="font-mono text-slate-500">
+                      SCTASK_SHP_Combined_Report_MX_*.xlsx
+                    </span>{" "}
+                    y súbelo aquí.
+                  </p>
+                </div>
+              </section>
             ) : (
               <>
-            {/* Barra debajo del encabezado: Estado del lote y Botón de Limpiar / Archivar */}
-            <div className="flex items-center justify-between flex-wrap gap-3 pb-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">Lote en proceso:</span>
-                <span className="text-xs font-mono font-bold text-[#233762] px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                  {batchData?.batch_filename || "Sin lote activo"}
-                </span>
-              </div>
-
-              <button
-                onClick={handleArchivePreview}
-                disabled={actionLoading === "archive" || !hasOrders}
-                title="Archivar el lote actual y limpiar la tabla (se resguarda en data/archive)"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-600 hover:bg-red-50 hover:border-red-200 hover:text-[#CE3A39] text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <Archive className="w-4 h-4" />
-                <span>
-                  {actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}
-                </span>
-              </button>
-            </div>
-
-            {/* ZONA 1: Ingesta (4 col) y 4 Tarjetas KPI (2 col c/u = 8 col) - Altura Compactada y Equilibrada */}
-            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5 items-stretch">
-              {/* Dropzone de Ingesta (xl:col-span-4) alineado a la misma altura h-full min-h-[135px] */}
-              <div className="md:col-span-2 xl:col-span-4 bg-white border border-dashed border-slate-300 hover:border-[#233762]/60 rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-colors relative overflow-hidden group h-full min-h-[135px]">
+                {/* Input oculto para permitir reemplazar lote cuando ya hay uno activo */}
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
                   accept=".xlsx,.xls"
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  className="hidden"
                   disabled={uploading}
                 />
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-slate-100 text-[#233762] border border-slate-200 group-hover:bg-[#EFF3F9] transition-colors shrink-0">
-                    <UploadCloud className="w-5 h-5" />
+
+                {/* Barra compacta superior: Lote en proceso + acciones discretas */}
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-medium text-slate-500">Lote en proceso:</span>
+                    <span
+                      className="text-xs font-mono font-bold text-[#233762] px-2.5 py-1 rounded-lg bg-white border border-slate-200 truncate max-w-xs sm:max-w-md"
+                      title={batchData?.batch_filename}
+                    >
+                      {batchData?.batch_filename || "Lote activo"}
+                    </span>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-[#233762]">Ingestar Reporte ServiceNow</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Arrastra el archivo SCTASK_SHP_Combined_Report_MX_*.xlsx</p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      title="Subir otro archivo SCTASK para reemplazar el lote actual"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-[#233762]/40 text-slate-600 hover:text-[#233762] text-xs font-semibold transition cursor-pointer disabled:opacity-40"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>{uploading ? "Subiendo..." : "Cambiar archivo"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleArchivePreview}
+                      disabled={actionLoading === "archive"}
+                      title="Archivar el lote actual en data/archive y limpiar la vista"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-red-50 hover:border-red-200 hover:text-[#CE3A39] text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                      <span>{actionLoading === "archive" ? "Limpiando..." : "Limpiar tabla / Archivar"}</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-mono truncate max-w-[200px]" title={batchData?.batch_filename}>
-                    {batchData?.batch_filename ? batchData.batch_filename : "Sin archivo activo"}
-                  </span>
-                  <button
-                    type="button"
-                    className="px-3.5 py-1.5 rounded-lg bg-[#233762] hover:bg-[#1B2A4A] text-white font-semibold transition cursor-pointer"
-                  >
-                    {uploading ? "Procesando..." : "Examinar..."}
-                  </button>
-                </div>
-              </div>
+                {/* BLOQUE 1 UNIFICADO: Chips de Métricas + Stepper Contextual de 3 Pasos + Menú Descargas */}
+                {(() => {
+                  const issuesCount =
+                    (batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0);
+                  const hasClosingGenerated = Boolean(
+                    batchData?.files_available?.cierre_excel || activeClosingSummary
+                  );
+                  const allGuidesDetected = Boolean(
+                    activeClosingSummary &&
+                    activeClosingSummary.summary.detected > 0 &&
+                    activeClosingSummary.summary.pending === 0
+                  );
+                  const currentWorkflowStep: 1 | 2 | 3 =
+                    hasClosingGenerated || techshipDownloaded ? 3 : issuesCount > 0 ? 1 : 2;
 
-              {/* 4 Tarjetas KPI Interactivas (sin franja superior, punto de 8px, número en azul marino) */}
-              {(
-                [
-                  {
-                    key: "total",
-                    label: "Total órdenes",
-                    value: batchData?.metrics.total_orders || 0,
-                    hint: "Ida y retorno (-1)",
-                    dot: "bg-[#233762]",
-                    tab: "ALL" as const,
-                    Icon: Package,
-                  },
-                  {
-                    key: "ok",
-                    label: "Confirmadas",
-                    value: batchData?.metrics.confirmed_100 || 0,
-                    hint: "Listas para timbrar",
-                    dot: "bg-emerald-500",
-                    tab: "CONFIRMED" as const,
-                    Icon: CheckCircle2,
-                  },
-                  {
-                    key: "review",
-                    label: "Por revisar",
-                    value: batchData?.metrics.review || 0,
-                    hint: "Dirección ambigua",
-                    dot: "bg-amber-500",
-                    tab: "REVIEW" as const,
-                    Icon: AlertTriangle,
-                  },
-                  {
-                    key: "blocked",
-                    label: "Bloqueadas",
-                    value: batchData?.metrics.error_blocked || 0,
-                    hint: "Teléfono o CP inválido",
-                    dot: "bg-[#CE3A39]",
-                    tab: "BLOCKED" as const,
-                    Icon: XCircle,
-                  },
-                ]
-              ).map(({ key, label, value, hint, dot, tab, Icon }) => {
-                const isCurrent = hasOrders && activeTab === tab;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    disabled={!hasOrders}
-                    onClick={() => setActiveTab(tab)}
-                    title={hasOrders ? `Filtrar tabla: ${label}` : "Carga un lote para filtrar"}
-                    className={`xl:col-span-2 text-left bg-white border rounded-2xl p-5 min-h-[135px] flex flex-col justify-between shadow-sm transition
-                      ${isCurrent ? "border-[#233762] ring-1 ring-[#233762]" : "border-slate-200 hover:border-slate-300"}
-                      ${hasOrders ? "cursor-pointer" : "cursor-default opacity-80"}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-                        <span className={`w-2 h-2 rounded-full ${dot}`} />
-                        {label}
-                      </span>
-                      <Icon className="w-4 h-4 text-slate-300" />
-                    </div>
-                    <div>
-                      <span className="block text-4xl font-extrabold tracking-tight font-mono text-[#233762]">
-                        {value}
-                      </span>
-                      <p className="text-[11px] text-slate-400 mt-1">{hint}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </section>
-
-            {/* ZONA 2: Flujo Rápido en 2 pasos (Techship Manual + Conciliación API y Cierre) + Descargas */}
-            <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
-              {/* ---------- Flujo en 2 pasos ---------- */}
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <h3 className="text-xs font-semibold text-slate-500">
-                    Flujo Rápido Techship (Importación Manual + Detección Automática de Cierre)
-                  </h3>
-                  <span className="text-[11px] text-slate-400">
-                    1. Descarga el Excel acomodado y súbelo en Techship → 2. Detecta las guías vía API para armar el Cierre
-                  </span>
-                </div>
-
-                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-0">
-                  {/* Paso 1: Descargar Excel acomodado para Techship */}
-                  <button
-                    type="button"
-                    onClick={handleDownloadTechshipExcelStep}
-                    disabled={!hasOrders || batchData?.files_available?.techship_excel === false}
-                    title="Descarga el archivo Guias_Techship_Importada_*.xlsx ya validado con SEPOMEX para subirlo en el portal de Techship"
-                    className="group flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-[#233762]/40 hover:border-[#233762] hover:bg-[#EFF3F9] text-[#233762] text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <span className="w-6 h-6 rounded-full bg-[#EFF3F9] group-hover:bg-white border border-[#233762]/30 flex items-center justify-center text-xs font-mono">
-                      1
-                    </span>
-                    <FileSpreadsheet className="w-4 h-4 text-[#233762]" />
-                    <span>Descargar Excel para Techship</span>
-                  </button>
-
-                  {/* Conector */}
-                  <div className="hidden md:block h-px w-8 bg-slate-300" aria-hidden="true" />
-                  <div className="md:hidden w-px h-3 bg-slate-300 ml-7" aria-hidden="true" />
-
-                  {/* Paso 2: Detectar guías en Techship y Generar Cierre (acción principal única de la vista) */}
-                  <button
-                    type="button"
-                    onClick={handleSyncClosing}
-                    disabled={!hasOrders || actionLoading === "sync"}
-                    title="Consulta en paralelo la API de Techship v3 para extraer las guías de 22 dígitos ya creadas y generar el archivo Cierre.xlsx"
-                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-sm font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-mono">
-                      2
-                    </span>
-                    <span>
-                      {actionLoading === "sync"
-                        ? "Detectando guías en Techship y generando Cierre..."
-                        : "Detectar guías en Techship y Generar Cierre"}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* ---------- Descargas Operativas (estilo neutro unificado) ---------- */}
-              <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500 mr-1">Archivos del lote</span>
-
-                {batchData && hasOrders ? (
-                  (
-                    [
-                      {
-                        type: "techship_excel",
-                        label: "Techship.xlsx (Para subir a Techship)",
-                        Icon: FileSpreadsheet,
-                        needsSync: false,
-                      },
-                      {
-                        type: "cierre_excel",
-                        label: "Cierre.xlsx (Con Trackings 22 dígitos)",
-                        Icon: FileSpreadsheet,
-                        needsSync: true,
-                      },
-                      {
-                        type: "auditoria_excel",
-                        label: "Auditoría.xlsx (Diagnóstico SEPOMEX)",
-                        Icon: FileSpreadsheet,
-                        needsSync: false,
-                      },
-                    ] as const
-                  ).map(({ type, label, Icon, needsSync }) => {
-                    const available = batchData.files_available?.[type] !== false;
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => handleDownload(type)}
-                        disabled={!available}
-                        title={
-                          available
-                            ? `Descargar ${label}`
-                            : needsSync
-                              ? "Disponible después del Paso 2: Detectar guías en Techship y Generar Cierre"
-                              : "Aún no disponible"
-                        }
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-[#EFF3F9] hover:text-[#233762] hover:border-[#233762]/30 text-slate-700 border border-slate-200 text-xs font-medium transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  return (
+                    <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+                      {/* Fila 1: Chips compactos de métricas (filtran la tabla) */}
+                      <div
+                        className="flex flex-wrap items-center gap-2"
+                        role="group"
+                        aria-label="Métricas del lote"
                       >
-                        {available ? (
-                          <Icon className="w-3.5 h-3.5 text-slate-500" />
-                        ) : (
-                          <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        )}
-                        <span>{label}</span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <span className="text-xs text-slate-400 italic">Sin archivos para descargar</span>
+                        {(
+                          [
+                            {
+                              key: "total",
+                              label: "Total",
+                              value: batchData?.metrics.total_orders || 0,
+                              hint: "Mostrar todas las órdenes (Ida y Retorno -1)",
+                              dot: "bg-[#233762]",
+                              activeDot: "bg-white",
+                              tab: "ALL" as const,
+                            },
+                            {
+                              key: "ok",
+                              label: "Confirmadas",
+                              value: batchData?.metrics.confirmed_100 || 0,
+                              hint: "Filtrar órdenes 100% validadas en SEPOMEX",
+                              dot: "bg-emerald-500",
+                              activeDot: "bg-emerald-400",
+                              tab: "CONFIRMED" as const,
+                            },
+                            {
+                              key: "review",
+                              label: "Por revisar",
+                              value: batchData?.metrics.review || 0,
+                              hint: "Filtrar órdenes con colonia o número exterior por revisar",
+                              dot: "bg-amber-500",
+                              activeDot: "bg-amber-400",
+                              tab: "REVIEW" as const,
+                            },
+                            {
+                              key: "blocked",
+                              label: "Bloqueadas",
+                              value: batchData?.metrics.error_blocked || 0,
+                              hint: "Filtrar órdenes bloqueadas por teléfono o CP inválido",
+                              dot: "bg-[#CE3A39]",
+                              activeDot: "bg-[#ff8a89]",
+                              tab: "BLOCKED" as const,
+                            },
+                          ]
+                        ).map(({ key, label, value, hint, dot, activeDot, tab }) => {
+                          const isCurrent = activeTab === tab;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setActiveTab(tab)}
+                              title={hint}
+                              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-[#233762] cursor-pointer ${isCurrent
+                                ? "bg-[#233762] border-[#233762] text-white shadow-2xs"
+                                : "bg-slate-50 border-slate-200 text-slate-600 hover:border-[#233762]/40 hover:text-[#233762]"
+                                }`}
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${isCurrent ? activeDot : dot
+                                  }`}
+                              />
+                              <span>{label}</span>
+                              <span
+                                className={`font-mono font-bold ${isCurrent ? "text-white" : "text-[#233762]"
+                                  }`}
+                              >
+                                {value}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Fila 2: Stepper horizontal de 3 pasos + Menú desplegable Descargas */}
+                      <div className="pt-3.5 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div
+                          className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 flex-wrap"
+                          role="group"
+                          aria-label="Pasos del flujo operativo"
+                        >
+                          {/* Paso 1: Revisar incidencias */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab(issuesCount > 0 ? "ISSUES" : "ALL");
+                              ordersTableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }}
+                            title={
+                              issuesCount > 0
+                                ? `${issuesCount} orden(es) con alertas o bloqueos SEPOMEX por revisar en la tabla`
+                                : "Todas las órdenes están validadas sin incidencias"
+                            }
+                            className={`inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs transition focus-visible:outline-2 focus-visible:outline-[#233762] cursor-pointer ${currentWorkflowStep === 1
+                              ? "bg-[#CE3A39] hover:bg-[#B02E2D] text-white font-bold shadow-xs"
+                              : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-semibold"
+                              }`}
+                          >
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-mono shrink-0 ${currentWorkflowStep === 1
+                                ? "bg-white/20 text-white"
+                                : issuesCount === 0
+                                  ? "bg-emerald-500 text-white"
+                                  : "bg-white border border-slate-300 text-slate-500"
+                                }`}
+                            >
+                              {issuesCount === 0 ? <Check className="w-3 h-3" /> : "1"}
+                            </span>
+                            <span>
+                              Revisar incidencias{issuesCount > 0 ? ` (${issuesCount})` : ""}
+                            </span>
+                          </button>
+
+                          <div className="hidden sm:block h-px w-5 bg-slate-200" aria-hidden="true" />
+
+                          {/* Paso 2: Descargar Excel para Techship */}
+                          <button
+                            type="button"
+                            onClick={handleDownloadTechshipExcelStep}
+                            disabled={batchData?.files_available?.techship_excel === false}
+                            title="Descarga Guias_Techship_Importada_*.xlsx listo para importar manualmente en Techship"
+                            className={`inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs transition focus-visible:outline-2 focus-visible:outline-[#233762] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${currentWorkflowStep === 2
+                              ? "bg-[#CE3A39] hover:bg-[#B02E2D] text-white font-bold shadow-xs"
+                              : techshipDownloaded || hasClosingGenerated
+                                ? "bg-slate-50 hover:bg-slate-100 text-[#233762] border border-slate-200 font-semibold"
+                                : "bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 opacity-75 hover:opacity-100 font-medium"
+                              }`}
+                          >
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-mono shrink-0 ${currentWorkflowStep === 2
+                                ? "bg-white/20 text-white"
+                                : techshipDownloaded || hasClosingGenerated
+                                  ? "bg-[#233762] text-white"
+                                  : "bg-slate-100 text-slate-500"
+                                }`}
+                            >
+                              {techshipDownloaded || hasClosingGenerated ? (
+                                <Check className="w-3 h-3" />
+                              ) : (
+                                "2"
+                              )}
+                            </span>
+                            <span>Descargar Excel para Techship</span>
+                          </button>
+
+                          <div className="hidden sm:block h-px w-5 bg-slate-200" aria-hidden="true" />
+
+                          {/* Paso 3: Detectar guías y generar cierre */}
+                          <button
+                            type="button"
+                            onClick={handleSyncClosing}
+                            disabled={actionLoading === "sync"}
+                            title="Consulta la API de Techship v3 para asignar los trackings de 22 dígitos y crear Cierre.xlsx"
+                            className={`inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs transition focus-visible:outline-2 focus-visible:outline-[#233762] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${currentWorkflowStep === 3 && !allGuidesDetected
+                              ? "bg-[#CE3A39] hover:bg-[#B02E2D] text-white font-bold shadow-xs"
+                              : allGuidesDetected
+                                ? "bg-[#233762] hover:bg-[#1B2A4A] text-white font-bold shadow-xs"
+                                : "bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 opacity-75 hover:opacity-100 font-medium"
+                              }`}
+                          >
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-mono shrink-0 ${currentWorkflowStep === 3 || allGuidesDetected
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-100 text-slate-500"
+                                }`}
+                            >
+                              {allGuidesDetected ? <Check className="w-3 h-3" /> : "3"}
+                            </span>
+                            <span>
+                              {actionLoading === "sync"
+                                ? "Detectando guías..."
+                                : "Detectar guías y generar cierre"}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Menú desplegable único: Descargas */}
+                        <div className="relative self-start lg:self-auto" ref={downloadsMenuRef}>
+                          <button
+                            type="button"
+                            onClick={() => setDownloadsMenuOpen((prev) => !prev)}
+                            aria-expanded={downloadsMenuOpen}
+                            aria-haspopup="menu"
+                            title="Descargar archivos generados del lote"
+                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-[#EFF3F9] text-slate-700 hover:text-[#233762] border border-slate-200 hover:border-[#233762]/30 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-[#233762] cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Descargas</span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform ${downloadsMenuOpen ? "rotate-180" : ""
+                                }`}
+                            />
+                          </button>
+
+                          {downloadsMenuOpen && (
+                            <div
+                              role="menu"
+                              aria-label="Archivos del lote disponibles"
+                              className="absolute right-0 mt-2 w-60 rounded-xl bg-white border border-slate-200 shadow-lg py-1.5 z-30"
+                            >
+                              {(
+                                [
+                                  {
+                                    type: "techship_excel",
+                                    label: "Techship.xlsx",
+                                    hint: "Plantilla 61 columnas para subir a Techship",
+                                    needsSync: false,
+                                  },
+                                  {
+                                    type: "cierre_excel",
+                                    label: "Cierre.xlsx",
+                                    hint: "Reporte final con trackings de 22 dígitos",
+                                    needsSync: true,
+                                  },
+                                  {
+                                    type: "auditoria_excel",
+                                    label: "Auditoría.xlsx",
+                                    hint: "Diagnóstico detallado SEPOMEX",
+                                    needsSync: false,
+                                  },
+                                ] as const
+                              ).map(({ type, label, hint, needsSync }) => {
+                                const available = batchData?.files_available?.[type] !== false;
+                                return (
+                                  <button
+                                    key={type}
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={!available}
+                                    onClick={() => {
+                                      if (type === "techship_excel") setTechshipDownloaded(true);
+                                      handleDownload(type);
+                                      setDownloadsMenuOpen(false);
+                                    }}
+                                    title={
+                                      available
+                                        ? `${label} — ${hint}`
+                                        : needsSync
+                                          ? "Disponible tras ejecutar el paso 3: Detectar guías y generar cierre"
+                                          : "Aún no disponible"
+                                    }
+                                    className="w-full px-3.5 py-2 text-left flex items-center justify-between gap-2 text-xs text-slate-700 hover:bg-[#EFF3F9] hover:text-[#233762] transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                  >
+                                    <span className="flex items-center gap-2 font-medium">
+                                      <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      <span>{label}</span>
+                                    </span>
+                                    {!available && (
+                                      <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  );
+                })()}
+
+                {/* BLOQUE 2: Resumen de Conciliación Techship y Cierre Final (colapsado por defecto) */}
+                {activeClosingSummary && hasOrders && (
+                  <section className="bg-white border border-slate-200 rounded-2xl px-4 sm:px-5 py-3.5 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div
+                        className="flex items-center gap-2.5 text-xs text-slate-700 min-w-0"
+                        title={`Archivo generado: ${activeClosingSummary.cierre_excel_filename}`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${activeClosingSummary.summary.pending === 0 &&
+                            activeClosingSummary.summary.detected > 0
+                            ? "bg-emerald-500"
+                            : "bg-[#CE3A39]"
+                            }`}
+                        />
+                        <span className="truncate">
+                          <strong className="font-mono text-[#233762]">
+                            {activeClosingSummary.summary.detected}
+                          </strong>{" "}
+                          de{" "}
+                          <strong className="font-mono text-[#233762]">
+                            {activeClosingSummary.summary.total}
+                          </strong>{" "}
+                          guías detectadas
+                          <span className="mx-1.5 text-slate-300">·</span>
+                          <span
+                            className={
+                              activeClosingSummary.summary.pending > 0
+                                ? "text-[#CE3A39] font-semibold"
+                                : "text-slate-500"
+                            }
+                          >
+                            <strong className="font-mono">
+                              {activeClosingSummary.summary.pending}
+                            </strong>{" "}
+                            pendientes
+                          </span>
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSyncClosing}
+                          disabled={actionLoading === "sync"}
+                          title="Volver a consultar en Techship si ya se timbraron las órdenes pendientes"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#EFF3F9] text-[#233762] border border-slate-200 hover:border-[#233762]/30 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-[#233762] cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw
+                            className={`w-3.5 h-3.5 ${actionLoading === "sync" ? "animate-spin" : ""}`}
+                          />
+                          <span>{actionLoading === "sync" ? "Actualizando..." : "Actualizar detección"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownload("cierre_excel")}
+                          title={`Descargar ${activeClosingSummary.cierre_excel_filename}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-semibold shadow-2xs transition focus-visible:outline-2 focus-visible:outline-[#233762] cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          <span>Descargar Cierre.xlsx</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setClosingSummaryExpanded((prev) => !prev)}
+                          aria-expanded={closingSummaryExpanded}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-[#233762] border border-slate-200 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-[#233762] cursor-pointer"
+                        >
+                          <span>{closingSummaryExpanded ? "Ocultar detalle" : "Ver detalle"}</span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform ${closingSummaryExpanded ? "rotate-180" : ""
+                              }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {closingSummaryExpanded && (
+                      <div className="border border-slate-200 rounded-xl overflow-hidden">
+                        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-[#233762]">
+                            Detalle de conciliación ({filteredClosingDetails.length})
+                          </span>
+                          <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-200/70 text-[11px] font-bold">
+                            <button
+                              type="button"
+                              onClick={() => setClosingSummaryFilter("ALL")}
+                              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${closingSummaryFilter === "ALL"
+                                ? "bg-[#233762] text-white"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
+                            >
+                              Todas ({activeClosingSummary.summary.total})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setClosingSummaryFilter("DETECTADA")}
+                              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${closingSummaryFilter === "DETECTADA"
+                                ? "bg-[#233762] text-white"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
+                            >
+                              Detectadas ({activeClosingSummary.summary.detected})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setClosingSummaryFilter("PENDIENTE")}
+                              className={`px-2.5 py-1 rounded-md transition cursor-pointer ${closingSummaryFilter === "PENDIENTE"
+                                ? "bg-[#233762] text-white"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
+                            >
+                              Pendientes ({activeClosingSummary.summary.pending})
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="max-h-72 overflow-y-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead className="sticky top-0 z-10">
+                              <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
+                                <th className="py-2.5 px-4">Orden</th>
+                                <th className="py-2.5 px-4">Tipo</th>
+                                <th className="py-2.5 px-4">Destinatario</th>
+                                <th className="py-2.5 px-4">Estado Techship</th>
+                                <th className="py-2.5 px-4">Tracking (22d)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {filteredClosingDetails.map((item) => {
+                                const isDetected = item.status === "DETECTADA";
+                                return (
+                                  <tr key={item.order} className="hover:bg-slate-50 transition-colors">
+                                    <td className="py-2.5 px-4 font-mono font-bold text-[#233762] whitespace-nowrap">
+                                      {item.order}
+                                    </td>
+                                    <td className="py-2.5 px-4 whitespace-nowrap">
+                                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
+                                        {item.type}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-4 text-slate-700 font-medium truncate max-w-[220px]">
+                                      {item.recipient_name || "—"}
+                                    </td>
+                                    <td className="py-2.5 px-4 whitespace-nowrap">
+                                      <span
+                                        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"
+                                        title={item.message}
+                                      >
+                                        <span
+                                          className={`w-2 h-2 rounded-full shrink-0 ${isDetected ? "bg-emerald-500" : "bg-[#CE3A39]"
+                                            }`}
+                                        />
+                                        <span>{isDetected ? "Guía detectada" : "Pendiente"}</span>
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-4 font-mono whitespace-nowrap">
+                                      {isDetected && item.tracking ? (
+                                        <span className="font-bold text-[#233762]">{item.tracking}</span>
+                                      ) : (
+                                        <span className="text-[#CE3A39] font-semibold">Sin guía</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </section>
                 )}
-              </div>
-            </section>
 
-            {/* ZONA 2.5: Resumen de Conciliación Techship y Cierre Final (aparece tras detectar guías) */}
-            {activeClosingSummary && hasOrders && (
-              <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-[#233762]">
-                        Resumen de Conciliación Techship y Cierre Final
-                      </h3>
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
-                        {activeClosingSummary.cierre_excel_filename}
-                      </span>
+                {/* BLOQUE 3: Tabla Principal de Órdenes */}
+                <section
+                  ref={ordersTableRef}
+                  className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col"
+                >
+                  <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      {/* Pestañas simplificadas: Todas · Requieren atención · Confirmadas */}
+                      <div
+                        role="tablist"
+                        aria-label="Filtro por estado de validación"
+                        className="flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 text-xs font-bold"
+                      >
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={activeTab === "ALL"}
+                          onClick={() => setActiveTab("ALL")}
+                          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${activeTab === "ALL"
+                            ? "bg-[#233762] text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                          Todas ({batchData?.orders.length || 0})
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={
+                            activeTab === "ISSUES" || activeTab === "REVIEW" || activeTab === "BLOCKED"
+                          }
+                          onClick={() => setActiveTab("ISSUES")}
+                          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${activeTab === "ISSUES" || activeTab === "REVIEW" || activeTab === "BLOCKED"
+                            ? "bg-[#233762] text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                          Requieren atención (
+                          {(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={activeTab === "CONFIRMED"}
+                          onClick={() => setActiveTab("CONFIRMED")}
+                          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${activeTab === "CONFIRMED"
+                            ? "bg-[#233762] text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                          Confirmadas ({batchData?.metrics.confirmed_100 || 0})
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Estado de las guías detectadas en Techship API v3 y consolidadas en el archivo de cierre final.
-                    </p>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSyncClosing}
-                      disabled={actionLoading === "sync"}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#EFF3F9] text-[#233762] border border-slate-200 hover:border-[#233762]/30 text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                      title="Volver a consultar en Techship si ya se timbraron las órdenes pendientes"
-                    >
-                      <span>{actionLoading === "sync" ? "Actualizando..." : "Actualizar detección"}</span>
-                    </button>
+                    {/* Eliminar seleccionadas (solo visible con selección) + Buscador */}
+                    <div className="flex flex-wrap items-center gap-2.5 flex-1 justify-end">
+                      {selectedOrderIds.size > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleRequestDeleteSelectedOrders}
+                          title="Excluir órdenes seleccionadas del lote"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-red-200 bg-white hover:bg-red-50 text-slate-700 hover:text-[#CE3A39] text-xs font-bold transition cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-[#CE3A39]" />
+                          <span>Eliminar seleccionadas ({selectedOrderIds.size})</span>
+                        </button>
+                      )}
 
-                    <button
-                      type="button"
-                      onClick={() => handleDownload("cierre_excel")}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs transition cursor-pointer"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5" />
-                      <span>Descargar Cierre.xlsx</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3 Tarjetas KPI del Resumen de Conciliación (estándar limpio: fondo blanco, punto 8px, número en #233762) */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {(
-                    [
-                      {
-                        key: "ALL" as const,
-                        label: "Órdenes en cierre",
-                        value: activeClosingSummary.summary.total,
-                        hint: "Total evaluadas contra Techship API",
-                        dot: "bg-[#233762]",
-                      },
-                      {
-                        key: "DETECTADA" as const,
-                        label: "Con guía detectada",
-                        value: activeClosingSummary.summary.detected,
-                        hint: "Tracking de 22 dígitos asignado",
-                        dot: "bg-emerald-500",
-                      },
-                      {
-                        key: "PENDIENTE" as const,
-                        label: "Pendientes / Sin guía",
-                        value: activeClosingSummary.summary.pending,
-                        hint: "Aún sin guía procesada en Techship",
-                        dot: activeClosingSummary.summary.pending > 0 ? "bg-[#CE3A39]" : "bg-amber-500",
-                      },
-                    ]
-                  ).map(({ key, label, value, hint, dot }) => {
-                    const isSelected = closingSummaryFilter === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setClosingSummaryFilter(key)}
-                        className={`text-left bg-white border rounded-2xl p-4 flex flex-col justify-between shadow-sm transition cursor-pointer ${
-                          isSelected
-                            ? "border-[#233762] ring-2 ring-[#233762]/15"
-                            : "border-slate-200 hover:border-slate-300"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                            <span className={`w-2 h-2 rounded-full ${dot}`} />
-                            {label}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="block text-3xl font-bold font-mono text-[#233762] mt-2">
-                            {value}
-                          </span>
-                          <p className="text-xs text-slate-400 mt-1">{hint}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Tabla compacta del resumen de conciliación */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-[#233762]">
-                      Detalle de Guías y Cierre ({filteredClosingDetails.length})
-                    </span>
-                    <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-200/70 text-[11px] font-bold">
-                      <button
-                        type="button"
-                        onClick={() => setClosingSummaryFilter("ALL")}
-                        className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
-                          closingSummaryFilter === "ALL"
-                            ? "bg-[#233762] text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Todas ({activeClosingSummary.summary.total})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setClosingSummaryFilter("DETECTADA")}
-                        className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
-                          closingSummaryFilter === "DETECTADA"
-                            ? "bg-[#233762] text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Detectadas ({activeClosingSummary.summary.detected})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setClosingSummaryFilter("PENDIENTE")}
-                        className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
-                          closingSummaryFilter === "PENDIENTE"
-                            ? "bg-[#233762] text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Pendientes ({activeClosingSummary.summary.pending})
-                      </button>
+                      <div className="relative flex-1 min-w-[210px] max-w-xs">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          aria-label="Buscar órdenes en la tabla"
+                          placeholder="Buscar RITM, destinatario, CP, guía..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="max-h-72 overflow-y-auto">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="sticky top-0 z-10">
+                      <thead>
                         <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
-                          <th className="py-2.5 px-4">Orden (RITM)</th>
-                          <th className="py-2.5 px-4">Tipo</th>
-                          <th className="py-2.5 px-4">Destinatario / Empleado</th>
-                          <th className="py-2.5 px-4">Estado en Techship</th>
-                          <th className="py-2.5 px-4">Tracking Number (Cierre)</th>
+                          <th className="py-3 px-3 w-10 text-center select-none">
+                            <input
+                              type="checkbox"
+                              disabled={!hasOrders || filteredOrders.length === 0}
+                              checked={
+                                filteredOrders.length > 0 &&
+                                filteredOrders.every((o) => selectedOrderIds.has(o.order_id))
+                              }
+                              onChange={handleToggleSelectAllOrders}
+                              className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
+                              aria-label="Seleccionar todas las órdenes"
+                            />
+                          </th>
+                          <th className="py-3 px-3">Orden</th>
+                          <th className="py-3 px-3">Estado</th>
+                          <th className="py-3 px-3">Destinatario</th>
+                          <th className="py-3 px-3">Dirección</th>
+                          <th className="py-3 px-3">CP / Ciudad</th>
+                          <th className="py-3 px-3 text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {filteredClosingDetails.map((item) => {
-                          const isDetected = item.status === "DETECTADA";
-                          return (
-                            <tr key={item.order} className="hover:bg-slate-50 transition-colors">
-                              <td className="py-2.5 px-4 font-mono font-bold text-[#233762] whitespace-nowrap">
-                                {item.order}
-                              </td>
-                              <td className="py-2.5 px-4 whitespace-nowrap">
-                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[10px] font-bold">
-                                  {item.type}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-4 text-slate-700 font-medium truncate max-w-[220px]">
-                                {item.recipient_name || "—"}
-                              </td>
-                              <td className="py-2.5 px-4 whitespace-nowrap">
-                                <span
-                                  className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"
-                                  title={item.message}
-                                >
-                                  <span
-                                    className={`w-2 h-2 rounded-full shrink-0 ${
-                                      isDetected ? "bg-emerald-500" : "bg-[#CE3A39]"
-                                    }`}
+                        {filteredOrders.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                              {batchData
+                                ? "No hay órdenes que coincidan con los filtros seleccionados."
+                                : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredOrders.map((order) => {
+                            const isError = order.status_semaphore === "ROJO";
+                            const isWarning = order.status_semaphore === "AMARILLO";
+                            const isGreen = order.status_semaphore === "VERDE";
+
+                            const isSelected = selectedOrderIds.has(order.order_id);
+                            const incidentTooltip =
+                              order.incidents && order.incidents.length > 0
+                                ? order.incidents.join(" | ")
+                                : isGreen
+                                  ? "Dirección 100% confirmada en SEPOMEX"
+                                  : order.status_text;
+
+                            // Extraer motivo concreto y legible para mostrar debajo de Bloqueada / Revisar
+                            let reasonText = "";
+                            if (!isGreen) {
+                              const relevantIncidents = (order.incidents || []).filter((inc) =>
+                                isError ? inc.startsWith("[ERROR]") : inc.startsWith("[REVISAR]")
+                              );
+                              const primary = relevantIncidents[0] || (order.incidents || [])[0] || order.status_text || "";
+                              reasonText = primary
+                                .replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/i, "")
+                                .replace(/\s*Opciones oficiales:.*$/i, "")
+                                .replace(/\s*Confirmar con solicitante\.?$/i, "")
+                                .trim();
+                              if (!reasonText && (order.phone.includes("ERROR") || order.phone.length !== 10)) {
+                                reasonText = `Teléfono inválido (${order.phone || "faltante"})`;
+                              }
+                            }
+
+                            const phoneInvalid = order.phone.includes("ERROR") || order.phone.length !== 10;
+
+                            return (
+                              <tr
+                                key={order.order_id}
+                                className={`transition-colors ${isSelected
+                                  ? "bg-slate-100/80 hover:bg-slate-100"
+                                  : isError
+                                    ? "bg-red-50/40 hover:bg-red-50/70"
+                                    : "hover:bg-slate-50"
+                                  }`}
+                              >
+                                <td className="py-3 px-3 text-center select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleToggleSelectOrder(order.order_id)}
+                                    className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
+                                    aria-label={`Seleccionar orden ${order.order_id}`}
                                   />
-                                  <span>{isDetected ? "Guía detectada" : "Pendiente en Techship"}</span>
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-4 font-mono whitespace-nowrap">
-                                {isDetected && item.tracking ? (
-                                  <span className="font-bold text-[#233762]">{item.tracking}</span>
-                                ) : (
-                                  <span className="text-[#CE3A39] font-semibold">Sin guía asignada</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                </td>
+
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-bold text-[#233762]">{order.order_id}</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[9px] font-bold">
+                                      {order.type === "RETURN" ? "RETORNO" : "ENTREGA"}
+                                    </span>
+                                  </div>
+                                  {order.tracking_number ? (
+                                    <div
+                                      className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono font-semibold"
+                                      title="Guía Estafeta detectada en Techship y asignada al Cierre"
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                      <Truck className="w-2.5 h-2.5" />
+                                      <span>{order.tracking_number}</span>
+                                    </div>
+                                  ) : activeClosingSummary ? (
+                                    <div
+                                      className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-[#CE3A39] border border-slate-200 text-[10px] font-mono font-semibold"
+                                      title="Pendiente: aún no se detecta guía timbrada en Techship para esta orden"
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full bg-[#CE3A39] shrink-0" />
+                                      <span>Sin guía en Techship</span>
+                                    </div>
+                                  ) : null}
+                                </td>
+
+                                <td className="py-3 px-3 max-w-[260px]" title={incidentTooltip}>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span
+                                      className={`w-2 h-2 rounded-full shrink-0 ${isGreen
+                                        ? "bg-emerald-500"
+                                        : isWarning
+                                          ? "bg-amber-500"
+                                          : "bg-[#CE3A39]"
+                                        }`}
+                                    />
+                                    <span className="text-xs font-semibold text-slate-700 shrink-0">
+                                      {isGreen ? "OK" : isWarning ? "Revisar" : "Bloqueada"}
+                                    </span>
+                                    {reasonText && (
+                                      <>
+                                        <span className="text-slate-300 shrink-0">·</span>
+                                        <span
+                                          className={`text-[11px] truncate ${isError ? "text-[#CE3A39] font-medium" : "text-slate-500"
+                                            }`}
+                                        >
+                                          {reasonText}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3 whitespace-nowrap" title={order.email || order.recipient_name}>
+                                  <div className="font-bold text-slate-800 truncate max-w-[180px]">{order.recipient_name}</div>
+                                  <div className="mt-0.5 font-mono text-[11px]">
+                                    {phoneInvalid ? (
+                                      <span className="text-[#CE3A39] font-bold">
+                                        Tel: {order.phone || "FALTA"}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-500">{order.phone}</span>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3 max-w-[240px]">
+                                  <div className="text-slate-800 font-mono text-[11px] truncate font-semibold" title={order.address1}>
+                                    {order.address1}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 truncate" title={order.address2}>
+                                    {order.address2 || "—"}
+                                  </div>
+                                  {order.address3 && (
+                                    <div
+                                      className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 truncate font-mono border border-slate-200"
+                                      title={`Referencias / Int: ${order.address3}`}
+                                    >
+                                      Ref: {order.address3}
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <div className="font-mono text-[#233762] font-bold">CP {order.zip}</div>
+                                  <div className="text-[11px] text-slate-500 truncate max-w-[160px]" title={`${order.city}, ${order.state}`}>
+                                    {order.city}, {order.state}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3 text-center whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEdit(order)}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition cursor-pointer"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      <span>Corregir</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRequestDeleteSingleOrder(order)}
+                                      title="Eliminar fila del lote (no procesar)"
+                                      aria-label={`Eliminar orden ${order.order_id}`}
+                                      className="p-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-400 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 transition cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
-                </div>
-              </section>
-            )}
-
-            {/* ZONA 3: Tabla de Órdenes y Auditoría */}
-            <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-              <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80">
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* 3 Pestañas de estado (activa siempre en azul marino) */}
-                  <div
-                    className={`flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 text-xs font-bold transition-opacity ${
-                      !hasOrders ? "opacity-50" : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      disabled={!hasOrders}
-                      onClick={() => setActiveTab("ALL")}
-                      className={`px-3 py-1.5 rounded-lg transition ${
-                        !hasOrders
-                          ? "text-slate-400 cursor-not-allowed"
-                          : activeTab === "ALL"
-                            ? "bg-[#233762] text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                      }`}
-                    >
-                      Todas ({batchData?.orders.length || 0})
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!hasOrders}
-                      onClick={() => setActiveTab("ISSUES")}
-                      className={`px-3 py-1.5 rounded-lg transition ${
-                        !hasOrders
-                          ? "text-slate-400 cursor-not-allowed"
-                          : activeTab === "ISSUES" || activeTab === "REVIEW" || activeTab === "BLOCKED"
-                            ? "bg-[#233762] text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                      }`}
-                    >
-                      Requieren atención ({(batchData?.metrics.error_blocked || 0) + (batchData?.metrics.review || 0)})
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!hasOrders}
-                      onClick={() => setActiveTab("CONFIRMED")}
-                      className={`px-3 py-1.5 rounded-lg transition ${
-                        !hasOrders
-                          ? "text-slate-400 cursor-not-allowed"
-                          : activeTab === "CONFIRMED"
-                            ? "bg-[#233762] text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900 cursor-pointer"
-                      }`}
-                    >
-                      Confirmadas ({batchData?.metrics.confirmed_100 || 0})
-                    </button>
-                  </div>
-
-                  {/* Selector aparte tipo toggle para Solo Ida / Solo Retorno (combinable con el estado) */}
-                  <div
-                    className={`flex items-center gap-1.5 text-xs font-semibold transition-opacity ${
-                      !hasOrders ? "opacity-50" : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      disabled={!hasOrders}
-                      onClick={() =>
-                        setOrderTypeFilter((prev) => (prev === "OUTBOUND" ? "ALL" : "OUTBOUND"))
-                      }
-                      title={
-                        orderTypeFilter === "OUTBOUND"
-                          ? "Quitar filtro de Solo Ida (mostrar ambos)"
-                          : "Filtrar solo órdenes de Ida (Entrega)"
-                      }
-                      className={`px-3 py-1.5 rounded-xl border transition ${
-                        !hasOrders
-                          ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                          : orderTypeFilter === "OUTBOUND"
-                            ? "border-[#233762] bg-[#233762] text-white cursor-pointer"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 cursor-pointer"
-                      }`}
-                    >
-                      Solo Ida ({outboundCount})
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!hasOrders}
-                      onClick={() =>
-                        setOrderTypeFilter((prev) => (prev === "RETURN" ? "ALL" : "RETURN"))
-                      }
-                      title={
-                        orderTypeFilter === "RETURN"
-                          ? "Quitar filtro de Solo Retorno (mostrar ambos)"
-                          : "Filtrar solo órdenes de Retorno (-1)"
-                      }
-                      className={`px-3 py-1.5 rounded-xl border transition ${
-                        !hasOrders
-                          ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                          : orderTypeFilter === "RETURN"
-                            ? "border-[#233762] bg-[#233762] text-white cursor-pointer"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 cursor-pointer"
-                      }`}
-                    >
-                      Solo Retorno ({returnCount})
-                    </button>
-                  </div>
-                </div>
-
-                {/* Botón para eliminar órdenes seleccionadas + Buscador */}
-                <div className="flex flex-wrap items-center gap-2.5 flex-1 justify-end">
-                  <button
-                    type="button"
-                    onClick={handleRequestDeleteSelectedOrders}
-                    disabled={!hasOrders || selectedOrderIds.size === 0}
-                    title="Eliminar órdenes seleccionadas del lote para que no se procesen"
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
-                      selectedOrderIds.size > 0
-                        ? "border-red-200 bg-red-50 text-[#CE3A39] hover:bg-red-100 cursor-pointer"
-                        : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
-                    }`}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>
-                      Eliminar seleccionadas {selectedOrderIds.size > 0 ? `(${selectedOrderIds.size})` : ""}
-                    </span>
-                  </button>
-
-                  <div className="relative flex-1 min-w-[220px] max-w-xs">
-                    <Search
-                      className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
-                        !hasOrders ? "text-slate-300" : "text-slate-400"
-                      }`}
-                    />
-                    <input
-                      type="text"
-                      disabled={!hasOrders}
-                      placeholder={
-                        hasOrders ? "Buscar RITM, empleado, CP, teléfono..." : "Sin órdenes para buscar..."
-                      }
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#233762] text-white font-semibold uppercase tracking-wider text-[11px]">
-                      <th className="py-3 px-3 w-10 text-center select-none">
-                        <input
-                          type="checkbox"
-                          disabled={!hasOrders || filteredOrders.length === 0}
-                          checked={
-                            filteredOrders.length > 0 &&
-                            filteredOrders.every((o) => selectedOrderIds.has(o.order_id))
-                          }
-                          onChange={handleToggleSelectAllOrders}
-                          className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
-                          aria-label="Seleccionar todas las órdenes"
-                        />
-                      </th>
-                      <th className="py-3 px-3">Orden</th>
-                      <th className="py-3 px-3">Estado y motivo</th>
-                      <th className="py-3 px-3">Destinatario / Tel.</th>
-                      <th className="py-3 px-3">Dirección</th>
-                      <th className="py-3 px-3">CP / Ciudad</th>
-                      <th className="py-3 px-3 text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {filteredOrders.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
-                          {batchData
-                            ? "No hay órdenes que coincidan con los filtros seleccionados."
-                            : "No hay ningún lote cargado. Sube un archivo SCTASK para comenzar."}
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredOrders.map((order) => {
-                        const isError = order.status_semaphore === "ROJO";
-                        const isWarning = order.status_semaphore === "AMARILLO";
-                        const isGreen = order.status_semaphore === "VERDE";
-
-                        const isSelected = selectedOrderIds.has(order.order_id);
-                        const incidentTooltip =
-                          order.incidents && order.incidents.length > 0
-                            ? order.incidents.join(" | ")
-                            : isGreen
-                              ? "Dirección 100% confirmada en SEPOMEX"
-                              : order.status_text;
-
-                        // Extraer motivo concreto y legible para mostrar debajo de Bloqueada / Revisar
-                        let reasonText = "";
-                        if (!isGreen) {
-                          const relevantIncidents = (order.incidents || []).filter((inc) =>
-                            isError ? inc.startsWith("[ERROR]") : inc.startsWith("[REVISAR]")
-                          );
-                          const primary = relevantIncidents[0] || (order.incidents || [])[0] || order.status_text || "";
-                          reasonText = primary
-                            .replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/i, "")
-                            .replace(/\s*Opciones oficiales:.*$/i, "")
-                            .replace(/\s*Confirmar con solicitante\.?$/i, "")
-                            .trim();
-                          if (!reasonText && (order.phone.includes("ERROR") || order.phone.length !== 10)) {
-                            reasonText = `Teléfono inválido (${order.phone || "faltante"})`;
-                          }
-                        }
-
-                        const phoneInvalid = order.phone.includes("ERROR") || order.phone.length !== 10;
-
-                        return (
-                          <tr
-                            key={order.order_id}
-                            className={`transition-colors ${
-                              isSelected
-                                ? "bg-slate-100/80 hover:bg-slate-100"
-                                : isError
-                                  ? "bg-red-50/40 hover:bg-red-50/70"
-                                  : "hover:bg-slate-50"
-                            }`}
-                          >
-                            <td className="py-3 px-3 text-center select-none">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleToggleSelectOrder(order.order_id)}
-                                className="w-3.5 h-3.5 rounded text-[#233762] focus:ring-0 cursor-pointer"
-                                aria-label={`Seleccionar orden ${order.order_id}`}
-                              />
-                            </td>
-
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-[#233762]">{order.order_id}</span>
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono text-[9px] font-bold">
-                                  {order.type === "RETURN" ? "RETORNO" : "ENTREGA"}
-                                </span>
-                              </div>
-                              {order.tracking_number ? (
-                                <div
-                                  className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono font-semibold"
-                                  title="Guía Estafeta detectada en Techship y asignada al Cierre"
-                                >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                  <Truck className="w-2.5 h-2.5" />
-                                  <span>{order.tracking_number}</span>
-                                </div>
-                              ) : activeClosingSummary ? (
-                                <div
-                                  className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-[#CE3A39] border border-slate-200 text-[10px] font-mono font-semibold"
-                                  title="Pendiente: aún no se detecta guía timbrada en Techship para esta orden"
-                                >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#CE3A39] shrink-0" />
-                                  <span>Sin guía en Techship</span>
-                                </div>
-                              ) : null}
-                            </td>
-
-                            <td className="py-3 px-3 max-w-[230px]" title={incidentTooltip}>
-                              <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                                <span
-                                  className={`w-2 h-2 rounded-full shrink-0 ${
-                                    isGreen
-                                      ? "bg-emerald-500"
-                                      : isWarning
-                                        ? "bg-amber-500"
-                                        : "bg-[#CE3A39]"
-                                  }`}
-                                />
-                                <span>{isGreen ? "OK" : isWarning ? "Revisar" : "Bloqueada"}</span>
-                              </span>
-                              {reasonText && (
-                                <p
-                                  className={`mt-0.5 text-[11px] leading-snug line-clamp-2 ${
-                                    isError ? "text-[#CE3A39] font-medium" : "text-slate-500"
-                                  }`}
-                                >
-                                  {reasonText}
-                                </p>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-3 whitespace-nowrap" title={order.email || order.recipient_name}>
-                              <div className="font-bold text-slate-800 truncate max-w-[180px]">{order.recipient_name}</div>
-                              <div className="mt-0.5 font-mono text-[11px]">
-                                {phoneInvalid ? (
-                                  <span className="text-[#CE3A39] font-bold">
-                                    Tel: {order.phone || "FALTA"}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-500">{order.phone}</span>
-                                )}
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-3 max-w-[240px]">
-                              <div className="text-slate-800 font-mono text-[11px] truncate font-semibold" title={order.address1}>
-                                {order.address1}
-                              </div>
-                              <div className="text-[11px] text-slate-500 truncate" title={order.address2}>
-                                {order.address2 || "—"}
-                              </div>
-                              {order.address3 && (
-                                <div
-                                  className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 truncate font-mono border border-slate-200"
-                                  title={`Referencias / Int: ${order.address3}`}
-                                >
-                                  Ref: {order.address3}
-                                </div>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <div className="font-mono text-[#233762] font-bold">CP {order.zip}</div>
-                              <div className="text-[11px] text-slate-500 truncate max-w-[160px]" title={`${order.city}, ${order.state}`}>
-                                {order.city}, {order.state}
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <div className="inline-flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEdit(order)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#233762] hover:text-white text-[#233762] border border-[#233762]/30 text-xs font-bold transition cursor-pointer"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                  <span>Corregir</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRequestDeleteSingleOrder(order)}
-                                  title="Eliminar fila del lote (no procesar)"
-                                  aria-label={`Eliminar orden ${order.order_id}`}
-                                  className="p-1.5 rounded-lg bg-white hover:bg-red-50 text-slate-400 hover:text-[#CE3A39] border border-slate-200 hover:border-red-200 transition cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                </section>
               </>
             )}
           </main>
@@ -4573,13 +4801,16 @@ export default function DashboardPage() {
                     <div className="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-xs text-slate-700 space-y-1">
                       {editingOrder.incidents.map((inc, i) => {
                         const isErr = inc.startsWith("[ERROR]");
-                        const cleanInc = inc.replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/i, "");
+                        const cleanInc = inc
+                          .replace(/^\[(ERROR|REVISAR|CORREGIDO)\]\s*/i, "")
+                          .replace(/^Código Postal:\s*El CP\s+\d+\s+no existe.*$/i, "Código postal no existe")
+                          .replace(/\s*Confirmar con solicitante\.?$/i, "")
+                          .trim();
                         return (
-                          <div key={i} className="flex items-start gap-2 leading-snug">
+                          <div key={i} className="flex items-start gap-2 leading-snug" title={inc}>
                             <span
-                              className={`w-2 h-2 rounded-full mt-1 shrink-0 ${
-                                isErr ? "bg-[#CE3A39]" : "bg-amber-500"
-                              }`}
+                              className={`w-2 h-2 rounded-full mt-1 shrink-0 ${isErr ? "bg-[#CE3A39]" : "bg-amber-500"
+                                }`}
                             />
                             <span className={isErr ? "text-[#CE3A39] font-medium" : "text-slate-600"}>
                               {cleanInc}
@@ -4596,11 +4827,10 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-semibold text-slate-600">Teléfono</label>
                         <span
-                          className={`text-[10px] font-mono ${
-                            editFormData.phone.replace(/\D/g, "").length === 10
-                              ? "text-slate-400"
-                              : "text-[#CE3A39] font-bold"
-                          }`}
+                          className={`text-[10px] font-mono ${editFormData.phone.replace(/\D/g, "").length === 10
+                            ? "text-slate-400"
+                            : "text-[#CE3A39] font-bold"
+                            }`}
                         >
                           {editFormData.phone.replace(/\D/g, "").length}/10
                         </span>
