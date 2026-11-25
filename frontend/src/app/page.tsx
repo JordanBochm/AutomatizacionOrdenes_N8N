@@ -422,7 +422,9 @@ export default function DashboardPage() {
     "login" | "hub" | "clientes_asset" | "modules" | "operacion_dia" | "transporte" | "rastreo_envios" | "generador_tracking" | "asset_management" | "csm" | "almacen" | "users" | "roles" | "profile" | "calendario" | "historial"
   >("login");
   const [activeClient, setActiveClient] = useState<ActiveClientFilter>("ALL");
-  const [historyReturnTarget, setHistoryReturnTarget] = useState<"modules" | "operacion_dia">("modules");
+  const [historyReturnTarget, setHistoryReturnTarget] = useState<"modules" | "operacion_dia" | "csm" | "almacen">("modules");
+  const [trackingReturnTarget, setTrackingReturnTarget] = useState<"transporte" | "csm" | "almacen">("transporte");
+  const [calendarReturnTarget, setCalendarReturnTarget] = useState<"modules" | "almacen">("modules");
   const currentClientConfig = isSpecificAssetClient(activeClient)
     ? ASSET_CLIENTS_MAP[activeClient]
     : {
@@ -2285,6 +2287,8 @@ export default function DashboardPage() {
                       } else if (target) {
                         if (target === "historial") {
                           setHistoryReturnTarget("modules");
+                        } else if (target === "calendario") {
+                          setCalendarReturnTarget("modules");
                         }
                         setActiveModule(target);
                       } else {
@@ -2636,6 +2640,9 @@ export default function DashboardPage() {
                         triggerToast(`Módulo ${name} en construcción`, "info");
                         return;
                       }
+                      if (target === "rastreo_envios") {
+                        setTrackingReturnTarget("transporte");
+                      }
                       setActiveModule(target);
                     }}
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
@@ -2693,13 +2700,13 @@ export default function DashboardPage() {
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
             <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
-                {/* Botón para volver a Transporte */}
+                {/* Botón para volver al origen (Transporte, CSM o Almacén) */}
                 <button
                   type="button"
-                  onClick={() => setActiveModule("transporte")}
+                  onClick={() => setActiveModule(trackingReturnTarget)}
                   className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
-                  title="Regresar a Transporte"
-                  aria-label="Regresar a Transporte"
+                  title="Regresar"
+                  aria-label="Regresar"
                 >
                   <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                 </button>
@@ -2800,10 +2807,10 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
-                  onClick={() => setActiveModule("modules")}
+                  onClick={() => setActiveModule(calendarReturnTarget)}
                   className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
-                  title="Regresar a Asset Management"
-                  aria-label="Regresar a Asset Management"
+                  title="Regresar"
+                  aria-label="Regresar"
                 >
                   <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                 </button>
@@ -2833,7 +2840,7 @@ export default function DashboardPage() {
           </header>
 
           <CalendarPlanner
-            onBack={() => setActiveModule("modules")}
+            onBack={() => setActiveModule(calendarReturnTarget)}
             onNavigateHome={() => setActiveModule("hub")}
             activeClient={activeClient}
             onClientChange={(c) => handleSelectClient(c, false)}
@@ -2841,7 +2848,7 @@ export default function DashboardPage() {
         </div>
       ) : activeModule === "csm" ? (
         /* ==================================================================== */
-        /* VISTA CSM (ACCESIBLE PARA ADMIN Y CSM)                              */
+        /* VISTA CSM — HUB DE MÓDULOS ESTANDARIZADO (IGUAL A ASSET MANAGEMENT)   */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
@@ -2873,72 +2880,135 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Customer Service (CSM)
                 </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
+                />
               </div>
             </div>
           </header>
 
-          <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
-                  <Headset className="w-5 h-5" />
-                </span>
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">Customer Service (CSM)</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Mesa de atención para incidencias de entrega, conciliación de reportes y auditoría de servicio.
-                  </p>
-                </div>
+          <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
+            <div className="text-center mt-2 mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+                <span>CSM</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">{currentClientConfig.name}</span>
               </div>
-
-              {canEnterAsset && (
-                <button
-                  type="button"
-                  onClick={() => setActiveModule("asset_management")}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs cursor-pointer self-start sm:self-auto"
-                >
-                  <Zap className="w-4 h-4" />
-                  <span>Ver Asset Management</span>
-                </button>
-              )}
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                Customer Service (CSM)
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Selecciona un módulo operativo para continuar.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
-                  <Headset className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-slate-800 text-sm">Validación de Incidencias</h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  Revisión de órdenes con semáforo amarillo (colonia ambigua) o rojo (bloqueo por código postal o teléfono).
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
-                  <FileSpreadsheet className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-slate-800 text-sm">Cierres Diarios ServiceNow</h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  Descarga y auditoría de Cierre.xlsx para conciliar los números de guía con las tareas de ServiceNow.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center mb-4">
-                  <Truck className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-slate-800 text-sm">Trazabilidad de Envíos</h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  Monitoreo de estatus de guías sincronizadas y reportes de discrepancia para clientes KST.
-                </p>
-              </div>
+            {/* Contenedor de Módulos CSM (Diseño estandarizado: w-[300px] h-[275px]) */}
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
+              {[
+                {
+                  name: "Trazabilidad de envíos",
+                  description: "Monitoreo en vivo de estatus de guías FedEx y Estafeta, entregas e incidencias.",
+                  Icon: Truck,
+                  target: "rastreo_envios" as const,
+                  tone: "navy" as const,
+                },
+                {
+                  name: "Cierres diarios ServiceNow",
+                  description: "Consulta y auditoría de cierres diarios para conciliar guías con tareas de ServiceNow.",
+                  Icon: FileSpreadsheet,
+                  target: "historial" as const,
+                  tone: "red" as const,
+                },
+                {
+                  name: "Reportes y garantías",
+                  description: "Conciliación de devoluciones, garantías Lenovo / Dell y trazabilidad de activos.",
+                  Icon: ShieldCheck,
+                  target: "reportes" as const,
+                  tone: "navy" as const,
+                },
+                {
+                  name: "Validación de incidencias",
+                  description: "Mesa de revisión de órdenes con semáforo amarillo (colonia) o rojo (CP / teléfono).",
+                  Icon: Headset,
+                  target: undefined,
+                  tone: "red" as const,
+                },
+                {
+                  name: "Mesa de ayuda (SOP)",
+                  description: "Manuales, guías de atención y procedimientos operativos de Customer Service.",
+                  Icon: HelpCircle,
+                  target: undefined,
+                  tone: "navy" as const,
+                },
+              ].map(({ name, description, Icon, target, tone }) => {
+                const isActive = Boolean(target);
+                const iconTone =
+                  tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
+                return (
+                  <div
+                    key={name}
+                    onClick={() => {
+                      if (target === "reportes") {
+                        window.location.href = "/reportes";
+                      } else if (target === "historial") {
+                        setHistoryReturnTarget("csm");
+                        setActiveModule("historial");
+                      } else if (target === "rastreo_envios") {
+                        setTrackingReturnTarget("csm");
+                        setActiveModule("rastreo_envios");
+                      } else {
+                        triggerToast(`Módulo ${name} en construcción`, "info");
+                      }
+                    }}
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                  >
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                        : "bg-transparent group-hover:bg-[#233762]/30"
+                        }`}
+                    />
+                    {isActive ? (
+                      <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                        En desarrollo
+                      </span>
+                    )}
+                    <div className="flex flex-col items-center w-full mt-2">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                      >
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
+                    </div>
+                    <span
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                        }`}
+                    >
+                      {isActive ? (
+                        <>
+                          <span>Ingresar al módulo</span>
+                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                        </>
+                      ) : (
+                        <span>En desarrollo</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       ) : activeModule === "almacen" ? (
         /* ==================================================================== */
-        /* VISTA ALMACÉN (ACCESIBLE PARA ADMIN Y ALMACEN)                       */
+        /* VISTA ALMACÉN — HUB DE MÓDULOS ESTANDARIZADO (IGUAL A ASSET MGMT)     */
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
@@ -2970,66 +3040,130 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Almacén Lerma
                 </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
+                />
               </div>
             </div>
           </header>
 
-          <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
-                  <Warehouse className="w-5 h-5" />
-                </span>
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">Almacén Lerma</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Operación física de empaque, picking, verificación de hardware e impresión de etiquetas de paquetería.
-                  </p>
-                </div>
+          <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
+            <div className="text-center mt-2 mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+                <span>Almacén Lerma</span>
+                <span className="text-slate-400">/</span>
+                <span className="text-[#CE3A39] font-bold">{currentClientConfig.name}</span>
               </div>
-
-              {canEnterAsset && (
-                <button
-                  type="button"
-                  onClick={() => setActiveModule("asset_management")}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs cursor-pointer self-start sm:self-auto"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Ver Asset Management</span>
-                </button>
-              )}
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+                Almacén Lerma
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Selecciona un módulo operativo para continuar.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center mb-4">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-slate-800 text-sm">Impresión de Etiquetas PDF</h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  Descarga directa del consolidado de etiquetas térmicas Techship para adherir a los paquetes.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
-                  <Package className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-slate-800 text-sm">Picking y Preparación Física</h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  Revisión física del equipo de computación según número de RITM y par de Retorno (-1).
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
-                  <Truck className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-slate-800 text-sm">Despacho y Salida a Ruta</h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  Manifiesto de recolección y entrega a la unidad de transporte o paquetería local.
-                </p>
-              </div>
+            {/* Contenedor de Módulos Almacén (Diseño estandarizado: w-[300px] h-[275px]) */}
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
+              {[
+                {
+                  name: "Impresión de etiquetas PDF",
+                  description: "Consulta y descarga del consolidado de etiquetas térmicas Techship por día operativo.",
+                  Icon: FileText,
+                  target: "historial" as const,
+                  tone: "red" as const,
+                },
+                {
+                  name: "Despacho y salida a ruta",
+                  description: "Manifiesto de recolección, salida a ruta y seguimiento de guías de paquetería.",
+                  Icon: Truck,
+                  target: "rastreo_envios" as const,
+                  tone: "navy" as const,
+                },
+                {
+                  name: "Calendario de recolecciones",
+                  description: "Agenda de recolecciones programadas (Pickups), citas de entrega y salidas de almacén.",
+                  Icon: Calendar,
+                  target: "calendario" as const,
+                  tone: "red" as const,
+                },
+                {
+                  name: "Picking y preparación física",
+                  description: "Revisión física del equipo de cómputo según número de RITM y par de retorno (-1).",
+                  Icon: Package,
+                  target: undefined,
+                  tone: "navy" as const,
+                },
+                {
+                  name: "Mesa de ayuda (SOP)",
+                  description: "Manuales de empaque, etiquetado y procedimientos operativos de Almacén Lerma.",
+                  Icon: HelpCircle,
+                  target: undefined,
+                  tone: "red" as const,
+                },
+              ].map(({ name, description, Icon, target, tone }) => {
+                const isActive = Boolean(target);
+                const iconTone =
+                  tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
+                return (
+                  <div
+                    key={name}
+                    onClick={() => {
+                      if (target === "historial") {
+                        setHistoryReturnTarget("almacen");
+                        setActiveModule("historial");
+                      } else if (target === "rastreo_envios") {
+                        setTrackingReturnTarget("almacen");
+                        setActiveModule("rastreo_envios");
+                      } else if (target === "calendario") {
+                        setCalendarReturnTarget("almacen");
+                        setActiveModule("calendario");
+                      } else {
+                        triggerToast(`Módulo ${name} en construcción`, "info");
+                      }
+                    }}
+                    className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
+                  >
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
+                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
+                        : "bg-transparent group-hover:bg-[#233762]/30"
+                        }`}
+                    />
+                    {isActive ? (
+                      <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                        En desarrollo
+                      </span>
+                    )}
+                    <div className="flex flex-col items-center w-full mt-2">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
+                      >
+                        <Icon className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
+                      <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
+                    </div>
+                    <span
+                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
+                        }`}
+                    >
+                      {isActive ? (
+                        <>
+                          <span>Ingresar al módulo</span>
+                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                        </>
+                      ) : (
+                        <span>En desarrollo</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
