@@ -561,19 +561,6 @@ export default function ReportesView({
             </Link>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2.5">
-            <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-              {activeSubmodulo === null
-                ? "Reportes"
-                : activeSubmodulo === "devoluciones"
-                ? "Devoluciones de equipos"
-                : activeSubmodulo === "reparacion"
-                ? "Equipos en reparación"
-                : activeSubmodulo === "outbound"
-                ? "Outbound y despacho"
-                : "Reacondicionamiento (Refurb)"}
-            </h1>
-          </div>
         </div>
       </header>
 

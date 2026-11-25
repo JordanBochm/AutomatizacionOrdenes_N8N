@@ -2137,12 +2137,6 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Clientes Asset Management
-                </h1>
-              </div>
             </div>
           </header>
 
@@ -2243,13 +2237,6 @@ export default function DashboardPage() {
                 >
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Asset Management
-                </h1>
-
               </div>
             </div>
           </header>
@@ -2365,13 +2352,6 @@ export default function DashboardPage() {
                 >
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Operación del día
-                </h1>
-
               </div>
             </div>
           </header>
@@ -2513,13 +2493,6 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Generador de Tracking
-                </h1>
-
-              </div>
             </div>
           </header>
 
@@ -2578,13 +2551,6 @@ export default function DashboardPage() {
                 >
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Transporte
-                </h1>
-
               </div>
             </div>
           </header>
@@ -2710,13 +2676,6 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Rastreo de envíos
-                </h1>
-
-              </div>
             </div>
           </header>
 
@@ -2758,13 +2717,6 @@ export default function DashboardPage() {
                 >
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Historial de trackings y cierres
-                </h1>
-
               </div>
             </div>
           </header>
@@ -2808,13 +2760,6 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Calendario de planificaciones y citas
-                </h1>
-
-              </div>
             </div>
           </header>
 
@@ -2853,13 +2798,6 @@ export default function DashboardPage() {
                 >
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Customer Service (CSM)
-                </h1>
-
               </div>
             </div>
           </header>
@@ -2960,13 +2898,6 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Almacén Lerma
-                </h1>
-
-              </div>
             </div>
           </header>
 
@@ -3065,12 +2996,6 @@ export default function DashboardPage() {
                 >
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Gestión de usuarios
-                </h1>
               </div>
             </div>
           </header>
@@ -3370,12 +3295,6 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Roles y permisos (RBAC)
-                </h1>
-              </div>
             </div>
           </header>
 
@@ -3547,12 +3466,6 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Mi perfil
-                </h1>
-              </div>
             </div>
           </header>
 
@@ -3634,13 +3547,6 @@ export default function DashboardPage() {
                 >
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2.5">
-                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                  Automatizador de operación
-                </h1>
-
               </div>
             </div>
           </header>
