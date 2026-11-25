@@ -6,6 +6,7 @@ interface AnimatedLogoProps {
   className?: string;
   cycleDuration?: number; // Duración total del ciclo en segundos (giro conjunto + reposo)
   iconOnly?: boolean; // Solo isotipo (sin letras "SupplyChain MÉXICO")
+  horizontal?: boolean; // Isotipo a la izquierda + tipografía oficial a la derecha
   staticOnly?: boolean; // Sin animación de giro
 }
 
@@ -13,6 +14,7 @@ export default function AnimatedLogo({
   className = "h-14 sm:h-16 w-auto",
   cycleDuration = 6,
   iconOnly = false,
+  horizontal = false,
   staticOnly = false,
 }: AnimatedLogoProps) {
   return (
@@ -49,7 +51,13 @@ export default function AnimatedLogo({
       )}
 
       <svg
-        viewBox={iconOnly ? "396 0 356 248" : "0 0 1140 600"}
+        viewBox={
+          horizontal
+            ? "396 0 1295 248"
+            : iconOnly
+            ? "396 0 356 248"
+            : "0 0 1140 600"
+        }
         role="img"
         aria-label="SupplyChain México"
         className="w-full h-full overflow-visible block"
@@ -89,7 +97,7 @@ export default function AnimatedLogo({
 
         {/* TIPOGRAFÍA OFICIAL SUPPLYCHAIN MÉXICO (ESTÁTICA, NÍTIDA) */}
         {!iconOnly && (
-          <g>
+          <g transform={horizontal ? "translate(803, -237) scale(0.78)" : undefined}>
             {/* "Supply" y "M É X I C O" en Azul Marino #233762 */}
             <path
               fill="#233762"
