@@ -18,7 +18,7 @@ import httpx
 from src.tracking.base import CarrierAdapter, CarrierTimeoutError, now_iso_mx
 from src.tracking.cache import TrackingCache
 from src.tracking.detector import detect_carrier
-from src.tracking.estafeta import EstafetaAdapter
+from src.tracking.estafeta import EstafetaAdapter, map_estafeta_status
 from src.tracking.fedex import FedExAdapter
 from src.tracking.models import (
     TrackingEvent,
@@ -303,6 +303,49 @@ class TestEstafetaNormalization(unittest.TestCase):
         self.assertEqual(p10["inputType"], 0)
         self.assertEqual(p10["itemsSearch"], ["1854667537"])
 
+    def test_mapeo_codigos_pull_tracking_y_no_entregado(self):
+        # Código "01" en WS PullTracking es "Recibido en oficina" -> RECOLECTADO (no ENTREGADO)
+        self.assertEqual(
+            map_estafeta_status("Recibido en oficina", "01"),
+            UnifiedTrackingStatus.RECOLECTADO,
+        )
+        self.assertEqual(map_estafeta_status("", "01"), UnifiedTrackingStatus.RECOLECTADO)
+        # "NO ENTREGADO EN REPARTO" debe ser INCIDENCIA (no ENTREGADO)
+        self.assertEqual(
+            map_estafeta_status("NO ENTREGADO EN REPARTO - DOMICILIO CERRADO", "04"),
+            UnifiedTrackingStatus.INCIDENCIA,
+        )
+        # Códigos 06 y 07 -> ENTREGADO
+        self.assertEqual(map_estafeta_status("", "06"), UnifiedTrackingStatus.ENTREGADO)
+        self.assertEqual(map_estafeta_status("Entregado", "07"), UnifiedTrackingStatus.ENTREGADO)
+
+    def test_sintetiza_evento_desde_status_current_y_receptor(self):
+        payload = {
+            "result": {"success": True, "code": 0, "description": "Ok"},
+            "items": [
+                {
+                    "information": {"waybillCode": "0055987105810101025695"},
+                    "pickupDetails": {"warehouseName": "LERMA"},
+                    "deliveryDetails": {
+                        "destinationName": "MONTERREY",
+                        "deliveryDateTime": "2026-11-25 10:30:00",
+                        "receiverName": "J. PEREZ",
+                    },
+                    "statusCurrent": {
+                        "code": "06",
+                        "spanishName": "Entregado",
+                        "localDateTime": "2026-11-25 10:30:00",
+                        "warehouseName": "MONTERREY",
+                    },
+                    "status": [],
+                }
+            ],
+        }
+        res = self.adapter.normalizar_respuesta("0055987105810101025695", payload)
+        self.assertEqual(res.estatus_general, UnifiedTrackingStatus.ENTREGADO)
+        self.assertEqual(len(res.eventos), 1)
+        self.assertIn("J. PEREZ", res.eventos[0].descripcion)
+
 
 class TestEstafetaSafetyGuard(unittest.TestCase):
     """El WS labelrest (/wayBills) genera guías reales: nunca debe usarse para rastrear."""
@@ -320,6 +363,90 @@ class TestEstafetaSafetyGuard(unittest.TestCase):
         adapter = EstafetaAdapter(client_id="id", client_secret="secret", track_url="")
         adapter.track_url = ""
         self.assertIn("ESTAFETA_TRACK_URL", adapter.missing_config_reason() or "")
+
+    def test_entra_ciam_valida_scope_y_apikey(self):
+        # Si usa ciamlogin.com pero dejó scope legacy "execute", marca falta de scope válido
+        adapter_bad_scope = EstafetaAdapter(
+            client_id="dummy-client-id",
+            client_secret="dummy-secret",
+            api_key="dummy-apikey",
+            auth_url="https://emexternalidpro.ciamlogin.com/tenant-id/oauth2/v2.0/token",
+            oauth_scope="execute",
+            track_url="https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status",
+        )
+        self.assertFalse(adapter_bad_scope.is_configured())
+        self.assertIn("ESTAFETA_TRACK_OAUTH_SCOPE", adapter_bad_scope.missing_config_reason() or "")
+
+        adapter_ok = EstafetaAdapter(
+            client_id="dummy-client-id",
+            client_secret="dummy-secret",
+            api_key="dummy-apikey",
+            auth_url="https://emexternalidpro.ciamlogin.com/tenant-id/oauth2/v2.0/token",
+            oauth_scope="api://dummy-app-id/.default",
+            track_url="https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status",
+        )
+        self.assertTrue(adapter_ok.is_configured())
+
+
+class TestEstafetaEntraPullTrackingFlow(unittest.IsolatedAsyncioTestCase):
+    """Prueba mockeada del flujo OAuth2 Entra CIAM v2.0 + POST WS PullTracking (sin red real)."""
+
+    async def test_flujo_oauth2_ciam_y_headers_apim(self):
+        captured_requests = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_requests.append(request)
+            if "oauth2/v2.0/token" in str(request.url):
+                body_str = request.content.decode("utf-8")
+                assert "grant_type=client_credentials" in body_str
+                assert "scope=api%3A%2F%2Fdummy-app%2F.default" in body_str
+                return httpx.Response(
+                    200,
+                    json={"token_type": "Bearer", "expires_in": 3599, "access_token": "mock_jwt_token"},
+                )
+            if "tracking-item-status" in str(request.url):
+                assert request.headers.get("Authorization") == "Bearer mock_jwt_token"
+                assert request.headers.get("apikey") == "mock_apim_subscription_key"
+                return httpx.Response(
+                    200,
+                    json={
+                        "result": {"success": True, "code": 0, "description": "Ok"},
+                        "items": [
+                            {
+                                "information": {"waybillCode": "0055987105810101025695"},
+                                "pickupDetails": {"warehouseName": "TOLUCA"},
+                                "deliveryDetails": {"destinationName": "CDMX"},
+                                "statusCurrent": {
+                                    "code": "02",
+                                    "spanishName": "En tránsito hacia centro de intercambio",
+                                    "localDateTime": "2026-11-25 09:15:00",
+                                    "warehouseName": "TOLUCA HUB",
+                                },
+                                "status": [],
+                            }
+                        ],
+                    },
+                )
+            return httpx.Response(404)
+
+        adapter = EstafetaAdapter(
+            client_id="mock_client_id",
+            client_secret="mock_client_secret",
+            api_key="mock_apim_subscription_key",
+            auth_url="https://emexternalidpro.ciamlogin.com/mock-tenant/oauth2/v2.0/token",
+            oauth_scope="api://dummy-app/.default",
+            track_url="https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status",
+        )
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            res = await adapter.rastrear("0055987105810101025695", client)
+
+        self.assertEqual(len(captured_requests), 2)
+        self.assertEqual(res.carrier, "ESTAFETA")
+        self.assertEqual(res.estatus_general, UnifiedTrackingStatus.EN_TRANSITO)
+        self.assertEqual(res.origen, "TOLUCA")
+        self.assertEqual(res.destino, "CDMX")
+        self.assertEqual(len(res.eventos), 1)
 
 
 class TestTrackingCache(unittest.TestCase):

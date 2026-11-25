@@ -2,28 +2,31 @@
 """
 estafeta.py
 -----------
-Adaptador para Estafeta API REST (Portal de Desarrolladores / Apigee OAuth2 + API Key).
+Adaptador para Estafeta WS PullTracking REST (Azure APIM `wstrackingitems` +
+Microsoft Entra External ID CIAM OAuth2 v2.0 / Apigee legacy).
 
-Arquitectura de autenticación confirmada:
-  1. OAuth2 Client Credentials:
-     POST {ESTAFETA_AUTH_URL} (ej. https://apiqa.estafeta.com/auth/oauth/v2/token
-     o https://api.estafeta.com/auth/oauth/v2/token)
-     Body (x-www-form-urlencoded):
-       grant_type=client_credentials&client_id=...&client_secret=...&scope=execute
-  2. Consulta de rastreo (Search / WaybillTrack):
+Arquitectura de autenticación productiva confirmada (WS PullTracking):
+  1. OAuth2 v2.0 Client Credentials (Microsoft Entra CIAM):
+     POST {ESTAFETA_TRACK_AUTH_URL}
+       (ej. https://emexternalidpro.ciamlogin.com/<tenant-id>/oauth2/v2.0/token)
+     Body (application/x-www-form-urlencoded):
+       grant_type=client_credentials
+       &client_id=<ESTAFETA_TRACK_CLIENT_ID>
+       &client_secret=<ESTAFETA_TRACK_CLIENT_SECRET>
+       &scope=<ESTAFETA_TRACK_OAUTH_SCOPE>   (ej. api://<app-id>/.default)
+  2. Consulta de rastreo (WS PullTracking - Suscripción wstrackingitems):
      POST {ESTAFETA_TRACK_URL}
+       (ej. https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status)
      Headers:
        Authorization: Bearer <access_token>
-       apikey: <ESTAFETA_API_KEY>
+       apikey: <ESTAFETA_TRACK_API_KEY>
        Content-Type: application/json
+       Accept: application/json
 
-TODO (Verificar en tu contrato del Portal de Desarrolladores de Estafeta):
-  - Confirmar la URL exacta del endpoint de rastreo asignada en tu aplicación Apigee
-    (`ESTAFETA_TRACK_URL` en `.env`), ya que Estafeta publica variantes según versión de cuenta:
-      a) https://wstracking.estafeta.com/v1/waybillTrack (o https://api.estafeta.com/v1/waybillTrack)
-      b) https://csrest.estafeta.com/v1/Tracking/search
-  - Confirmar si tu cuenta requiere enviar `suscriberId`, `login` y `password` dentro del body JSON
-    además del token OAuth2 y el header `apikey` (soportados opcionalmente vía `.env`).
+Variables soportadas en `.env`:
+  - Tiene prioridad `ESTAFETA_TRACK_*` (para no colisionar con credenciales de
+    `ESTAFETA_LABEL_URL` / WS LabelRest si coexisten en `.env`), con fallback
+    automático a `ESTAFETA_*`.
 """
 
 import os
@@ -49,93 +52,125 @@ from src.tracking.models import (
     UnifiedTrackingStatus,
 )
 
+DEFAULT_ESTAFETA_AUTH_URL = "https://apiqa.estafeta.com/auth/oauth/v2/token"
+DEFAULT_ESTAFETA_TRACK_URL = (
+    "https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status"
+)
+
+
+def _read_env(*names: str, default: str = "") -> str:
+    """Devuelve la primera variable de entorno no vacía entre `names`, o `default`."""
+    for name in names:
+        val = os.getenv(name, "").strip()
+        if val:
+            return val
+    return default
+
 
 def map_estafeta_status(
     status_text: Optional[str],
     event_code: Optional[str] = None,
 ) -> UnifiedTrackingStatus:
     """
-    Traduce los estatus y descripciones de Estafeta (español / inglés / códigos)
+    Traduce los estatus y descripciones de Estafeta WS PullTracking (español / inglés / códigos)
     al enum unificado `UnifiedTrackingStatus`.
+    Evalúa primero el texto descriptivo (`INCIDENCIA` antes de `ENTREGADO` para no confundir
+    "NO ENTREGADO" con "ENTREGADO") y usa el código numérico/alfanumérico como respaldo.
     """
     txt = (status_text or "").strip().upper()
     code = (event_code or "").strip().upper()
 
-    # 1. Estatus ENTREGADO
-    if code in ("DL", "ENT", "90", "01") or any(
-        w in txt for w in ("ENTREGADO", "DELIVERED", "ENTREGA CONFIRMADA", "RECIBIO:")
-    ):
-        return UnifiedTrackingStatus.ENTREGADO
+    if txt:
+        # 1. INCIDENCIA / EXCEPCIÓN (antes que ENTREGADO y EN_REPARTO para capturar "NO ENTREGADO...")
+        if any(
+            w in txt
+            for w in (
+                "NO ENTREGADO",
+                "INCIDENCIA",
+                "EXCEPCIÓN",
+                "EXCEPCION",
+                "EXCEPTION",
+                "DOMICILIO CERRADO",
+                "DOMICILIO INCORRECTO",
+                "RECHAZADO",
+                "DEVOLUCIÓN",
+                "DEVOLUCION",
+                "DEVUELTO",
+                "DETENIDO",
+                "SINIESTRO",
+                "DATOS INCOMPLETOS",
+            )
+        ):
+            return UnifiedTrackingStatus.INCIDENCIA
 
-    # 2. Estatus INCIDENCIA / EXCEPCIÓN (se evalúa antes que EN REPARTO para capturar "NO ENTREGADO EN REPARTO")
-    if code in ("EX", "INC", "DEV", "RET") or any(
-        w in txt
-        for w in (
-            "INCIDENCIA",
-            "EXCEPCIÓN",
-            "EXCEPCION",
-            "EXCEPTION",
-            "DOMICILIO CERRADO",
-            "DOMICILIO INCORRECTO",
-            "NO ENTREGADO",
-            "RECHAZADO",
-            "DEVOLUCIÓN",
-            "DEVOLUCION",
-            "DEVUELTO",
-            "DETENIDO",
-            "SINIESTRO",
-            "DATOS INCOMPLETOS",
-        )
-    ):
+        # 2. ENTREGADO
+        if any(
+            w in txt
+            for w in ("ENTREGADO", "DELIVERED", "ENTREGA CONFIRMADA", "RECIBIO:", "RECIBIÓ:")
+        ):
+            return UnifiedTrackingStatus.ENTREGADO
+
+        # 3. EN_REPARTO
+        if any(
+            w in txt
+            for w in (
+                "EN PROCESO DE ENTREGA",
+                "EN REPARTO",
+                "SALIDA A REPARTO",
+                "CON MENSAJERO",
+                "OUT FOR DELIVERY",
+                "EN RUTA DE ENTREGA",
+            )
+        ):
+            return UnifiedTrackingStatus.EN_REPARTO
+
+        # 4. RECOLECTADO
+        if any(
+            w in txt
+            for w in (
+                "RECOLECTADO",
+                "RECOLECCIÓN",
+                "RECOLECCION",
+                "RECIBIDO EN OFICINA",
+                "RECIBIDO POR ESTAFETA",
+                "PICKED UP",
+                "DOCUMENTADO",
+                "GUÍA GENERADA",
+                "GUIA GENERADA",
+            )
+        ):
+            return UnifiedTrackingStatus.RECOLECTADO
+
+        # 5. EN_TRANSITO
+        if any(
+            w in txt
+            for w in (
+                "EN TRÁNSITO",
+                "EN TRANSITO",
+                "IN TRANSIT",
+                "LLEGADA A CENTRO",
+                "SALIDA DE CENTRO",
+                "MOVIMIENTO LOCAL",
+                "CENTRO DE INTERCAMBIO",
+                "CONEXIÓN",
+                "CONEXION",
+                "EN RUTA FORÁNEA",
+                "EN RUTA FORANEA",
+            )
+        ):
+            return UnifiedTrackingStatus.EN_TRANSITO
+
+    # Respaldo por código oficial (WS PullTracking: 01=Recibido, 02=En tránsito, 03=En reparto,
+    # 04/05=Excepción/Devolución, 06/07=Entregado; más códigos legacy)
+    if code in ("EX", "INC", "DEV", "RET", "04", "4", "05", "5"):
         return UnifiedTrackingStatus.INCIDENCIA
-
-    # 3. Estatus EN_REPARTO
-    if code in ("OD", "REP", "80") or any(
-        w in txt
-        for w in (
-            "EN PROCESO DE ENTREGA",
-            "EN REPARTO",
-            "SALIDA A REPARTO",
-            "CON MENSAJERO",
-            "OUT FOR DELIVERY",
-            "EN RUTA DE ENTREGA",
-        )
-    ):
+    if code in ("DL", "ENT", "90", "06", "6", "07", "7"):
+        return UnifiedTrackingStatus.ENTREGADO
+    if code in ("OD", "REP", "80", "03", "3"):
         return UnifiedTrackingStatus.EN_REPARTO
-
-    # 4. Estatus RECOLECTADO
-    if code in ("PU", "REC", "10") or any(
-        w in txt
-        for w in (
-            "RECOLECTADO",
-            "RECOLECCIÓN",
-            "RECOLECCION",
-            "RECIBIDO EN OFICINA",
-            "PICKED UP",
-            "DOCUMENTADO",
-            "GUÍA GENERADA",
-            "GUIA GENERADA",
-        )
-    ):
+    if code in ("PU", "REC", "10", "01", "1"):
         return UnifiedTrackingStatus.RECOLECTADO
-
-    # 5. Estatus EN_TRANSITO
-    if code in ("IT", "TR", "AR", "DP") or any(
-        w in txt
-        for w in (
-            "EN TRÁNSITO",
-            "EN TRANSITO",
-            "IN TRANSIT",
-            "LLEGADA A CENTRO",
-            "SALIDA DE CENTRO",
-            "MOVIMIENTO LOCAL",
-            "CENTRO DE INTERCAMBIO",
-            "CONEXIÓN",
-            "CONEXION",
-            "EN RUTA FORÁNEA",
-            "EN RUTA FORANEA",
-        )
-    ):
+    if code in ("IT", "TR", "AR", "DP", "02", "2"):
         return UnifiedTrackingStatus.EN_TRANSITO
 
     return UnifiedTrackingStatus.DESCONOCIDO
@@ -143,7 +178,8 @@ def map_estafeta_status(
 
 class EstafetaAdapter(CarrierAdapter):
     """
-    Adaptador oficial para Estafeta API REST con OAuth2 Client Credentials + API Key en header.
+    Adaptador oficial para Estafeta WS PullTracking REST (Microsoft Entra CIAM OAuth2 v2.0 +
+    Azure APIM `apikey` header). Soporta recarga en caliente de `.env`.
     """
 
     carrier_name = "ESTAFETA"
@@ -161,37 +197,137 @@ class EstafetaAdapter(CarrierAdapter):
         login_password: Optional[str] = None,
     ):
         load_dotenv(override=True)
-        self.client_id = (client_id if client_id is not None else os.getenv("ESTAFETA_CLIENT_ID", "")).strip()
-        self.client_secret = (
-            client_secret if client_secret is not None else os.getenv("ESTAFETA_CLIENT_SECRET", "")
-        ).strip()
-        self.api_key = (api_key if api_key is not None else os.getenv("ESTAFETA_API_KEY", "")).strip()
-        self.auth_url = (
-            auth_url
-            if auth_url is not None
-            else os.getenv("ESTAFETA_AUTH_URL", "https://apiqa.estafeta.com/auth/oauth/v2/token")
-        ).strip()
-        self.track_url = (
-            track_url
-            if track_url is not None
-            else os.getenv("ESTAFETA_TRACK_URL", "https://apimwstrackingitem.estafeta.com/v1/ws_trackingitems/tracking-item-status")
-        ).strip()
-        self.oauth_scope = (
-            oauth_scope if oauth_scope is not None else os.getenv("ESTAFETA_OAUTH_SCOPE", "execute")
-        ).strip()
+        self._explicit_client_id = client_id
+        self._explicit_client_secret = client_secret
+        self._explicit_api_key = api_key
+        self._explicit_auth_url = auth_url
+        self._explicit_track_url = track_url
+        self._explicit_oauth_scope = oauth_scope
 
-        # Parámetros opcionales de contrato Estafeta (si el endpoint los solicita en el payload)
+        self.client_id = (
+            client_id.strip()
+            if client_id is not None
+            else _read_env("ESTAFETA_TRACK_CLIENT_ID", "ESTAFETA_CLIENT_ID")
+        )
+        self.client_secret = (
+            client_secret.strip()
+            if client_secret is not None
+            else _read_env("ESTAFETA_TRACK_CLIENT_SECRET", "ESTAFETA_CLIENT_SECRET")
+        )
+        self.api_key = (
+            api_key.strip()
+            if api_key is not None
+            else _read_env("ESTAFETA_TRACK_API_KEY", "ESTAFETA_API_KEY")
+        )
+        self.auth_url = (
+            auth_url.strip()
+            if auth_url is not None
+            else _read_env(
+                "ESTAFETA_TRACK_AUTH_URL",
+                "ESTAFETA_AUTH_URL",
+                default=DEFAULT_ESTAFETA_AUTH_URL,
+            )
+        )
+        self.track_url = (
+            track_url.strip()
+            if track_url is not None
+            else _read_env("ESTAFETA_TRACK_URL", default=DEFAULT_ESTAFETA_TRACK_URL)
+        )
+        self.oauth_scope = (
+            oauth_scope.strip()
+            if oauth_scope is not None
+            else _read_env(
+                "ESTAFETA_TRACK_OAUTH_SCOPE",
+                "ESTAFETA_OAUTH_SCOPE",
+                default="execute",
+            )
+        )
+        self.subscription_name = _read_env(
+            "ESTAFETA_TRACK_SUBSCRIPTION", "ESTAFETA_SUBSCRIPTION"
+        )
+
+        # Parámetros opcionales legacy
         self.subscriber_id = (
-            subscriber_id if subscriber_id is not None else os.getenv("ESTAFETA_SUBSCRIBER_ID", "")
-        ).strip()
-        self.login_user = (login_user if login_user is not None else os.getenv("ESTAFETA_LOGIN", "")).strip()
+            subscriber_id.strip()
+            if subscriber_id is not None
+            else _read_env("ESTAFETA_SUBSCRIBER_ID")
+        )
+        self.login_user = (
+            login_user.strip()
+            if login_user is not None
+            else _read_env("ESTAFETA_LOGIN")
+        )
         self.login_password = (
-            login_password if login_password is not None else os.getenv("ESTAFETA_PASSWORD", "")
-        ).strip()
+            login_password.strip()
+            if login_password is not None
+            else _read_env("ESTAFETA_PASSWORD")
+        )
 
         self._access_token: Optional[str] = None
         self._token_expires_at: float = 0.0
         self._token_lock = asyncio.Lock()
+
+    def _refresh_env_if_dynamic(self) -> None:
+        """
+        Recarga dinámicamente las variables desde `.env` cuando el adaptador fue
+        instanciado sin credenciales fijas (singleton de FastAPI), invalidando el
+        token en memoria si cambiaron las credenciales OAuth2.
+        """
+        if (
+            self._explicit_client_id is not None
+            and self._explicit_client_secret is not None
+            and self._explicit_track_url is not None
+        ):
+            return
+
+        load_dotenv(override=True)
+        prev_auth_tuple = (
+            self.client_id,
+            self.client_secret,
+            self.auth_url,
+            self.oauth_scope,
+        )
+
+        if self._explicit_client_id is None:
+            self.client_id = _read_env("ESTAFETA_TRACK_CLIENT_ID", "ESTAFETA_CLIENT_ID")
+        if self._explicit_client_secret is None:
+            self.client_secret = _read_env(
+                "ESTAFETA_TRACK_CLIENT_SECRET", "ESTAFETA_CLIENT_SECRET"
+            )
+        if self._explicit_api_key is None:
+            self.api_key = _read_env("ESTAFETA_TRACK_API_KEY", "ESTAFETA_API_KEY")
+        if self._explicit_auth_url is None:
+            self.auth_url = _read_env(
+                "ESTAFETA_TRACK_AUTH_URL",
+                "ESTAFETA_AUTH_URL",
+                default=DEFAULT_ESTAFETA_AUTH_URL,
+            )
+        if self._explicit_track_url is None:
+            self.track_url = _read_env(
+                "ESTAFETA_TRACK_URL", default=DEFAULT_ESTAFETA_TRACK_URL
+            )
+        if self._explicit_oauth_scope is None:
+            self.oauth_scope = _read_env(
+                "ESTAFETA_TRACK_OAUTH_SCOPE",
+                "ESTAFETA_OAUTH_SCOPE",
+                default="execute",
+            )
+        self.subscription_name = _read_env(
+            "ESTAFETA_TRACK_SUBSCRIPTION", "ESTAFETA_SUBSCRIPTION"
+        )
+
+        new_auth_tuple = (
+            self.client_id,
+            self.client_secret,
+            self.auth_url,
+            self.oauth_scope,
+        )
+        if new_auth_tuple != prev_auth_tuple:
+            self.invalidate_token()
+
+    def _uses_entra_ciam(self) -> bool:
+        u = (self.auth_url or "").lower()
+        return "ciamlogin.com" in u or "microsoftonline.com" in u
 
     def has_credentials(self) -> bool:
         """True si las credenciales OAuth2 (client_id + client_secret) están presentes."""
@@ -208,26 +344,37 @@ class EstafetaAdapter(CarrierAdapter):
 
     def missing_config_reason(self) -> Optional[str]:
         """Devuelve un mensaje en español explicando qué falta para rastrear en vivo, o None si está completo."""
+        self._refresh_env_if_dynamic()
         if not self.has_credentials():
-            return "Las credenciales OAuth2 de Estafeta (ESTAFETA_CLIENT_ID / ESTAFETA_CLIENT_SECRET) no están configuradas en .env."
+            return (
+                "Las credenciales OAuth2 de Estafeta (ESTAFETA_TRACK_CLIENT_ID / "
+                "ESTAFETA_TRACK_CLIENT_SECRET) no están configuradas en .env."
+            )
         if not self.track_url:
             return (
-                "Credenciales de Estafeta válidas, pero falta la URL del servicio de RASTREO (ESTAFETA_TRACK_URL). "
-                "Las credenciales recibidas corresponden al WS labelrest (generación de guías); solicita a Estafeta "
-                "habilitar el WS de Tracking para este mismo ClientId."
+                "Credenciales de Estafeta presentes, pero falta la URL del servicio de RASTREO "
+                "(ESTAFETA_TRACK_URL)."
             )
         if self._is_label_endpoint(self.track_url):
             return (
                 "ESTAFETA_TRACK_URL apunta al WS labelrest (/wayBills), que genera guías reales con costo. "
-                "Configura la URL del servicio de rastreo de Estafeta."
+                "Configura la URL del servicio WS PullTracking (tracking-item-status)."
             )
+        if self._uses_entra_ciam():
+            if not self.api_key:
+                return (
+                    "Falta ESTAFETA_TRACK_API_KEY (Apikey de la suscripción wstrackingitems) en .env "
+                    "para autenticar contra Azure APIM de Estafeta."
+                )
+            if not self.oauth_scope or self.oauth_scope.lower() == "execute":
+                return (
+                    "Falta ESTAFETA_TRACK_OAUTH_SCOPE válido (ej. api://<app-id>/.default) para "
+                    "obtener el token OAuth2 v2.0 en Microsoft Entra CIAM de Estafeta."
+                )
         return None
 
     def is_configured(self) -> bool:
-        """True solo si hay credenciales y una URL de rastreo válida (distinta de labelrest)."""
-        load_dotenv(override=True)
-        if not self.track_url:
-            self.track_url = os.getenv("ESTAFETA_TRACK_URL", "").strip()
+        """True solo si hay credenciales completas y una URL de rastreo válida (distinta de labelrest)."""
         return self.missing_config_reason() is None
 
     def invalidate_token(self) -> None:
@@ -236,8 +383,10 @@ class EstafetaAdapter(CarrierAdapter):
 
     async def autenticar(self, client: httpx.AsyncClient) -> str:
         """
-        Obtiene o renueva el token OAuth2 de Estafeta Apigee (`grant_type=client_credentials`).
+        Obtiene o renueva el token OAuth2 de Estafeta (Microsoft Entra External ID CIAM v2.0
+        o Apigee) usando `grant_type=client_credentials`.
         """
+        self._refresh_env_if_dynamic()
         now = time.monotonic()
         if self._access_token and now < self._token_expires_at:
             return self._access_token
@@ -249,7 +398,8 @@ class EstafetaAdapter(CarrierAdapter):
 
             if not self.has_credentials():
                 raise CarrierAuthError(
-                    "ESTAFETA", "ESTAFETA_CLIENT_ID o ESTAFETA_CLIENT_SECRET no configurados en .env"
+                    "ESTAFETA",
+                    "ESTAFETA_TRACK_CLIENT_ID o ESTAFETA_TRACK_CLIENT_SECRET no configurados en .env",
                 )
 
             form_data = {
@@ -264,7 +414,10 @@ class EstafetaAdapter(CarrierAdapter):
                 resp = await client.post(
                     self.auth_url,
                     data=form_data,
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    headers={
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "application/json",
+                    },
                 )
             except httpx.TimeoutException as exc:
                 logger.warning("Timeout al autenticar con Estafeta OAuth2")
@@ -273,9 +426,20 @@ class EstafetaAdapter(CarrierAdapter):
                 logger.warning("Error de red al autenticar con Estafeta: %s", type(exc).__name__)
                 raise CarrierUnavailableError("ESTAFETA") from exc
 
-            if resp.status_code in (401, 403):
-                logger.error("Credenciales OAuth2 rechazadas por Estafeta (HTTP %s)", resp.status_code)
-                raise CarrierAuthError("ESTAFETA", f"HTTP {resp.status_code}")
+            if resp.status_code in (400, 401, 403):
+                oauth_err = ""
+                try:
+                    err_json = resp.json()
+                    if isinstance(err_json, dict) and err_json.get("error"):
+                        oauth_err = f" - {err_json.get('error')}"
+                except Exception:
+                    pass
+                logger.error(
+                    "Credenciales OAuth2 rechazadas por Estafeta (HTTP %s%s)",
+                    resp.status_code,
+                    oauth_err,
+                )
+                raise CarrierAuthError("ESTAFETA", f"HTTP {resp.status_code}{oauth_err}")
             if resp.status_code == 429:
                 raise CarrierQuotaExceededError("ESTAFETA")
             if resp.status_code >= 500:
@@ -313,15 +477,20 @@ class EstafetaAdapter(CarrierAdapter):
 
     async def rastrear(self, guia: str, client: httpx.AsyncClient) -> TrackingResult:
         """
-        Consulta el rastreo de una guía en la API REST de Estafeta.
-        Envía `Authorization: Bearer <token>` y `apikey: <ESTAFETA_API_KEY>`.
+        Consulta el rastreo de una guía en WS PullTracking REST de Estafeta.
+        Envía `Authorization: Bearer <token>` y `apikey: <ESTAFETA_TRACK_API_KEY>`.
         """
+        self._refresh_env_if_dynamic()
         if self._is_label_endpoint(self.track_url):
-            raise CarrierAuthError("ESTAFETA", "ESTAFETA_TRACK_URL apunta a labelrest (generación de guías); se bloqueó la consulta.")
+            raise CarrierAuthError(
+                "ESTAFETA",
+                "ESTAFETA_TRACK_URL apunta a labelrest (generación de guías); se bloqueó la consulta.",
+            )
 
         token = await self.autenticar(client)
         effective_api_key = self.api_key or self.client_id
         payload = self._build_request_payload(guia)
+        include_ocp_header = False
 
         for attempt in range(2):
             headers = {
@@ -330,6 +499,9 @@ class EstafetaAdapter(CarrierAdapter):
                 "Content-Type": "application/json",
                 "Accept": "application/json",
             }
+            if include_ocp_header:
+                headers["Ocp-Apim-Subscription-Key"] = effective_api_key
+
             try:
                 resp = await client.post(self.track_url, json=payload, headers=headers)
             except httpx.TimeoutException as exc:
@@ -340,13 +512,29 @@ class EstafetaAdapter(CarrierAdapter):
                 raise CarrierUnavailableError("ESTAFETA") from exc
 
             if resp.status_code == 401 and attempt == 0:
-                logger.info("Token Estafeta expirado (HTTP 401), renovando automáticamente...")
+                resp_text_lower = (resp.text or "").lower()
+                if "ocp-apim-subscription-key" in resp_text_lower and not include_ocp_header:
+                    include_ocp_header = True
+                    continue
+                logger.info("Token Estafeta expirado o rechazado (HTTP 401), renovando...")
                 self.invalidate_token()
                 token = await self.autenticar(client)
                 continue
 
             if resp.status_code in (401, 403):
-                raise CarrierAuthError("ESTAFETA", f"HTTP {resp.status_code}")
+                detail = f"HTTP {resp.status_code}"
+                try:
+                    err_j = resp.json()
+                    if isinstance(err_j, dict) and err_j.get("message"):
+                        detail = f"HTTP {resp.status_code}: {err_j.get('message')}"
+                except Exception:
+                    pass
+                raise CarrierAuthError("ESTAFETA", detail)
+            if resp.status_code == 404:
+                raise CarrierUnavailableError(
+                    "ESTAFETA",
+                    f"(HTTP 404 en {self.track_url} — verifica la ruta de ESTAFETA_TRACK_URL)",
+                )
             if resp.status_code == 429:
                 raise CarrierQuotaExceededError("ESTAFETA")
             if resp.status_code >= 500:
@@ -557,8 +745,49 @@ class EstafetaAdapter(CarrierAdapter):
                 )
             )
 
+        # Si el arreglo `status`/`histories` vino vacío pero `statusCurrent` sí trae datos,
+        # sintetizar el evento actual para no dejar la tabla ni el drawer en blanco.
+        if not eventos and isinstance(status_current, dict) and raw_status:
+            sc_dt = (
+                status_current.get("localDateTime")
+                or status_current.get("eventDateTime")
+                or status_current.get("dateTime")
+                or ""
+            )
+            sc_dt_str = str(sc_dt).replace("T", " ")[:19] or now_iso_mx()
+            sc_place = (
+                status_current.get("warehouseName")
+                or status_current.get("placeName")
+                or destino
+                or origen
+                or "Estafeta"
+            )
+            eventos.append(
+                TrackingEvent(
+                    fecha=sc_dt_str,
+                    ubicacion=str(sc_place).strip(),
+                    descripcion=str(raw_status).strip(),
+                    estatus=estatus_general,
+                    codigo_raw=str(raw_code) if raw_code else None,
+                )
+            )
+
         # Ordenar eventos descendente por fecha (más reciente arriba)
         eventos.sort(key=lambda e: e.fecha, reverse=True)
+
+        # Enriquecer con nombre de quien recibió si Estafeta lo reporta en deliveryDetails
+        receiver_name = (
+            delivery_data.get("receiverName")
+            or delivery_data.get("receivedBy")
+            or item.get("receiverName")
+        )
+        if (
+            estatus_general == UnifiedTrackingStatus.ENTREGADO
+            and receiver_name
+            and eventos
+            and "recibi" not in eventos[0].descripcion.lower()
+        ):
+            eventos[0].descripcion = f"{eventos[0].descripcion} - Recibió: {str(receiver_name).strip()}"
 
         if estatus_general == UnifiedTrackingStatus.DESCONOCIDO and eventos:
             estatus_general = eventos[0].estatus
