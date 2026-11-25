@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Truck,
   Search,
@@ -21,6 +21,8 @@ import {
   Filter,
   ShieldAlert,
   ChevronRight,
+  ChevronDown,
+  MoreHorizontal,
   Info,
   Eye,
 } from "lucide-react";
@@ -156,6 +158,22 @@ function getStandardRastreoFileName(ext: "xlsx" | "csv" | "pdf"): string {
   const dia = String(now.getDate()).padStart(2, "0");
   const mes = MESES[now.getMonth()] || "Mes";
   return `RASTREO_${dia}_${mes}.${ext}`;
+}
+
+const SHORT_MONTHS_ES = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "oct", "nov", "dic",
+];
+
+function formatShortTrackingDate(rawDate?: string | null): string {
+  if (!rawDate) return "";
+  const match = String(rawDate).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(rawDate).trim();
+  const monthIdx = parseInt(match[2], 10) - 1;
+  const dayNum = parseInt(match[3], 10);
+  const shortMonth = SHORT_MONTHS_ES[monthIdx];
+  if (!shortMonth || Number.isNaN(dayNum)) return String(rawDate).slice(0, 10);
+  return `${dayNum} ${shortMonth}`;
 }
 
 /**
@@ -559,6 +577,60 @@ export default function TransportTracker({
 
   // Historial reciente en localStorage
   const [recentGuides, setRecentGuides] = useState<RecentGuideItem[]>([]);
+
+  // Estados mínimos de UI para menús desplegables y autoajuste de textarea
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState<boolean>(false);
+  const [recentsMenuOpen, setRecentsMenuOpen] = useState<boolean>(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState<boolean>(false);
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState<boolean>(false);
+  const [confirmClearAll, setConfirmClearAll] = useState<boolean>(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const moreOptionsRef = useRef<HTMLDivElement | null>(null);
+  const recentsMenuRef = useRef<HTMLDivElement | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const statusPopoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 56), 168)}px`;
+  }, [rawInput]);
+
+  useEffect(() => {
+    if (!moreOptionsOpen && !recentsMenuOpen && !actionsMenuOpen && !statusPopoverOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (moreOptionsOpen && moreOptionsRef.current && !moreOptionsRef.current.contains(target)) {
+        setMoreOptionsOpen(false);
+      }
+      if (recentsMenuOpen && recentsMenuRef.current && !recentsMenuRef.current.contains(target)) {
+        setRecentsMenuOpen(false);
+      }
+      if (actionsMenuOpen && actionsMenuRef.current && !actionsMenuRef.current.contains(target)) {
+        setActionsMenuOpen(false);
+        setConfirmClearAll(false);
+      }
+      if (statusPopoverOpen && statusPopoverRef.current && !statusPopoverRef.current.contains(target)) {
+        setStatusPopoverOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMoreOptionsOpen(false);
+        setRecentsMenuOpen(false);
+        setActionsMenuOpen(false);
+        setStatusPopoverOpen(false);
+        setConfirmClearAll(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [moreOptionsOpen, recentsMenuOpen, actionsMenuOpen, statusPopoverOpen]);
 
   // Captura del historial de Asset Management (trackings del día)
   const { captureTrackings } = useHistoryCapture(userEmail);
@@ -1048,685 +1120,955 @@ export default function TransportTracker({
     }
   };
 
-  return (
-    <main className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col gap-8">
-      {/* ==================================================================== */}
-      {/* ZONA 1: KPIs Y ESTADO DE CONEXIÓN DE CARRIERS                        */}
-      {/* ==================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <button
-          type="button"
-          onClick={() => setStatusFilter("ALL")}
-          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
-            statusFilter === "ALL" ? "border-[#233762] ring-2 ring-[#233762]/15" : "border-slate-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              Guías Consultadas
-            </span>
-            <span className="w-2 h-2 rounded-full bg-[#233762]" />
-          </div>
-          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">{metrics.total}</p>
-          <p className="text-xs text-slate-400 mt-1">Clic para mostrar todas las guías</p>
-        </button>
+  const hasResultsOrLoading = results.length > 0 || isBatchLoading;
+  const hasMultipleCarriers = useMemo(
+    () => new Set(results.map((r) => r.carrier)).size > 1,
+    [results]
+  );
 
-        <button
-          type="button"
-          onClick={() => setStatusFilter("ENTREGADO")}
-          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
-            statusFilter === "ENTREGADO" ? "border-[#233762] ring-2 ring-[#233762]/15" : "border-slate-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Entregados</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          </div>
-          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">{metrics.entregados}</p>
-          <p className="text-xs text-slate-400 mt-1">Envíos finalizados con éxito</p>
-        </button>
+  const apiTooltipText = carrierConfig
+    ? `Conexión de APIs — FedEx: ${carrierConfig.FEDEX ? "Live" : "Simulador"} · Estafeta: ${
+        carrierConfig.ESTAFETA ? "Live" : "Simulador"
+      }`
+    : "Verificando estado de conexión con FedEx y Estafeta...";
 
-        <button
-          type="button"
-          onClick={() => setStatusFilter("EN_TRANSITO")}
-          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
-            statusFilter === "EN_TRANSITO" ? "border-[#233762] ring-2 ring-[#233762]/15" : "border-slate-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              En Tránsito / Reparto
-            </span>
-            <span className="w-2 h-2 rounded-full bg-[#233762]" />
-          </div>
-          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">{metrics.enRuta}</p>
-          <p className="text-xs text-slate-400 mt-1">Unidades en movimiento activo</p>
-        </button>
+  const apiAllLive = Boolean(carrierConfig?.FEDEX && carrierConfig?.ESTAFETA);
+  const apiAnyLive = Boolean(carrierConfig?.FEDEX || carrierConfig?.ESTAFETA);
 
-        <button
-          type="button"
-          onClick={() => setStatusFilter("DELAYED_OR_ISSUE")}
-          className={`bg-white rounded-2xl border p-5 text-left transition shadow-sm hover:border-[#233762]/40 cursor-pointer ${
-            statusFilter === "DELAYED_OR_ISSUE"
-              ? "border-[#233762] ring-2 ring-[#233762]/15"
-              : "border-slate-200"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              Incidencias / Retrasos
-            </span>
-            <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
-          </div>
-          <p className="text-4xl font-bold text-[#233762] mt-2 font-mono">
-            {metrics.incidenciasORetrasos}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">Excepciones o fecha estimada vencida</p>
-        </button>
-      </div>
+  const inlineDetectedText = useMemo(() => {
+    if (inputPreviewSummary.total === 0) return "";
+    const parts: string[] = [];
+    if (
+      inputPreviewSummary.fedex === inputPreviewSummary.total &&
+      inputPreviewSummary.estafeta === 0 &&
+      inputPreviewSummary.ambiguo === 0
+    ) {
+      parts.push("FedEx");
+    } else if (
+      inputPreviewSummary.estafeta === inputPreviewSummary.total &&
+      inputPreviewSummary.fedex === 0 &&
+      inputPreviewSummary.ambiguo === 0
+    ) {
+      parts.push("Estafeta");
+    } else {
+      if (inputPreviewSummary.fedex > 0) parts.push(`${inputPreviewSummary.fedex} FedEx`);
+      if (inputPreviewSummary.estafeta > 0) parts.push(`${inputPreviewSummary.estafeta} Estafeta`);
+      if (inputPreviewSummary.ambiguo > 0) parts.push(`${inputPreviewSummary.ambiguo} por autodetectar`);
+    }
+    const countLabel = `${inputPreviewSummary.total} ${
+      inputPreviewSummary.total === 1 ? "guía" : "guías"
+    }`;
+    return parts.length > 0 ? `${countLabel} · ${parts.join(", ")}` : countLabel;
+  }, [inputPreviewSummary]);
 
-      {/* ==================================================================== */}
-      {/* ZONA 2: BARRA DE BÚSQUEDA ÚNICA MULTI-GUÍA + LOTES ACTIVOS           */}
-      {/* ==================================================================== */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div>
-            <h2 className="text-sm font-bold text-[#233762] flex items-center gap-2">
-              <Search className="w-4 h-4 text-[#CE3A39]" />
-              <span>Rastreo Inteligente de Guías (FedEx y Estafeta)</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Pega una o hasta 50 guías separadas por salto de línea, coma o espacio. El sistema detecta el carrier automáticamente.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Indicadores de conexión API de cada Carrier */}
-            {carrierConfig && (
-              <div className="hidden xl:flex items-center gap-2 mr-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-[11px]">
-                <span className="text-slate-500 font-semibold">APIs:</span>
-                <span className="inline-flex items-center gap-1 font-mono font-bold text-slate-700">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      carrierConfig.FEDEX ? "bg-emerald-500" : "bg-slate-400"
-                    }`}
-                  />
-                  FedEx {carrierConfig.FEDEX ? "Live" : "Simulador"}
-                </span>
-                <span className="text-slate-300">|</span>
-                <span className="inline-flex items-center gap-1 font-mono font-bold text-slate-700">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      carrierConfig.ESTAFETA ? "bg-emerald-500" : "bg-slate-400"
-                    }`}
-                  />
-                  Estafeta {carrierConfig.ESTAFETA ? "Live" : "Simulador"}
-                </span>
-              </div>
-            )}
-
-            {/* Botón para rastrear el lote activo del día si tiene guías */}
-            {activeBatchGuides.length > 0 && (
-              <button
-                type="button"
-                onClick={handleTrackActiveBatch}
-                disabled={isBatchLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EFF3F9] hover:bg-slate-200/80 text-[#233762] border border-[#233762]/20 text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                title="Rastrear todas las guías del lote activo en Automatizador de Operación"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#CE3A39]" />
-                <span>Rastrear lote actual ({activeBatchGuides.length})</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleLoadDemoGuides}
-              disabled={isBatchLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
-              title="Cargar 5 guías de ejemplo de FedEx y Estafeta para probar estados y línea de tiempo"
+  const renderCaptureSection = (centeredEmpty: boolean) => (
+    <section
+      className={`bg-white rounded-2xl border border-slate-200 shadow-xs ${
+        centeredEmpty ? "p-6 sm:p-8 w-full max-w-3xl mx-auto" : "p-4 sm:p-5"
+      }`}
+    >
+      {/* Encabezado discreto: punto de estado de APIs + menú Recientes */}
+      <div className="flex items-center justify-between gap-3 mb-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          {carrierConfig && (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs text-slate-500 select-none"
+              title={apiTooltipText}
+              aria-label={apiTooltipText}
             >
-              <Truck className="w-3.5 h-3.5 text-[#233762]" />
-              <span>Probar guías ejemplo</span>
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmitSearch} className="flex flex-col lg:flex-row gap-3 items-stretch">
-          <div className="relative flex-1">
-            <textarea
-              rows={2}
-              value={rawInput}
-              onChange={(e) => setRawInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  handleSubmitSearch();
-                }
-              }}
-              placeholder="Ejemplo: 879388663139, 0055987105810101025695 (puedes pegar una columna directa desde Excel)..."
-              className="w-full rounded-xl border border-slate-300 bg-slate-50/60 focus:bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#233762]/20 focus:border-[#233762] transition resize-y"
-            />
-            {rawInput && (
-              <button
-                type="button"
-                onClick={() => setRawInput("")}
-                className="absolute top-2.5 right-2.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition cursor-pointer"
-                title="Limpiar entrada"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
-            <div className="flex flex-col justify-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 min-w-[175px]">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Carrier
-              </label>
-              <select
-                value={forcedCarrier}
-                onChange={(e) => setForcedCarrier(e.target.value)}
-                className="text-xs font-bold text-[#233762] bg-transparent focus:outline-none cursor-pointer mt-0.5"
-              >
-                <option value="AUTO">Autodetectar (Recomendado)</option>
-                <option value="FEDEX">Forzar FedEx</option>
-                <option value="ESTAFETA">Forzar Estafeta</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isBatchLoading || parsedInputGuides.length === 0}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#233762] hover:bg-[#1b2b4d] text-white text-xs font-bold shadow-sm transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed min-w-[160px]"
-            >
-              <RefreshCw className={`w-4 h-4 ${isBatchLoading ? "animate-spin" : ""}`} />
-              <span>
-                {isBatchLoading
-                  ? "Rastreando..."
-                  : parsedInputGuides.length > 0
-                  ? `Rastrear (${Math.min(parsedInputGuides.length, MAX_BATCH_SIZE)})`
-                  : "Rastrear Guías"}
-              </span>
-            </button>
-          </div>
-        </form>
-
-        {/* Vista previa instantánea de detección + Historial reciente */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100 text-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            {inputPreviewSummary.total > 0 ? (
-              <>
-                <span className="text-[11px] font-bold text-slate-500">
-                  Detectadas ({inputPreviewSummary.total}):
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  apiAllLive ? "bg-emerald-500" : apiAnyLive ? "bg-emerald-500" : "bg-slate-400"
+                }`}
+              />
+              {centeredEmpty && (
+                <span className="font-medium text-slate-600">
+                  Rastrea tus envíos de FedEx y Estafeta en segundos
                 </span>
-                {inputPreviewSummary.fedex > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px] font-bold border border-slate-200">
-                    {inputPreviewSummary.fedex} FedEx
-                  </span>
-                )}
-                {inputPreviewSummary.estafeta > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px] font-bold border border-slate-200">
-                    {inputPreviewSummary.estafeta} Estafeta
-                  </span>
-                )}
-                {inputPreviewSummary.ambiguo > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-bold border border-slate-300">
-                    {inputPreviewSummary.ambiguo} Ambigua(s) (se probarán ambos)
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-[11px] text-slate-400">
-                Tip: Presiona <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded font-mono text-[10px]">Ctrl + Enter</kbd> para consultar rápidamente.
-              </span>
-            )}
-          </div>
-
-          {/* Chips de historial reciente en localStorage */}
-          {recentGuides.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-semibold mr-1">
-                <History className="w-3 h-3" />
-                Recientes:
-              </span>
-              {recentGuides.slice(0, 5).map((item) => (
-                <button
-                  key={item.guia}
-                  type="button"
-                  onClick={() => executeBatchTracking([item.guia], item.carrier, false)}
-                  className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-[#EFF3F9] text-slate-700 hover:text-[#233762] border border-slate-200 text-[11px] font-mono transition cursor-pointer"
-                  title={`Volver a consultar ${item.guia} (${item.carrier})`}
-                >
-                  {item.guia}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={clearRecentHistory}
-                className="text-[11px] text-slate-400 hover:text-[#CE3A39] ml-1 underline cursor-pointer"
-                title="Borrar historial reciente guardado en este navegador"
-              >
-                Limpiar
-              </button>
-            </div>
+              )}
+            </span>
+          )}
+          {!carrierConfig && centeredEmpty && (
+            <span className="text-xs font-medium text-slate-600">
+              Rastrea tus envíos de FedEx y Estafeta en segundos
+            </span>
+          )}
+          {!centeredEmpty && (
+            <span className="text-xs font-semibold text-slate-500">Agregar o consultar guías</span>
           )}
         </div>
-      </section>
+
+        {/* Enlace desplegable "Recientes" */}
+        {recentGuides.length > 0 && (
+          <div ref={recentsMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setRecentsMenuOpen((prev) => !prev)}
+              aria-expanded={recentsMenuOpen}
+              aria-haspopup="menu"
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-[#233762] transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762] rounded-md px-1.5 py-0.5"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>Recientes ({recentGuides.length})</span>
+              <ChevronDown
+                className={`w-3 h-3 transition-transform ${recentsMenuOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {recentsMenuOpen && (
+              <div
+                role="menu"
+                aria-label="Guías consultadas recientemente"
+                className="absolute right-0 mt-1.5 w-64 rounded-xl bg-white border border-slate-200 shadow-lg py-1.5 z-30"
+              >
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  {recentGuides.map((item) => (
+                    <button
+                      key={item.guia}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setRecentsMenuOpen(false);
+                        void executeBatchTracking([item.guia], item.carrier, false);
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center justify-between gap-2 text-xs transition cursor-pointer"
+                    >
+                      <span className="font-mono font-semibold text-[#233762] truncate">
+                        {item.guia}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                        {item.carrier}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 mt-1 pt-1 px-2 flex justify-end">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      clearRecentHistory();
+                      setRecentsMenuOpen(false);
+                    }}
+                    className="px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-[#CE3A39] rounded-md hover:bg-red-50 transition cursor-pointer"
+                  >
+                    Limpiar recientes
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Fila única: textarea autoajustable + selector Auto + botón Rastrear + menú Más opciones */}
+      <form onSubmit={handleSubmitSearch} className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-start">
+        <div className="relative flex-1">
+          <textarea
+            ref={textareaRef}
+            rows={2}
+            value={rawInput}
+            onChange={(e) => setRawInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                void handleSubmitSearch();
+              }
+            }}
+            placeholder="Pega hasta 50 guías (una por línea, coma o espacio)"
+            aria-label="Números de guía a rastrear"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white px-3.5 py-2.5 pr-8 text-xs font-mono text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#233762]/15 focus:border-[#233762] transition resize-none overflow-y-auto"
+          />
+          {rawInput && (
+            <button
+              type="button"
+              onClick={() => setRawInput("")}
+              aria-label="Limpiar texto de guías"
+              className="absolute top-2.5 right-2.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762]"
+              title="Limpiar entrada"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Selector compacto de carrier ("Auto" por defecto) */}
+          <select
+            value={forcedCarrier}
+            onChange={(e) => setForcedCarrier(e.target.value)}
+            aria-label="Seleccionar carrier"
+            title="Detección de carrier (Automático por defecto)"
+            className="h-10 px-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#233762] cursor-pointer"
+          >
+            <option value="AUTO">Auto</option>
+            <option value="FEDEX">FedEx</option>
+            <option value="ESTAFETA">Estafeta</option>
+          </select>
+
+          {/* Acción principal: Rastrear (N) */}
+          <button
+            type="submit"
+            disabled={isBatchLoading || parsedInputGuides.length === 0}
+            className="h-10 inline-flex items-center justify-center gap-2 px-4 sm:px-5 rounded-xl bg-[#233762] hover:bg-[#1b2b4d] text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#233762] whitespace-nowrap"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isBatchLoading ? "animate-spin" : ""}`} />
+            <span>
+              {isBatchLoading
+                ? "Rastreando..."
+                : parsedInputGuides.length > 0
+                ? `Rastrear (${Math.min(parsedInputGuides.length, MAX_BATCH_SIZE)})`
+                : "Rastrear"}
+            </span>
+          </button>
+
+          {/* Menú ⋯ Más opciones */}
+          <div ref={moreOptionsRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setMoreOptionsOpen((prev) => !prev)}
+              aria-label="Más opciones de carga"
+              aria-expanded={moreOptionsOpen}
+              aria-haspopup="menu"
+              title="Más opciones"
+              className="h-10 w-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-[#233762] transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762]"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+
+            {moreOptionsOpen && (
+              <div
+                role="menu"
+                aria-label="Más opciones"
+                className="absolute right-0 mt-1.5 w-60 rounded-xl bg-white border border-slate-200 shadow-lg py-1.5 z-30"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={isBatchLoading || activeBatchGuides.length === 0}
+                  onClick={() => {
+                    setMoreOptionsOpen(false);
+                    void handleTrackActiveBatch();
+                  }}
+                  title={
+                    activeBatchGuides.length > 0
+                      ? "Rastrear las guías del lote activo en Automatizador de operación"
+                      : "No hay un lote activo con números de guía asignados"
+                  }
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-[#233762] flex items-center gap-2.5 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>
+                    Rastrear lote actual
+                    {activeBatchGuides.length > 0 ? ` (${activeBatchGuides.length})` : ""}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={isBatchLoading}
+                  onClick={() => {
+                    setMoreOptionsOpen(false);
+                    void handleLoadDemoGuides();
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-[#233762] flex items-center gap-2.5 transition cursor-pointer disabled:opacity-40"
+                >
+                  <Truck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Probar guías ejemplo</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </form>
+
+      {/* Detección inline discreta: solo visible si hay texto en el textarea */}
+      {inlineDetectedText && (
+        <p className="mt-2 text-[11px] font-mono text-slate-500">{inlineDetectedText}</p>
+      )}
+    </section>
+  );
+
+  return (
+    <main className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-6 flex-1 flex flex-col gap-5">
+      {/* ZONA 1: FILA COMPACTA DE 4 CHIPS KPI */}
+      <div
+        className="flex flex-wrap items-center gap-2"
+        role="group"
+        aria-label="Resumen y filtros rápidos de rastreo"
+      >
+            {(
+              [
+                {
+                  key: "ALL" as const,
+                  label: "Consultadas",
+                  value: metrics.total,
+                  dotClass: "bg-[#233762]",
+                  tooltip: "Mostrar todas las guías consultadas",
+                  isAlert: false,
+                },
+                {
+                  key: "ENTREGADO" as const,
+                  label: "Entregadas",
+                  value: metrics.entregados,
+                  dotClass: "bg-emerald-500",
+                  tooltip: "Envíos finalizados con éxito",
+                  isAlert: false,
+                },
+                {
+                  key: "EN_TRANSITO" as const,
+                  label: "En tránsito",
+                  value: metrics.enRuta,
+                  dotClass: "bg-[#233762]",
+                  tooltip: "Unidades en movimiento activo",
+                  isAlert: false,
+                },
+                {
+                  key: "DELAYED_OR_ISSUE" as const,
+                  label: "Incidencias",
+                  value: metrics.incidenciasORetrasos,
+                  dotClass: metrics.incidenciasORetrasos > 0 ? "bg-[#CE3A39]" : "bg-slate-300",
+                  tooltip: "Excepciones o fecha estimada vencida",
+                  isAlert: metrics.incidenciasORetrasos > 0,
+                },
+              ]
+            ).map((chip) => {
+              const active = statusFilter === chip.key;
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setStatusFilter(chip.key)}
+                  title={chip.tooltip}
+                  aria-pressed={active}
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762] ${
+                    active
+                      ? "bg-[#233762] text-white border-[#233762] font-bold shadow-2xs"
+                      : chip.isAlert
+                      ? "bg-white text-[#CE3A39] border-red-200 hover:border-[#CE3A39]/50 font-semibold"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-[#233762]/40 font-medium"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      active && chip.dotClass === "bg-[#233762]" ? "bg-white" : chip.dotClass
+                    }`}
+                  />
+                  <span>{chip.label}</span>
+                  <span
+                    className={`font-mono font-bold ${
+                      active ? "text-white" : chip.isAlert ? "text-[#CE3A39]" : "text-[#233762]"
+                    }`}
+                  >
+                    {chip.value}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ZONA 2: ÁREA DE CAPTURA COMPACTA */}
+          {renderCaptureSection(false)}
 
       {/* ==================================================================== */}
       {/* ZONA 3: BARRA DE HERRAMIENTAS DE TABLA, FILTROS Y EXPORTACIÓN        */}
       {/* ==================================================================== */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex-1 flex flex-col">
-        <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3">
-          {/* Filtros por Carrier y por Estatus */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/70 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setCarrierFilter("ALL")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                  carrierFilter === "ALL"
-                    ? "bg-[#233762] text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Todos ({results.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setCarrierFilter("FEDEX")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer font-mono ${
-                  carrierFilter === "FEDEX"
-                    ? "bg-[#233762] text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                FEDEX ({results.filter((r) => r.carrier === "FEDEX").length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setCarrierFilter("ESTAFETA")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer font-mono ${
-                  carrierFilter === "ESTAFETA"
-                    ? "bg-[#233762] text-white shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                ESTAFETA ({results.filter((r) => r.carrier === "ESTAFETA").length})
-              </button>
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-xs flex-1 flex flex-col">
+        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          {/* Izquierda: Tabs de Carrier + Buscador con embudo de estatus integrado */}
+          <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
+            <div
+              className="inline-flex items-center p-1 rounded-xl bg-slate-100 text-xs font-semibold"
+              role="tablist"
+              aria-label="Filtrar por paquetería"
+            >
+              {(
+                [
+                  { id: "ALL" as const, label: `Todos (${results.length})` },
+                  {
+                    id: "FEDEX" as const,
+                    label: `FedEx (${results.filter((r) => r.carrier === "FEDEX").length})`,
+                  },
+                  {
+                    id: "ESTAFETA" as const,
+                    label: `Estafeta (${results.filter((r) => r.carrier === "ESTAFETA").length})`,
+                  },
+                ]
+              ).map((tab) => {
+                const active = carrierFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setCarrierFilter(tab.id)}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762] ${
+                      active
+                        ? "bg-[#233762] text-white font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="text-xs font-semibold text-slate-700 bg-transparent focus:outline-none cursor-pointer"
-              >
-                <option value="ALL">Todos los estatus</option>
-                <option value="ENTREGADO">Entregado</option>
-                <option value="EN_TRANSITO">En Tránsito</option>
-                <option value="EN_REPARTO">En Reparto</option>
-                <option value="RECOLECTADO">Recolectado</option>
-                <option value="INCIDENCIA">Solo Incidencias</option>
-                <option value="DELAYED_OR_ISSUE">Incidencias o Retrasados</option>
-                <option value="DESCONOCIDO">Desconocido</option>
-              </select>
-            </div>
-
-            {/* Buscador interno de la tabla */}
-            <div className="relative min-w-[210px]">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            {/* Buscador con botón de filtro (embudo) integrado */}
+            <div ref={statusPopoverRef} className="relative flex-1 min-w-[210px] max-w-xs">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
                 placeholder="Buscar guía, origen, destino..."
-                className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#233762]"
+                aria-label="Buscar en resultados de rastreo"
+                className="w-full pl-8 pr-14 py-1.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#233762] transition"
               />
-              {tableSearch && (
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                {tableSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setTableSearch("")}
+                    aria-label="Limpiar búsqueda"
+                    title="Limpiar búsqueda"
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setTableSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  onClick={() => setStatusPopoverOpen((prev) => !prev)}
+                  aria-label="Filtrar por estatus"
+                  aria-expanded={statusPopoverOpen}
+                  aria-haspopup="listbox"
+                  title="Filtrar por estatus específico"
+                  className={`relative p-1 rounded-lg transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762] ${
+                    statusFilter !== "ALL"
+                      ? "text-[#233762] bg-[#EFF3F9]"
+                      : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                  }`}
                 >
-                  <X className="w-3 h-3" />
+                  <Filter className="w-3.5 h-3.5" />
+                  {statusFilter !== "ALL" && (
+                    <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[#233762]" />
+                  )}
                 </button>
+              </div>
+
+              {statusPopoverOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Seleccionar filtro de estatus"
+                  className="absolute left-0 mt-1.5 w-52 rounded-xl bg-white border border-slate-200 shadow-lg py-1.5 z-30"
+                >
+                  {(
+                    [
+                      { value: "ALL", label: "Todos los estatus" },
+                      { value: "ENTREGADO", label: "Entregado" },
+                      { value: "EN_TRANSITO", label: "En Tránsito" },
+                      { value: "EN_REPARTO", label: "En Reparto" },
+                      { value: "RECOLECTADO", label: "Recolectado" },
+                      { value: "INCIDENCIA", label: "Solo Incidencias" },
+                      { value: "DELAYED_OR_ISSUE", label: "Incidencias o Retrasados" },
+                      { value: "DESCONOCIDO", label: "Desconocido" },
+                    ] as const
+                  ).map((opt) => {
+                    const selected = statusFilter === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => {
+                          setStatusFilter(opt.value as any);
+                          setStatusPopoverOpen(false);
+                        }}
+                        className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between transition cursor-pointer ${
+                          selected
+                            ? "bg-[#EFF3F9] text-[#233762] font-bold"
+                            : "text-slate-700 hover:bg-slate-50 font-medium"
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {selected && <span className="w-1.5 h-1.5 rounded-full bg-[#233762]" />}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Botones Actualizar Todo, Excel Estandarizado, Vista Previa y Generar PDF */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleRefreshAll}
-              disabled={results.length === 0 || isBatchLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] text-xs font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Ignorar caché y consultar nuevamente todas las guías de la tabla"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isBatchLoading ? "animate-spin" : ""}`} />
-              <span>Actualizar todo</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              disabled={filteredResults.length === 0 || isExportingExcel}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-slate-700 hover:text-[#233762] text-xs font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Descargar archivo Excel (.xlsx) con el diseño institucional estandarizado de Tracking"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
-              <span>{isExportingExcel ? "Generando..." : "Excel (.xlsx)"}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleOpenPdfPreview}
-              disabled={filteredResults.length === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-white hover:bg-[#EFF3F9] border border-[#233762] text-[#233762] text-xs font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Abrir vista previa en vivo del PDF estandarizado"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Vista previa</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadPdf}
-              disabled={filteredResults.length === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Descargar PDF oficial con el formato estandarizado de Tracking"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Generar PDF</span>
-            </button>
-
-            {results.length > 0 && (
+            {/* Acción contextual discreta solo cuando hay algún filtro activo */}
+            {(carrierFilter !== "ALL" || statusFilter !== "ALL" || tableSearch.trim() !== "") && (
               <button
                 type="button"
                 onClick={() => {
-                  setResults([]);
-                  setSelectedGuideKey(null);
+                  setCarrierFilter("ALL");
+                  setStatusFilter("ALL");
+                  setTableSearch("");
                 }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] text-xs font-semibold transition cursor-pointer"
-                title="Limpiar tabla de resultados"
+                className="text-xs font-medium text-slate-500 hover:text-[#233762] underline underline-offset-2 cursor-pointer px-1"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                Restablecer filtros
               </button>
             )}
+          </div>
+
+          {/* Derecha: Sello discreto "Actualizado HH:MM" + Menú desplegable "Acciones" */}
+          <div className="flex items-center gap-3">
+            {results[0]?.ultima_actualizacion && (
+              <span
+                className="hidden sm:inline text-[11px] font-mono text-slate-400"
+                title={`Última consulta: ${results[0].ultima_actualizacion}`}
+              >
+                Actualizado{" "}
+                {results[0].ultima_actualizacion.length >= 16
+                  ? results[0].ultima_actualizacion.slice(11, 16)
+                  : results[0].ultima_actualizacion}
+              </span>
+            )}
+
+            <div ref={actionsMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsMenuOpen((prev) => !prev);
+                  setConfirmClearAll(false);
+                }}
+                aria-expanded={actionsMenuOpen}
+                aria-haspopup="menu"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-[#233762] text-xs font-semibold transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762]"
+              >
+                <span>Acciones</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                    actionsMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {actionsMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label="Acciones de la tabla de rastreo"
+                  className="absolute right-0 mt-1.5 w-56 rounded-xl bg-white border border-slate-200 shadow-lg py-1.5 z-30"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={results.length === 0 || isBatchLoading}
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      void handleRefreshAll();
+                    }}
+                    title="Ignorar caché y consultar nuevamente todas las guías"
+                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-[#233762] flex items-center gap-2.5 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isBatchLoading ? "animate-spin" : ""}`} />
+                    <span>Actualizar todo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={filteredResults.length === 0 || isExportingExcel}
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      void handleExportExcel();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-[#233762] flex items-center gap-2.5 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{isExportingExcel ? "Generando Excel..." : "Exportar Excel"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={filteredResults.length === 0}
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      handleOpenPdfPreview();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-[#233762] flex items-center gap-2.5 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Vista previa PDF</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={filteredResults.length === 0}
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      handleDownloadPdf();
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-[#233762] flex items-center gap-2.5 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Generar PDF</span>
+                  </button>
+
+                  {results.length > 0 && (
+                    <>
+                      <div className="my-1 border-t border-slate-100" />
+                      {!confirmClearAll ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => setConfirmClearAll(true)}
+                          className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-600 hover:bg-red-50 hover:text-[#CE3A39] flex items-center gap-2.5 transition cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Vaciar lista</span>
+                        </button>
+                      ) : (
+                        <div className="px-3.5 py-2 bg-red-50/70 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-[#CE3A39]">¿Vaciar todo?</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setConfirmClearAll(false)}
+                              className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[11px] font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                            >
+                              No
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setResults([]);
+                                setSelectedGuideKey(null);
+                                setConfirmClearAll(false);
+                                setActionsMenuOpen(false);
+                              }}
+                              className="px-2 py-0.5 rounded bg-[#CE3A39] text-white text-[11px] font-bold hover:bg-[#B02E2D] cursor-pointer"
+                            >
+                              Sí, vaciar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* ==================================================================== */}
-        {/* TABLA DE RESULTADOS DE RASTREO                                       */}
+        {/* TABLA DE 5 COLUMNAS (ESCRITORIO) + LISTA DE TARJETAS (MÓVIL)         */}
         {/* ==================================================================== */}
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[#233762] text-white text-[11px] font-bold uppercase tracking-wider">
-                <th className="py-3 px-4">Guía</th>
-                <th className="py-3 px-3">Carrier</th>
-                <th className="py-3 px-3">Estatus</th>
-                <th className="py-3 px-4">Origen → Destino</th>
-                <th className="py-3 px-3">Entrega Estimada / Real</th>
-                <th className="py-3 px-4">Último Movimiento</th>
-                <th className="py-3 px-3">Actualizado</th>
-                <th className="py-3 px-4 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 text-xs">
-              {/* Skeletons durante carga inicial */}
-              {isBatchLoading && results.length === 0 ? (
-                Array.from({ length: 4 }).map((_, idx) => (
-                  <tr key={`skel-${idx}`} className="animate-pulse">
-                    <td className="py-4 px-4">
-                      <div className="h-4 w-32 bg-slate-200 rounded" />
-                    </td>
-                    <td className="py-4 px-3">
-                      <div className="h-5 w-20 bg-slate-200 rounded-full" />
-                    </td>
-                    <td className="py-4 px-3">
-                      <div className="h-5 w-24 bg-slate-200 rounded-full" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 w-44 bg-slate-200 rounded" />
-                    </td>
-                    <td className="py-4 px-3">
-                      <div className="h-4 w-24 bg-slate-200 rounded" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 w-56 bg-slate-200 rounded" />
-                    </td>
-                    <td className="py-4 px-3">
-                      <div className="h-4 w-24 bg-slate-200 rounded" />
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <div className="h-6 w-16 bg-slate-200 rounded ml-auto" />
-                    </td>
+        {isBatchLoading && results.length === 0 ? (
+          <div className="divide-y divide-slate-100 p-4 space-y-3">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={`skel-${idx}`} className="py-3 flex items-center justify-between gap-4 animate-pulse">
+                <div className="h-4 w-40 bg-slate-200 rounded" />
+                <div className="h-4 w-24 bg-slate-200 rounded hidden sm:block" />
+                <div className="h-4 w-48 bg-slate-200 rounded hidden md:block" />
+                <div className="h-4 w-28 bg-slate-200 rounded hidden lg:block" />
+                <div className="h-4 w-56 bg-slate-200 rounded flex-1 max-w-xs" />
+              </div>
+            ))}
+          </div>
+        ) : filteredResults.length === 0 ? (
+          <div className="py-16 px-6 text-center flex-1 flex flex-col items-center justify-center">
+            <div className="w-11 h-11 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-3">
+              <Truck className="w-5 h-5" />
+            </div>
+            <p className="text-sm font-semibold text-[#233762]">
+              {results.length === 0
+                ? "Aún no has consultado ninguna guía"
+                : "No hay guías que coincidan con el filtro aplicado"}
+            </p>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm">
+              {results.length === 0
+                ? "Pega tus guías arriba y presiona Rastrear, o usa el menú ⋯ para probar guías de ejemplo."
+                : "Ajusta el buscador o cambia de pestaña para ver todos los envíos."}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Vista Escritorio / Tablet: 5 columnas limpias */}
+            <div className="hidden md:block overflow-x-auto flex-1">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-500 text-[11px] font-semibold uppercase tracking-wider">
+                    <th className="py-3 px-4">Guía</th>
+                    <th className="py-3 px-3">Estatus</th>
+                    <th className="py-3 px-4">Origen → Destino</th>
+                    <th className="py-3 px-3">Entrega</th>
+                    <th className="py-3 px-4">Último movimiento</th>
                   </tr>
-                ))
-              ) : filteredResults.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-16 px-6 text-center">
-                    <div className="max-w-md mx-auto flex flex-col items-center">
-                      <div className="w-12 h-12 rounded-2xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-3">
-                        <Truck className="w-6 h-6" />
-                      </div>
-                      <p className="text-sm font-bold text-[#233762]">
-                        {results.length === 0
-                          ? "Aún no has consultado ninguna guía"
-                          : "No hay guías que coincidan con el filtro seleccionado"}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {results.length === 0
-                          ? "Pega uno o varios números de guía de FedEx o Estafeta arriba, o usa el botón 'Probar guías ejemplo' para ver el rastreador en acción."
-                          : "Prueba cambiando el filtro de carrier o estatus para ver todos los resultados."}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredResults.map((item) => {
-                  const statusCfg = STATUS_UI_CONFIG[item.estatus_general] || STATUS_UI_CONFIG.DESCONOCIDO;
-                  const isIssueOrDelayed =
-                    item.estatus_general === "INCIDENCIA" || Boolean(item.retrasado);
-                  const isRefreshing = refreshingGuides.has(item.guia);
-                  const lastEvent = item.eventos[0];
-                  const isSelected = selectedGuideKey === item.guia;
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {filteredResults.map((item) => {
+                    const statusCfg =
+                      STATUS_UI_CONFIG[item.estatus_general] || STATUS_UI_CONFIG.DESCONOCIDO;
+                    const isDelayedActive =
+                      Boolean(item.retrasado) && item.estatus_general !== "ENTREGADO";
+                    const isRefreshing = refreshingGuides.has(item.guia);
+                    const lastEvent = item.eventos[0];
+                    const isSelected = selectedGuideKey === item.guia;
 
-                  return (
-                    <tr
-                      key={item.guia}
-                      onClick={() => setSelectedGuideKey(item.guia)}
-                      className={`transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-[#EFF3F9]/80 hover:bg-[#EFF3F9]"
-                          : isIssueOrDelayed
-                          ? "bg-red-50/35 hover:bg-red-50/70"
-                          : "hover:bg-slate-50"
-                      }`}
-                    >
-                      {/* Columna 1: Guía */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-[#233762]">
-                        <div className="flex items-center gap-1.5">
-                          {isIssueOrDelayed && (
+                    const guideMetaParts: string[] = [`Carrier: ${item.carrier}`];
+                    if (item.desde_cache) guideMetaParts.push("Desde caché (10m)");
+                    if (item.modo_simulacion) guideMetaParts.push("Modo simulación");
+                    if (item.es_ambiguo && item.candidatos_carrier?.length) {
+                      guideMetaParts.push(
+                        `Formato compatible con ${item.candidatos_carrier.join(" / ")}`
+                      );
+                    }
+                    const guideTooltip = guideMetaParts.join(" · ");
+
+                    const routeFull =
+                      item.origen || item.destino
+                        ? `${item.origen || "Origen s/d"} → ${item.destino || "Destino s/d"}`
+                        : "Sin ruta reportada";
+
+                    const deliveryShort =
+                      item.estatus_general === "ENTREGADO" && item.fecha_entrega_real
+                        ? `Entregado ${formatShortTrackingDate(item.fecha_entrega_real)}`
+                        : item.fecha_estimada_entrega
+                        ? `Estimada ${formatShortTrackingDate(item.fecha_estimada_entrega)}`
+                        : "—";
+
+                    const deliveryFullTooltip =
+                      item.estatus_general === "ENTREGADO" && item.fecha_entrega_real
+                        ? `Entregado: ${item.fecha_entrega_real}`
+                        : item.fecha_estimada_entrega
+                        ? `Entrega estimada: ${item.fecha_estimada_entrega}`
+                        : undefined;
+
+                    const movementText = lastEvent
+                      ? lastEvent.descripcion
+                      : item.error || "Sin eventos registrados";
+                    const movementTooltip = lastEvent
+                      ? `${lastEvent.descripcion} — ${lastEvent.ubicacion} (${lastEvent.fecha})`
+                      : item.error || undefined;
+
+                    return (
+                      <tr
+                        key={item.guia}
+                        onClick={() => setSelectedGuideKey(item.guia)}
+                        className={`group transition-colors cursor-pointer ${
+                          isSelected ? "bg-[#EFF3F9]/60" : "hover:bg-slate-50/80"
+                        }`}
+                      >
+                        {/* 1. Guía (+ etiqueta discreta de carrier solo si coexisten varios + copiar en hover) */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
                             <span
-                              className="w-1.5 h-5 rounded-full bg-[#CE3A39] shrink-0"
-                              title="Atención requerida: Incidencia o envío retrasado"
-                            />
-                          )}
-                          <span>{item.guia}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => handleCopyGuide(e, item.guia)}
-                            className="p-1 rounded hover:bg-slate-200/70 text-slate-400 hover:text-[#233762] transition cursor-pointer"
-                            title="Copiar número de guía"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                          {item.desde_cache && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-500">
-                              Caché 10m
-                            </span>
-                          )}
-                          {item.modo_simulacion && (
-                            <span
-                              className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200"
-                              title="Respuesta generada en modo simulador (configura tus API keys en .env para consulta en vivo)"
+                              className="font-mono font-semibold text-[#233762]"
+                              title={guideTooltip}
                             >
-                              Simulación
+                              {item.guia}
                             </span>
-                          )}
-                          {item.es_ambiguo && (
-                            <span
-                              className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#EFF3F9] text-[#233762] border border-[#233762]/20"
-                              title={`Formato compatible con: ${(item.candidatos_carrier || []).join(" / ")}`}
+                            {hasMultipleCarriers && (
+                              <span className="text-[10px] font-mono font-semibold text-slate-400 uppercase">
+                                {item.carrier === "FEDEX" ? "FDX" : "EST"}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyGuide(e, item.guia)}
+                              aria-label={`Copiar guía ${item.guia}`}
+                              title="Copiar guía"
+                              className="p-1 rounded-md text-slate-400 hover:text-[#233762] hover:bg-slate-200/60 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762]"
                             >
-                              Ambiguo
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </td>
 
-                      {/* Columna 2: Carrier */}
-                      <td className="py-3.5 px-3">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border bg-slate-100 text-slate-600 border-slate-200">
-                          {item.carrier}
-                        </span>
-                      </td>
-
-                      {/* Columna 3: Estatus */}
-                      <td className="py-3.5 px-3">
-                        <div className="flex flex-col items-start gap-1">
+                        {/* 2. Estatus (punto semántico + texto, sin fondos de fila) */}
+                        <td className="py-4 px-3 whitespace-nowrap">
                           <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${statusCfg.dotClass}`} />
-                            {statusCfg.label}
-                          </span>
-                          {item.retrasado && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#CE3A39] text-white font-mono text-[10px] font-bold">
-                              <AlertTriangle className="w-2.5 h-2.5" />
-                              RETRASADO
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Columna 4: Origen -> Destino */}
-                      <td className="py-3.5 px-4 text-slate-700">
-                        {item.origen || item.destino ? (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-semibold text-slate-700">{item.origen || "Origen s/d"}</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#CE3A39] shrink-0" />
-                            <span className="font-bold text-[#233762]">{item.destino || "Destino s/d"}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic">Sin ruta reportada</span>
-                        )}
-                      </td>
-
-                      {/* Columna 5: Fecha estimada / real */}
-                      <td className="py-3.5 px-3 font-mono text-xs">
-                        {item.estatus_general === "ENTREGADO" && item.fecha_entrega_real ? (
-                          <div>
-                            <span className="text-[10px] uppercase font-sans font-bold text-emerald-700 block">
-                              Entregado el:
-                            </span>
-                            <span className="text-emerald-800 font-bold">{item.fecha_entrega_real}</span>
-                          </div>
-                        ) : item.fecha_estimada_entrega ? (
-                          <div>
-                            <span className="text-[10px] uppercase font-sans font-bold text-slate-400 block">
-                              Estimada:
-                            </span>
                             <span
-                              className={`font-bold ${
-                                item.retrasado ? "text-[#CE3A39] underline" : "text-slate-700"
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                isDelayedActive ? "bg-[#CE3A39]" : statusCfg.dotClass
                               }`}
-                            >
-                              {item.fecha_estimada_entrega}
+                            />
+                            <span>{statusCfg.label}</span>
+                            {isDelayedActive && (
+                              <span className="text-[#CE3A39] font-medium">· Retrasado</span>
+                            )}
+                          </span>
+                        </td>
+
+                        {/* 3. Origen → Destino */}
+                        <td
+                          className="py-4 px-4 max-w-[230px] truncate text-slate-600"
+                          title={routeFull}
+                        >
+                          {item.origen || item.destino ? (
+                            <span className="truncate">
+                              <span className="text-slate-600">{item.origen || "S/D"}</span>
+                              <span className="mx-1.5 text-slate-300">→</span>
+                              <span className="font-medium text-slate-800">
+                                {item.destino || "S/D"}
+                              </span>
                             </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+
+                        {/* 4. Entrega (formato corto en 1 línea, completo en tooltip) */}
+                        <td
+                          className="py-4 px-3 whitespace-nowrap"
+                          title={deliveryFullTooltip}
+                        >
+                          <span
+                            className={`text-xs ${
+                              isDelayedActive
+                                ? "text-[#CE3A39] font-semibold"
+                                : "text-slate-600"
+                            }`}
+                          >
+                            {deliveryShort}
+                          </span>
+                        </td>
+
+                        {/* 5. Último movimiento (truncado 1 línea) + acciones derechas (Detalle › + hover) */}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center justify-between gap-4 min-w-0">
+                            <span
+                              className={`truncate max-w-xs lg:max-w-md ${
+                                !lastEvent && item.error
+                                  ? "text-[#CE3A39]"
+                                  : "text-slate-600"
+                              }`}
+                              title={movementTooltip}
+                            >
+                              {movementText}
+                            </span>
+
+                            <div className="inline-flex items-center gap-1 shrink-0">
+                              <div className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleRefreshSingleGuide(item.guia, item.carrier);
+                                  }}
+                                  disabled={isRefreshing}
+                                  aria-label={`Actualizar guía ${item.guia}`}
+                                  title={
+                                    item.desde_cache
+                                      ? "Respuesta desde caché (10m) · Clic para consultar en vivo"
+                                      : "Actualizar esta guía ahora"
+                                  }
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#233762] hover:bg-slate-200/60 transition cursor-pointer disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-[#233762]"
+                                >
+                                  <RefreshCw
+                                    className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+                                  />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleRemoveGuideRow(e, item.guia)}
+                                  aria-label={`Quitar guía ${item.guia} de la lista`}
+                                  title="Quitar de la lista"
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#CE3A39] hover:bg-red-50 transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762]"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedGuideKey(item.guia);
+                                }}
+                                aria-label={`Ver detalle de guía ${item.guia}`}
+                                className="inline-flex items-center gap-0.5 pl-2 pr-1 py-1 rounded-lg text-xs font-semibold text-[#233762] hover:bg-[#EFF3F9] transition cursor-pointer focus-visible:outline-2 focus-visible:outline-[#233762]"
+                              >
+                                <span>Detalle</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        ) : (
-                          <span className="text-slate-400">—</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Vista Móvil: Lista limpia de tarjetas simples */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredResults.map((item) => {
+                const statusCfg =
+                  STATUS_UI_CONFIG[item.estatus_general] || STATUS_UI_CONFIG.DESCONOCIDO;
+                const isDelayedActive =
+                  Boolean(item.retrasado) && item.estatus_general !== "ENTREGADO";
+                const deliveryShort =
+                  item.estatus_general === "ENTREGADO" && item.fecha_entrega_real
+                    ? `Entregado ${formatShortTrackingDate(item.fecha_entrega_real)}`
+                    : item.fecha_estimada_entrega
+                    ? `Estimada ${formatShortTrackingDate(item.fecha_estimada_entrega)}`
+                    : "";
+
+                return (
+                  <div
+                    key={`mob-${item.guia}`}
+                    onClick={() => setSelectedGuideKey(item.guia)}
+                    className="p-4 hover:bg-slate-50/80 transition cursor-pointer space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-mono text-xs font-bold text-[#233762] truncate">
+                          {item.guia}
+                        </span>
+                        {hasMultipleCarriers && (
+                          <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                            {item.carrier === "FEDEX" ? "FDX" : "EST"}
+                          </span>
                         )}
-                      </td>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 shrink-0">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            isDelayedActive ? "bg-[#CE3A39]" : statusCfg.dotClass
+                          }`}
+                        />
+                        <span>{statusCfg.label}</span>
+                      </span>
+                    </div>
 
-                      {/* Columna 6: Último Movimiento */}
-                      <td className="py-3.5 px-4 max-w-xs">
-                        {lastEvent ? (
-                          <div>
-                            <p className="font-semibold text-slate-800 line-clamp-1">
-                              {lastEvent.descripcion}
-                            </p>
-                            <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{lastEvent.ubicacion}</span>
-                              <span className="text-slate-300">•</span>
-                              <span className="font-mono text-[10px]">{lastEvent.fecha}</span>
-                            </p>
-                          </div>
-                        ) : item.error ? (
-                          <p className="text-[#CE3A39] font-medium text-xs">{item.error}</p>
-                        ) : (
-                          <span className="text-slate-400 italic">Sin eventos registrados</span>
-                        )}
-                      </td>
-
-                      {/* Columna 7: Última actualización */}
-                      <td className="py-3.5 px-3 font-mono text-[11px] text-slate-500">
-                        {item.ultima_actualizacion}
-                      </td>
-
-                      {/* Columna 8: Acciones */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="inline-flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRefreshSingleGuide(item.guia, item.carrier);
-                            }}
-                            disabled={isRefreshing}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition cursor-pointer disabled:opacity-40"
-                            title="Actualizar esta guía ahora (ignorar caché)"
-                          >
-                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedGuideKey(item.guia);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#EFF3F9] hover:bg-[#233762] text-[#233762] hover:text-white text-xs font-bold transition cursor-pointer"
-                            title="Ver línea de tiempo completa"
-                          >
-                            <span>Detalle</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => handleRemoveGuideRow(e, item.guia)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#CE3A39] hover:bg-red-50 transition cursor-pointer"
-                            title="Quitar de la tabla"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                    <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                      <span className="truncate">
+                        {item.destino || item.origen || "Sin destino reportado"}
+                        {deliveryShort ? ` · ${deliveryShort}` : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedGuideKey(item.guia);
+                        }}
+                        className="inline-flex items-center gap-0.5 text-xs font-semibold text-[#233762] shrink-0"
+                      >
+                        <span>Detalle</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </section>
 
       {/* ==================================================================== */}
