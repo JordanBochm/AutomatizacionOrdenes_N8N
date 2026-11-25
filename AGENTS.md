@@ -56,7 +56,7 @@ ANTES DE REALIZAR CUALQUIER CAMBIO EN EL FRONTEND O CREAR UN COMPONENTE, LA IA D
    - CADA TARJETA DE MÓDULO O SUBMÓDULO DEBE MEDIR EXACTAMENTE LO MISMO EN TODAS LAS PANTALLAS:
      - Ancho exacto fijado: `w-[300px]` (PROHIBIDO usar anchos porcentuales o columnas grid que cambien el ancho de las tarjetas entre pantallas).
      - Altura exacta fijada: `h-[275px] min-h-[275px]`.
-   - Contenedor de módulos: `flex flex-wrap justify-center gap-6 max-w-5xl mx-auto` (o `max-w-7xl` para 4 módulos en desktop) dentro del marco general `max-w-[1540px]`.
+   - Contenedor de módulos: `flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto` (máximo 3 tarjetas por fila hacia abajo) dentro del marco general `max-w-[1540px]`.
    - Estructura interna estandarizada:
      - Badge superior derecha: `text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full` en tonos institucionales suaves (`#EFF3F9 text-[#233762]` / `#FDF2F2 text-[#CE3A39]`), nunca verde brillante.
      - Contenedor de icono centrado: `w-14 h-14 rounded-2xl` con zoom al hover.

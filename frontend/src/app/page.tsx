@@ -2140,7 +2140,7 @@ export default function DashboardPage() {
 
           <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
 
-            <div className="text-center max-w-2xl mx-auto mt-2 mb-6">
+            <div className="text-center mt-2 mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2155,7 +2155,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Cuadrícula de Clientes (Dimensiones Estandarizadas: w-[300px] h-[275px] min-h-[275px]) */}
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {ASSET_CLIENTS.map((client) => {
                 const isSelected = activeClient === client.id;
                 const iconTone =
@@ -2594,7 +2594,7 @@ export default function DashboardPage() {
           {/* Contenido Central: Título y Tarjetas Estandarizadas */}
           <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
             {/* Header Centralizado con Badge y Título */}
-            <div className="text-center max-w-2xl mx-auto mt-2 mb-6">
+            <div className="text-center mt-2 mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2602,16 +2602,16 @@ export default function DashboardPage() {
                 <span className="text-slate-400">/</span>
                 <span className="text-[#CE3A39] font-bold">Transporte</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
                 Módulos de Transporte y Logística — {currentClientConfig.name}
-              </h1>
-              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
                 Selecciona un submódulo operativo para monitorear envíos, trazabilidad de guías y logística de transporte.
               </p>
             </div>
 
             {/* Contenedor de Transporte (w-[300px] h-[275px]) */}
-            <div className="flex justify-center w-full max-w-5xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {transporteModules.map(({ name, description, Icon, target, tone, statusBadge }) => {
                 const isActive = Boolean(target);
                 const isNavy = tone === "navy";
