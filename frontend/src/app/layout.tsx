@@ -17,11 +17,6 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "SupplyChain México | Automatizador de tareas",
   description: "Plataforma de automatización de órdenes, validación postal y cierres para SupplyChain México",
-  icons: {
-    icon: "/logo-supplychain.png",
-    shortcut: "/logo-supplychain.png",
-    apple: "/logo-supplychain.png",
-  },
 };
 
 export default function RootLayout({
