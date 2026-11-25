@@ -519,17 +519,17 @@ export default function ReportesView({
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative selection:bg-[#233762] selection:text-white">
-      {/* Franja Superior Bicolor Institucional (3px en submódulos operativos, 6px en Hub de Reportes) */}
-      <div className={`${activeSubmodulo !== null ? "h-[3px]" : "h-1.5"} w-full flex fixed top-0 left-0 right-0 z-50`}>
+      {/* Franja Superior Bicolor Institucional (3px) */}
+      <div className="h-[3px] w-full flex fixed top-0 left-0 right-0 z-50">
         <div className="w-1/2 bg-[#233762]" />
         <div className="w-1/2 bg-[#CE3A39]" />
       </div>
 
-      {/* Encabezado unificado para cada submódulo de Reportes */}
-      {activeSubmodulo !== null && (
-        <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 mt-[3px]">
-          <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
-            <div className="flex items-center gap-3 sm:gap-4">
+      {/* Encabezado unificado para el módulo de Reportes y sus submódulos */}
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 mt-[3px]">
+        <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            {activeSubmodulo !== null ? (
               <button
                 type="button"
                 onClick={() => handleSubmoduloChange(null)}
@@ -539,33 +539,44 @@ export default function ReportesView({
               >
                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
               </button>
-
-              <div className="h-7 w-px bg-slate-200 hidden sm:block" />
-
+            ) : (
               <Link
                 href="/"
-                className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
-                title="Regresar al Hub Principal"
+                className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                title="Regresar a Asset Management"
+                aria-label="Regresar a Asset Management"
               >
-                <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
               </Link>
-            </div>
+            )}
 
-            <div className="hidden sm:flex items-center gap-2.5">
-              <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
-                {activeSubmodulo === "devoluciones"
-                  ? "Devoluciones de equipos"
-                  : activeSubmodulo === "reparacion"
-                  ? "Equipos en reparación"
-                  : activeSubmodulo === "outbound"
-                  ? "Outbound y despacho"
-                  : "Reacondicionamiento (Refurb)"}
-              </h1>
-              <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
-            </div>
+            <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+            <Link
+              href="/"
+              className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+              title="Regresar al Hub Principal"
+            >
+              <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+            </Link>
           </div>
-        </header>
-      )}
+
+          <div className="hidden sm:flex items-center gap-2.5">
+            <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+              {activeSubmodulo === null
+                ? "Reportes"
+                : activeSubmodulo === "devoluciones"
+                ? "Devoluciones de equipos"
+                : activeSubmodulo === "reparacion"
+                ? "Equipos en reparación"
+                : activeSubmodulo === "outbound"
+                ? "Outbound y despacho"
+                : "Reacondicionamiento (Refurb)"}
+            </h1>
+            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
+          </div>
+        </div>
+      </header>
 
       <div className="p-4 md:p-8 pt-6 flex-1 flex flex-col">
       {/* Toast Flotante */}
@@ -590,42 +601,6 @@ export default function ReportesView({
       {activeSubmodulo === null && (
         <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-between py-2">
           <div>
-            {/* Barra Superior con Navegación al Hub Principal */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 gap-3 flex-wrap">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs text-xs font-semibold cursor-pointer group"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
-                <span>Volver a Asset Management</span>
-              </Link>
-              <div className="flex items-center gap-3">
-                <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
-                <span className="text-xs font-mono text-slate-400 hidden sm:inline">Seko Supply Chain México</span>
-              </div>
-            </div>
-
-            {/* Logo de la empresa centrado en la parte superior como las demás vistas */}
-            <div className="flex justify-center pt-4 pb-1">
-              <button
-                type="button"
-                onClick={() => handleSubmoduloChange(null)}
-                className="cursor-pointer select-none"
-                title="Módulos de Reportes y Trazabilidad"
-              >
-                {!logoError ? (
-                  <img
-                    src="/logo-supplychain.png"
-                    alt="SupplyChain México"
-                    className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                    onError={() => setLogoError(true)}
-                  />
-                ) : (
-                  <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
-                )}
-              </button>
-            </div>
-
             {/* Header Centralizado con Badge y Título */}
             <div className="text-center max-w-2xl mx-auto mt-2 mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">

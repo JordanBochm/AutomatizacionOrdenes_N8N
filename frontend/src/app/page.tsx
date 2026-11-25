@@ -1621,8 +1621,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
-      {/* Franja Superior Bicolor Institucional (3px en vistas operativas de Asset Management, 6px en Hubs) */}
-      <div className={`${["asset_management", "generador_tracking", "rastreo_envios", "historial", "calendario"].includes(activeModule) ? "h-[3px]" : "h-1.5"} w-full flex relative z-50`}>
+      {/* Franja Superior Bicolor Institucional (3px en módulos y submódulos, 6px en Login y Hub) */}
+      <div className={`${activeModule !== "login" && activeModule !== "hub" ? "h-[3px]" : "h-1.5"} w-full flex relative z-50`}>
         <div className="w-1/2 bg-[#233762]" />
         <div className="w-1/2 bg-[#CE3A39]" />
       </div>
@@ -2104,55 +2104,41 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA DE SELECCIÓN DE CLIENTES DE ASSET MANAGEMENT                   */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
-          <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group"
-              title="Regresar al Hub Principal"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
-              <span>Regresar al Hub</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar al Hub Principal"
+                  aria-label="Regresar al Hub Principal"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
-                  {roleConfig.code}
-                </span>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-semibold shadow-2xs cursor-pointer"
-                title="Cerrar sesión"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Cerrar sesión</span>
-              </button>
-            </div>
-          </div>
 
-          <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col items-center pt-2 pb-10">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="cursor-pointer select-none"
-              title="Regresar al Hub"
-            >
-              {!logoError ? (
-                <img
-                  src="/logo-supplychain.png"
-                  alt="SupplyChain México"
-                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
-              )}
-            </button>
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Clientes Asset Management
+                </h1>
+              </div>
+            </div>
+          </header>
+
+          <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col items-center py-8 px-6">
 
             <div className="text-center max-w-2xl mx-auto mt-4 mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
@@ -2225,70 +2211,46 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA DE CUADRÍCULA DE MÓDULOS POR CLIENTE (3 por fila hacia abajo)  */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
-          <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group"
-              title="Regresar al Hub Principal"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
-              <span>Regresar al Hub</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar al Hub Principal"
+                  aria-label="Regresar al Hub Principal"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <div className="flex items-center gap-3">
-              <ClientSwitcherPill
-                value={activeClient}
-                onChange={(c) => handleSelectClient(c, false)}
-              />
-              <button
-                type="button"
-                onClick={() => setActiveModule("hub")}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-semibold transition shadow-2xs cursor-pointer"
-                title="Ir al Hub Principal"
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Hub</span>
-              </button>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
-                  {roleConfig.code}
-                </span>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
-                title="Cerrar sesión"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Cerrar sesión</span>
-              </button>
-            </div>
-          </div>
 
-          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-2 pb-10">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="cursor-pointer select-none"
-              title="Regresar al Hub Principal"
-            >
-              {!logoError ? (
-                <img
-                  src="/logo-supplychain.png"
-                  alt="SupplyChain México"
-                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                  onError={() => setLogoError(true)}
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Asset Management
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
                 />
-              ) : (
-                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
-              )}
-            </button>
+              </div>
+            </div>
+          </header>
 
-            <div className="text-center mt-4 mb-8">
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center py-8 px-6">
+            <div className="text-center mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2372,71 +2334,46 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA OPERACIÓN DEL DÍA (SUBMÓDULOS CON EL MISMO DISEÑO INSTITUCIONAL)*/
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
-          <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveModule("modules")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] hover:border-[#233762]/30 text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
-              title="Regresar a Asset Management"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Regresar a Asset Management</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("modules")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar a Asset Management"
+                  aria-label="Regresar a Asset Management"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <div className="flex items-center gap-3">
-              <ClientSwitcherPill
-                value={activeClient}
-                onChange={(c) => handleSelectClient(c, false)}
-              />
-              <button
-                type="button"
-                onClick={() => setActiveModule("hub")}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs cursor-pointer"
-                title="Ir al Hub Principal"
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Hub</span>
-              </button>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
 
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
-                  {roleConfig.code}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
-                title="Cerrar sesión"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Cerrar sesión</span>
-              </button>
-            </div>
-          </div>
 
-          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-2 pb-10">
-            <button
-              type="button"
-              onClick={() => setActiveModule("modules")}
-              className="cursor-pointer select-none"
-              title="Regresar a Asset Management"
-            >
-              {!logoError ? (
-                <img
-                  src="/logo-supplychain.png"
-                  alt="SupplyChain México"
-                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                  onError={() => setLogoError(true)}
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Operación del día
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
                 />
-              ) : (
-                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
-              )}
-            </button>
+              </div>
+            </div>
+          </header>
 
-            <div className="text-center mt-4 mb-8">
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center py-8 px-6">
+            <div className="text-center mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2569,7 +2506,7 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
 
@@ -2616,76 +2553,48 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA TRANSPORTE - SUBMÓDULOS DE TRANSPORTE Y LOGÍSTICA              */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6">
-          {/* Barra Superior con Navegación al Hub de Asset Management y Perfil */}
-          <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveModule("modules")}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] transition shadow-2xs font-semibold cursor-pointer group"
-              title="Regresar a Asset Management"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39] group-hover:-translate-x-1 transition-transform" />
-              <span>Regresar a Asset Management</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("modules")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar a Asset Management"
+                  aria-label="Regresar a Asset Management"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <div className="flex items-center gap-3">
-              <ClientSwitcherPill
-                value={activeClient}
-                onChange={(c) => handleSelectClient(c, false)}
-              />
-              <button
-                type="button"
-                onClick={() => setActiveModule("hub")}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-semibold transition shadow-2xs cursor-pointer"
-                title="Ir al Hub Principal"
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Hub</span>
-              </button>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
 
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-slate-100 text-slate-600">
-                  {roleConfig.code}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
               </div>
 
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-semibold shadow-2xs cursor-pointer"
-                title="Cerrar sesión"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Cerrar sesión</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Contenido Central: Logo Centrado, Título y Tarjetas Estandarizadas */}
-          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center pt-2 pb-10">
-            {/* Logo de la empresa centrado en la parte superior */}
-            <button
-              type="button"
-              onClick={() => setActiveModule("modules")}
-              className="cursor-pointer select-none"
-              title="Regresar a Asset Management"
-            >
-              {!logoError ? (
-                <img
-                  src="/logo-supplychain.png"
-                  alt="SupplyChain México"
-                  className="h-20 sm:h-24 w-auto object-contain transition-transform hover:scale-105 duration-300 drop-shadow-xs"
-                  onError={() => setLogoError(true)}
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Transporte
+                </h1>
+                <ClientSwitcherPill
+                  value={activeClient}
+                  onChange={(c) => handleSelectClient(c, false)}
                 />
-              ) : (
-                <AnimatedLogo className="h-20 sm:h-24 w-auto" cycleDuration={8} />
-              )}
-            </button>
+              </div>
+            </div>
+          </header>
 
+          {/* Contenido Central: Título y Tarjetas Estandarizadas */}
+          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center py-8 px-6">
             {/* Header Centralizado con Badge y Título */}
-            <div className="text-center max-w-2xl mx-auto mt-4 mb-8">
+            <div className="text-center max-w-2xl mx-auto mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2797,7 +2706,7 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
 
@@ -2849,7 +2758,7 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
 
@@ -2901,7 +2810,7 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
 
@@ -2928,36 +2837,41 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA CSM (ACCESIBLE PARA ADMIN Y CSM)                              */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-6xl mx-auto w-full">
-          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Regresar al Hub</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar al Hub Principal"
+                  aria-label="Regresar al Hub Principal"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                  {roleConfig.code}
-                </span>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Cerrar sesión</span>
-              </button>
-            </div>
-          </div>
 
-          <div className="space-y-6">
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Customer Service (CSM)
+                </h1>
+              </div>
+            </div>
+          </header>
+
+          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-6xl mx-auto w-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#233762]">Customer Service (CSM)</h1>
@@ -3015,36 +2929,41 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA ALMACÉN (ACCESIBLE PARA ADMIN Y ALMACEN)                       */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-6xl mx-auto w-full">
-          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Regresar al Hub</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar al Hub Principal"
+                  aria-label="Regresar al Hub Principal"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-medium text-slate-600">{currentUser?.email}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-red-50 text-[#CE3A39] border border-[#CE3A39]/30">
-                  {roleConfig.code}
-                </span>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Cerrar sesión</span>
-              </button>
-            </div>
-          </div>
 
-          <div className="space-y-6">
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Almacén Lerma
+                </h1>
+              </div>
+            </div>
+          </header>
+
+          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-6xl mx-auto w-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#233762]">Almacén Lerma</h1>
@@ -3102,25 +3021,41 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA GESTIÓN DE USUARIOS (ACCESIBLE PARA ADMIN)                     */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-7xl mx-auto w-full">
-          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Regresar al Hub</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar al Hub Principal"
+                  aria-label="Regresar al Hub Principal"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-mono font-bold text-[#CE3A39] bg-red-50 border border-[#CE3A39]/30 px-3 py-1 rounded-full">
-                ADMINISTRADOR GENERAL
-              </span>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Gestión de usuarios
+                </h1>
+              </div>
             </div>
-          </div>
+          </header>
 
-          <div className="space-y-6">
+          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-7xl mx-auto w-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#233762]">Gestión de Usuarios y Accesos</h1>
@@ -3381,23 +3316,41 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA MATRIZ DE ROLES (ACCESIBLE PARA ADMIN)                        */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-7xl mx-auto w-full">
-          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Regresar al Hub</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar al Hub Principal"
+                  aria-label="Regresar al Hub Principal"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <span className="text-xs font-mono font-bold text-[#233762] bg-[#EFF3F9] border border-[#233762]/30 px-3 py-1 rounded-full">
-              MATRIZ DE ACCESOS RBAC
-            </span>
-          </div>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
 
-          <div className="space-y-8">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Roles y permisos (RBAC)
+                </h1>
+              </div>
+            </div>
+          </header>
+
+          <div className="space-y-8 py-8 px-6 sm:px-10 max-w-7xl mx-auto w-full">
             <div>
               <h1 className="text-2xl font-extrabold text-[#233762]">Matriz de Roles y Permisos Operativos (RBAC)</h1>
               <p className="text-xs text-slate-500 mt-1">
@@ -3541,27 +3494,41 @@ export default function DashboardPage() {
         /* ==================================================================== */
         /* VISTA PERFIL DE USUARIO                                             */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col py-6 px-6 sm:px-10 max-w-4xl mx-auto w-full">
-          <div className="w-full flex items-center justify-between gap-3 text-xs mb-6 pb-3 border-b border-slate-200">
-            <button
-              type="button"
-              onClick={() => setActiveModule("hub")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] font-bold transition shadow-2xs group cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Regresar al Hub</span>
-            </button>
+        <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
+            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer"
+                  title="Regresar al Hub Principal"
+                  aria-label="Regresar al Hub Principal"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Cerrar sesión</span>
-            </button>
-          </div>
+                <div className="h-7 w-px bg-slate-200 hidden sm:block" />
 
-          <div className="space-y-6">
+                <button
+                  type="button"
+                  onClick={() => setActiveModule("hub")}
+                  className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
+                  title="Regresar al Hub Principal"
+                >
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2.5">
+                <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
+                  Mi perfil
+                </h1>
+              </div>
+            </div>
+          </header>
+
+          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-4xl mx-auto w-full">
             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
               <div className="flex items-center gap-5">
                 <div className="w-16 h-16 rounded-2xl bg-[#233762] text-white flex items-center justify-center font-bold font-mono text-2xl shadow-md">
@@ -3570,12 +3537,20 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">{currentUser?.name}</h2>
                   <p className="text-xs font-mono text-slate-500 mt-0.5">{currentUser?.email}</p>
-                  <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-[#CE3A39] border border-[#CE3A39]/30 text-xs font-mono font-bold">
+                  <div className="mt-2.5 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-xs font-mono font-bold">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>{roleConfig.label}</span>
                   </div>
                 </div>
               </div>
+
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition text-xs font-medium shadow-2xs cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Cerrar sesión</span>
+              </button>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
@@ -3629,7 +3604,7 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
 
