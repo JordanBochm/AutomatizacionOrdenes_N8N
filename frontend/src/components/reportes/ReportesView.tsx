@@ -527,7 +527,7 @@ export default function ReportesView({
 
       {/* Encabezado unificado para el módulo de Reportes y sus submódulos */}
       <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 mt-[3px]">
-        <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+        <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
             {activeSubmodulo !== null ? (
               <button
@@ -578,7 +578,7 @@ export default function ReportesView({
         </div>
       </header>
 
-      <div className="p-4 md:p-8 pt-6 flex-1 flex flex-col">
+      <div className="flex-1 w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5 flex flex-col">
       {/* Toast Flotante */}
       {toast && (
         <div
@@ -599,10 +599,10 @@ export default function ReportesView({
 
       {/* Submódulos de Reportes: Vista HUB Inicial (cuando no hay submódulo seleccionado) */}
       {activeSubmodulo === null && (
-        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-between py-2">
+        <div className="w-full flex-1 flex flex-col justify-between">
           <div>
             {/* Header Centralizado con Badge y Título */}
-            <div className="text-center max-w-2xl mx-auto mt-2 mb-8">
+            <div className="text-center max-w-2xl mx-auto mt-2 mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -740,7 +740,7 @@ export default function ReportesView({
 
       {/* Si hay un submódulo seleccionado pero se cambia el filtro a "ALL", pedir selección de cliente */}
       {activeSubmodulo !== null && activeClient === "ALL" && (
-        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col py-2">
+        <div className="w-full flex-1 flex flex-col">
           <ClientRequiredEmptyState
             mode="select_client"
             moduleName="Reportes"
@@ -775,7 +775,7 @@ export default function ReportesView({
         <>
 
           {/* Header Institucional de Devoluciones */}
-          <header className="mb-8">
+          <header className="mb-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-extrabold text-[#233762] flex items-center gap-3">
@@ -833,7 +833,7 @@ export default function ReportesView({
           </header>
 
           {/* Tarjetas de KPIs */}
-      <section className="grid grid-cols-2 lg:grid-cols-6 gap-5 mb-8">
+      <section className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
         {/* Total Devueltos */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
@@ -908,7 +908,7 @@ export default function ReportesView({
       </section>
 
       {/* Barra de Filtros y Búsqueda */}
-      <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6">
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm mb-4">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
           {/* Input de Búsqueda Universal */}
           <div className="relative flex-1">
@@ -1012,7 +1012,7 @@ export default function ReportesView({
       </section>
 
       {/* Tabla Principal */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
