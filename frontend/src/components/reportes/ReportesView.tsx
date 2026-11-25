@@ -34,6 +34,7 @@ import {
   Wrench,
   Truck,
   Trash2,
+  LogOut,
 } from "lucide-react";
 import {
   DevolucionRecord,
@@ -154,6 +155,14 @@ export default function ReportesView({
   const [showClearModal, setShowClearModal] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
   const [logoError, setLogoError] = useState<boolean>(false);
+  const [sessionUser, setSessionUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("sc_current_user");
+      if (raw) setSessionUser(JSON.parse(raw));
+    } catch { }
+  }, []);
 
   // Modal de Carga / Upload
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
@@ -561,6 +570,46 @@ export default function ReportesView({
             </Link>
           </div>
 
+          <div className="flex items-center gap-2 sm:gap-3 text-xs">
+            <Link
+              href="/"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700 hover:border-[#233762] transition cursor-pointer"
+              title="Ir al Hub Principal"
+            >
+              <div className="w-5 h-5 rounded-full bg-[#233762] text-white flex items-center justify-center font-bold font-mono text-[10px]">
+                {(sessionUser?.name || "SU")
+                  .split(" ")
+                  .filter(Boolean)
+                  .map((p) => p[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()}
+              </div>
+              <span className="font-medium text-slate-700 hidden md:inline truncate max-w-[180px]">
+                {sessionUser?.name || sessionUser?.email || "Usuario"}
+              </span>
+              {sessionUser?.role && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold uppercase bg-slate-100 text-slate-600">
+                  {sessionUser.role}
+                </span>
+              )}
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem("sc_current_user");
+                } catch { }
+                window.location.href = "/";
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Cerrar sesión</span>
+            </button>
+          </div>
         </div>
       </header>
 
