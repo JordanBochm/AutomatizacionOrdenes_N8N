@@ -663,12 +663,12 @@ export default function TrackingGenerator({
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full max-w-[1540px] mx-auto px-6 sm:px-8 lg:px-12 py-6">
+    <div className="flex-1 flex flex-col w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5 gap-4">
       {/* ------------------------------------------------------------------ */}
       {/* AVISO DE BORRADOR DISPONIBLE                                      */}
       {/* ------------------------------------------------------------------ */}
       {draftPrompt && (
-        <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300">
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-700">
               <RotateCcw className="w-5 h-5" />
@@ -702,7 +702,7 @@ export default function TrackingGenerator({
       {/* ------------------------------------------------------------------ */}
       {/* BARRA SUPERIOR: FECHA DE CIERRE Y ACCIONES DE HOJA DE CÁLCULO      */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 sm:p-5 mb-5">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex flex-wrap items-end gap-3 flex-1">
             {/* Selector de Fecha del Cierre */}

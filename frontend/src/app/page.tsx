@@ -1805,7 +1805,7 @@ export default function DashboardPage() {
         /* - CSM: solo entra a CSM                                             */
         /* - ALMACEN: solo entra a Almacén                                     */
         /* ==================================================================== */
-        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-6 px-6 sm:px-10 max-w-7xl mx-auto w-full">
+        <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col justify-between py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
           {/* Barra superior de usuario, roles de admin y logout */}
           <div className="w-full flex items-center justify-between gap-3 text-xs mb-4 pb-3 border-b border-slate-200/60">
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
@@ -2106,7 +2106,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2138,9 +2138,9 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col items-center py-8 px-6">
+          <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
 
-            <div className="text-center max-w-2xl mx-auto mt-4 mb-8">
+            <div className="text-center max-w-2xl mx-auto mt-2 mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2213,7 +2213,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2249,8 +2249,8 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center py-8 px-6">
-            <div className="text-center mb-8">
+          <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
+            <div className="text-center mt-2 mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2336,7 +2336,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2372,8 +2372,8 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center py-8 px-6">
-            <div className="text-center mb-8">
+          <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
+            <div className="text-center mt-2 mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2485,7 +2485,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 {/* Botón para volver a Operación del día */}
                 <button
@@ -2524,7 +2524,7 @@ export default function DashboardPage() {
 
           {/* Componente Modular TrackingGenerator o estado vacío según cliente */}
           {activeClient === "ALL" ? (
-            <div className="p-6">
+            <div className="flex-1 w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5">
               <ClientRequiredEmptyState
                 mode="select_client"
                 moduleName="Generador de Tracking"
@@ -2532,7 +2532,7 @@ export default function DashboardPage() {
               />
             </div>
           ) : !OPERATION_TOOLS[activeClient].includes("generador_tracking") ? (
-            <div className="p-6">
+            <div className="flex-1 w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5">
               <ClientRequiredEmptyState
                 mode="coming_soon"
                 moduleName="Generador de Tracking"
@@ -2555,7 +2555,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2592,9 +2592,9 @@ export default function DashboardPage() {
           </header>
 
           {/* Contenido Central: Título y Tarjetas Estandarizadas */}
-          <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center py-8 px-6">
+          <div className="flex-1 w-full max-w-[1540px] mx-auto flex flex-col items-center py-5 px-4 sm:px-8 lg:px-12 xl:px-16">
             {/* Header Centralizado con Badge y Título */}
-            <div className="text-center max-w-2xl mx-auto mb-8">
+            <div className="text-center max-w-2xl mx-auto mt-2 mb-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
                 <span>Asset Management</span>
                 <span className="text-slate-400">/</span>
@@ -2685,7 +2685,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 {/* Botón para volver a Transporte */}
                 <button
@@ -2738,7 +2738,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2790,7 +2790,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-6px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2839,7 +2839,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2871,7 +2871,7 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-6xl mx-auto w-full">
+          <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#233762]">Customer Service (CSM)</h1>
@@ -2892,7 +2892,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
                   <Headset className="w-6 h-6" />
@@ -2931,7 +2931,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -2963,7 +2963,7 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-6xl mx-auto w-full">
+          <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#233762]">Almacén Lerma</h1>
@@ -2984,7 +2984,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center mb-4">
                   <FileText className="w-6 h-6" />
@@ -3023,7 +3023,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -3055,7 +3055,7 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-7xl mx-auto w-full">
+          <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-extrabold text-[#233762]">Gestión de Usuarios y Accesos</h1>
@@ -3318,7 +3318,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -3350,7 +3350,7 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="space-y-8 py-8 px-6 sm:px-10 max-w-7xl mx-auto w-full">
+          <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
             <div>
               <h1 className="text-2xl font-extrabold text-[#233762]">Matriz de Roles y Permisos Operativos (RBAC)</h1>
               <p className="text-xs text-slate-500 mt-1">
@@ -3358,7 +3358,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {(Object.keys(ROLES_CONFIG) as UserRole[]).map((roleKey) => {
                 const cfg = ROLES_CONFIG[roleKey];
                 const perms = cfg.permissions;
@@ -3496,7 +3496,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <div className="flex-1 min-h-[calc(100vh-3px)] flex flex-col bg-slate-50">
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button
                   type="button"
@@ -3528,8 +3528,8 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          <div className="space-y-6 py-8 px-6 sm:px-10 max-w-4xl mx-auto w-full">
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
               <div className="flex items-center gap-5">
                 <div className="w-16 h-16 rounded-2xl bg-[#233762] text-white flex items-center justify-center font-bold font-mono text-2xl shadow-md">
                   {userInitials}
@@ -3583,7 +3583,7 @@ export default function DashboardPage() {
         /* ==================================================================== */
         <>
           <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="w-full max-w-[1540px] mx-auto px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
+            <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
               <div className="flex items-center gap-3 sm:gap-4">
                 {/* Botón para volver a Operación del día */}
                 <button

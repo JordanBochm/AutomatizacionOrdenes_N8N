@@ -269,8 +269,8 @@ export default function HistoryView({
   const canDownloadToday = Boolean(selectedDay && selectedDay.id === todayId);
 
   return (
-    <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+    <div className="flex-1 w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5 flex flex-col gap-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
             <Archive className="w-5 h-5" />
@@ -322,7 +322,7 @@ export default function HistoryView({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -355,7 +355,7 @@ export default function HistoryView({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -388,11 +388,11 @@ export default function HistoryView({
       </div>
 
       {loading ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-sm text-slate-500">
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-sm text-slate-500">
           Cargando historial...
         </div>
       ) : filteredDays.length === 0 ? (
-        <div className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center">
+        <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
           <Archive className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="text-sm font-bold text-slate-700">Sin historial para mostrar</p>
           <p className="text-xs text-slate-500 mt-1">
@@ -403,8 +403,8 @@ export default function HistoryView({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col gap-2 max-h-[620px] overflow-y-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-2 max-h-[620px] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h2 className="text-sm font-bold text-[#233762]">Días registrados</h2>
               <span className="text-[10px] font-mono text-slate-400">{filteredDays.length}</span>
@@ -466,12 +466,12 @@ export default function HistoryView({
 
           <div className="lg:col-span-2 flex flex-col gap-4">
             {!selectedDay || !selectedStatus ? (
-              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-sm text-slate-500">
+              <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-sm text-slate-500">
                 Selecciona un día para ver el detalle.
               </div>
             ) : (
               <>
-                <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -538,7 +538,7 @@ export default function HistoryView({
                   )}
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 className="text-sm font-bold text-[#233762] inline-flex items-center gap-2">
                       <FileSpreadsheet className="w-4 h-4 text-[#CE3A39]" />
@@ -606,7 +606,7 @@ export default function HistoryView({
                   )}
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 className="text-sm font-bold text-[#233762] inline-flex items-center gap-2">
                       <Package className="w-4 h-4 text-[#233762]" />

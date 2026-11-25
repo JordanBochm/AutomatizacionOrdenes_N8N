@@ -286,9 +286,9 @@ export default function CalendarPlanner({
   };
 
   return (
-    <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6 animate-fade-in">
+    <div className="flex-1 w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5 flex flex-col gap-4 animate-fade-in">
       {/* 1. Header de sección y botón de acción */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
             <CalendarDays className="w-5 h-5" />
@@ -318,7 +318,7 @@ export default function CalendarPlanner({
       </div>
 
       {/* 2. Barra de Filtros por Categoría */}
-      <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 text-xs shadow-2xs">
+      <div className="flex flex-wrap items-center gap-2 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 text-xs shadow-sm">
         <span className="text-slate-500 font-semibold flex items-center gap-1.5 px-2">
           <Filter className="w-3.5 h-3.5" />
           Filtrar por:
@@ -354,9 +354,9 @@ export default function CalendarPlanner({
       </div>
 
       {/* 3. Contenedor Principal: Cuadrícula del Calendario + Panel de Detalle */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Columna Izquierda (2 spans): Vista Mensual Interactiva */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col gap-4">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
           {/* Navegación del Mes */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -465,7 +465,7 @@ export default function CalendarPlanner({
         </div>
 
         {/* Columna Derecha (1 span): Detalle de Citas del Día Seleccionado */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 flex flex-col gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">

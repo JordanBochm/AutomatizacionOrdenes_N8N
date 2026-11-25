@@ -1404,7 +1404,7 @@ export default function TransportTracker({
   );
 
   return (
-    <main className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-6 flex-1 flex flex-col gap-5">
+    <main className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5 flex-1 flex flex-col gap-4">
       {/* ZONA 1: FILA COMPACTA DE 4 CHIPS KPI */}
       <div
         className="flex flex-wrap items-center gap-2"

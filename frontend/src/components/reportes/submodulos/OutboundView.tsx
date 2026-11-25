@@ -97,7 +97,7 @@ export default function OutboundView({ onBack }: OutboundViewProps = {}) {
   }, [records, search, selectedEstatus]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Barra de Navegación Superior / Volver */}
       {onBack && (
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
@@ -132,7 +132,7 @@ export default function OutboundView({ onBack }: OutboundViewProps = {}) {
       </div>
 
       {/* KPIs Outbound */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-5">
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Despachos</span>
@@ -180,7 +180,7 @@ export default function OutboundView({ onBack }: OutboundViewProps = {}) {
       </section>
 
       {/* Barra de Filtros y Búsqueda */}
-      <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -230,7 +230,7 @@ export default function OutboundView({ onBack }: OutboundViewProps = {}) {
       </section>
 
       {/* Tabla Outbound */}
-      <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
