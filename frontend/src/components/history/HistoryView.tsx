@@ -418,8 +418,8 @@ export default function HistoryView({
                   key={day.id}
                   onClick={() => setSelectedId(day.id)}
                   className={`text-left p-3 rounded-lg border transition-all ${isSelected
-                      ? "border-[#233762] bg-[#EFF3F9]/60 ring-2 ring-[#233762]/20"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    ? "border-[#233762] bg-[#EFF3F9]/60 ring-2 ring-[#233762]/20"
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                     }`}
                 >
                   <div className="flex items-center justify-between gap-2">
