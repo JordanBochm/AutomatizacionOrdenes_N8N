@@ -6,7 +6,6 @@ interface AnimatedLogoProps {
   className?: string;
   cycleDuration?: number; // Duración total del ciclo en segundos (giro conjunto + reposo)
   iconOnly?: boolean; // Solo isotipo (sin letras "SupplyChain MÉXICO")
-  textOnly?: boolean; // Solo tipografía oficial "SupplyChain MÉXICO" (sin isotipo)
   horizontal?: boolean; // Isotipo a la izquierda + tipografía oficial a la derecha
   staticOnly?: boolean; // Sin animación de giro
 }
@@ -15,7 +14,6 @@ export default function AnimatedLogo({
   className = "h-14 sm:h-16 w-auto",
   cycleDuration = 6,
   iconOnly = false,
-  textOnly = false,
   horizontal = false,
   staticOnly = false,
 }: AnimatedLogoProps) {
@@ -54,9 +52,7 @@ export default function AnimatedLogo({
 
       <svg
         viewBox={
-          textOnly
-            ? "0 330 1140 270"
-            : horizontal
+          horizontal
             ? "396 0 1295 248"
             : iconOnly
             ? "396 0 356 248"
@@ -73,7 +69,6 @@ export default function AnimatedLogo({
         </defs>
 
         {/* GRUPO PRINCIPAL: AMBAS PIEZAS */}
-        {!textOnly && (
         <g className={staticOnly ? undefined : "sc-logo-together"}>
           {/* Aspa Azul (#233762) */}
           <g>
@@ -99,11 +94,10 @@ export default function AnimatedLogo({
             />
           </g>
         </g>
-        )}
 
         {/* TIPOGRAFÍA OFICIAL SUPPLYCHAIN MÉXICO (ESTÁTICA, NÍTIDA) */}
-        {(!iconOnly || textOnly) && (
-          <g transform={!textOnly && horizontal ? "translate(803, -237) scale(0.78)" : undefined}>
+        {!iconOnly && (
+          <g transform={horizontal ? "translate(803, -237) scale(0.78)" : undefined}>
             {/* "Supply" y "M É X I C O" en Azul Marino #233762 */}
             <path
               fill="#233762"
