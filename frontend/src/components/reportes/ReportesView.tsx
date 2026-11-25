@@ -518,15 +518,15 @@ export default function ReportesView({
   const totalPages = Math.ceil(total / pageSize) || 1;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative selection:bg-[#233762] selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
       {/* Franja Superior Bicolor Institucional (3px) */}
-      <div className="h-[3px] w-full flex fixed top-0 left-0 right-0 z-50">
+      <div className="h-[3px] w-full flex relative z-50">
         <div className="w-1/2 bg-[#233762]" />
         <div className="w-1/2 bg-[#CE3A39]" />
       </div>
 
       {/* Encabezado unificado para el módulo de Reportes y sus submódulos */}
-      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 mt-[3px]">
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
         <div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
             {activeSubmodulo !== null ? (
@@ -599,36 +599,35 @@ export default function ReportesView({
 
       {/* Submódulos de Reportes: Vista HUB Inicial (cuando no hay submódulo seleccionado) */}
       {activeSubmodulo === null && (
-        <div className="w-full flex-1 flex flex-col justify-between">
-          <div>
-            {/* Header Centralizado con Badge y Título */}
-            <div className="text-center max-w-2xl mx-auto mt-2 mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
-                <span>Asset Management</span>
-                <span className="text-slate-400">/</span>
-                <span>{activeClientLabel}</span>
-                <span className="text-slate-400">/</span>
-                <span className="text-[#CE3A39] font-bold">Reportes</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
-                {activeClient === "ALL"
-                  ? "Módulos de Reportes y Trazabilidad"
-                  : `Módulos de Reportes y Trazabilidad — ${activeClientLabel}`}
-              </h1>
-              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                Selecciona un submódulo operativo para consultar reportes, métricas en tiempo real, conciliación de garantías y estatus de equipos.
-              </p>
+        <div className="w-full flex-1 flex flex-col items-center">
+          {/* Header Centralizado con Badge y Título */}
+          <div className="text-center mt-2 mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFF3F9] text-[#233762] text-xs font-semibold mb-2">
+              <span>Asset Management</span>
+              <span className="text-slate-400">/</span>
+              <span>{activeClientLabel}</span>
+              <span className="text-slate-400">/</span>
+              <span className="text-[#CE3A39] font-bold">Reportes</span>
             </div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-[#233762] tracking-tight">
+              {activeClient === "ALL"
+                ? "Módulos de Reportes y Trazabilidad"
+                : `Módulos de Reportes y Trazabilidad — ${activeClientLabel}`}
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Selecciona un submódulo operativo para consultar reportes, métricas en tiempo real, conciliación de garantías y estatus de equipos.
+            </p>
+          </div>
 
-            {activeClient === "ALL" ? (
-              <ClientRequiredEmptyState
-                mode="select_client"
-                moduleName="Reportes"
-                onSelectClient={(c) => handleClientChange(c)}
-              />
-            ) : (
-            /* Grid de 4 Módulos Estandarizados (Dimensiones Idénticas: w-[300px] h-[275px]) */
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl mx-auto">
+          {activeClient === "ALL" ? (
+            <ClientRequiredEmptyState
+              mode="select_client"
+              moduleName="Reportes"
+              onSelectClient={(c) => handleClientChange(c)}
+            />
+          ) : (
+            /* Grid de Módulos Estandarizado (3 por fila: max-w-5xl, tarjetas w-[300px] h-[275px]) */
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {/* Módulo 1: Devoluciones */}
               <div
                 onClick={() => handleSubmoduloChange("devoluciones")}
@@ -734,7 +733,6 @@ export default function ReportesView({
               </div>
             </div>
             )}
-          </div>
         </div>
       )}
 
