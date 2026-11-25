@@ -2134,8 +2134,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2235,8 +2239,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2350,8 +2358,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2490,8 +2502,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2549,8 +2565,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2673,8 +2693,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2715,8 +2739,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2757,8 +2785,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2796,8 +2828,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2895,8 +2931,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -2994,8 +3034,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -3292,8 +3336,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -3463,8 +3511,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
@@ -3545,8 +3597,12 @@ export default function DashboardPage() {
                   className="flex items-center group cursor-pointer focus:outline-none transition-transform hover:scale-[1.03]"
                   title="Regresar al Hub Principal"
                 >
-                  <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
+                  <AnimatedLogo className="h-9 sm:h-10 w-auto" iconOnly staticOnly />
                 </button>
+              </div>
+
+              <div className="hidden sm:flex items-center">
+                <AnimatedLogo className="h-8 sm:h-9 w-auto" textOnly staticOnly />
               </div>
             </div>
           </header>
