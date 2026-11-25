@@ -2907,77 +2907,36 @@ export default function DashboardPage() {
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {[
                 {
-                  name: "Trazabilidad de envíos",
-                  description: "Monitoreo en vivo de estatus de guías FedEx y Estafeta, entregas e incidencias.",
-                  Icon: Truck,
-                  target: "rastreo_envios" as const,
-                  tone: "navy" as const,
-                },
-                {
-                  name: "Cierres diarios ServiceNow",
-                  description: "Consulta y auditoría de cierres diarios para conciliar guías con tareas de ServiceNow.",
-                  Icon: FileSpreadsheet,
-                  target: "historial" as const,
-                  tone: "red" as const,
-                },
-                {
-                  name: "Reportes y garantías",
-                  description: "Conciliación de devoluciones, garantías Lenovo / Dell y trazabilidad de activos.",
-                  Icon: ShieldCheck,
-                  target: "reportes" as const,
-                  tone: "navy" as const,
-                },
-                {
-                  name: "Validación de incidencias",
-                  description: "Mesa de revisión de órdenes con semáforo amarillo (colonia) o rojo (CP / teléfono).",
+                  name: "Validación de Incidencias",
+                  description: "Revisión de órdenes con semáforo amarillo (colonia ambigua) o rojo (bloqueo por código postal o teléfono).",
                   Icon: Headset,
-                  target: undefined,
-                  tone: "red" as const,
-                },
-                {
-                  name: "Mesa de ayuda (SOP)",
-                  description: "Manuales, guías de atención y procedimientos operativos de Customer Service.",
-                  Icon: HelpCircle,
-                  target: undefined,
                   tone: "navy" as const,
                 },
-              ].map(({ name, description, Icon, target, tone }) => {
-                const isActive = Boolean(target);
+                {
+                  name: "Cierres Diarios ServiceNow",
+                  description: "Descarga y auditoría de Cierre.xlsx para conciliar los números de guía con las tareas de ServiceNow.",
+                  Icon: FileSpreadsheet,
+                  tone: "navy" as const,
+                },
+                {
+                  name: "Trazabilidad de Envíos",
+                  description: "Monitoreo de estatus de guías sincronizadas y reportes de discrepancia para clientes KST.",
+                  Icon: Truck,
+                  tone: "red" as const,
+                },
+              ].map(({ name, description, Icon, tone }) => {
                 const iconTone =
                   tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
                 return (
                   <div
                     key={name}
-                    onClick={() => {
-                      if (target === "reportes") {
-                        window.location.href = "/reportes";
-                      } else if (target === "historial") {
-                        setHistoryReturnTarget("csm");
-                        setActiveModule("historial");
-                      } else if (target === "rastreo_envios") {
-                        setTrackingReturnTarget("csm");
-                        setActiveModule("rastreo_envios");
-                      } else {
-                        triggerToast(`Módulo ${name} en construcción`, "info");
-                      }
-                    }}
+                    onClick={() => triggerToast(`Módulo ${name} en construcción`, "info")}
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
-                    <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
-                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                        : "bg-transparent group-hover:bg-[#233762]/30"
-                        }`}
-                    />
-                    {isActive ? (
-                      <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
-                        Activo
-                      </span>
-                    ) : (
-                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                        En desarrollo
-                      </span>
-                    )}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 bg-transparent group-hover:bg-[#233762]/30" />
+                    <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                      En desarrollo
+                    </span>
                     <div className="flex flex-col items-center w-full mt-2">
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
@@ -2987,18 +2946,8 @@ export default function DashboardPage() {
                       <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
                       <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
                     </div>
-                    <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
-                        }`}
-                    >
-                      {isActive ? (
-                        <>
-                          <span>Ingresar al módulo</span>
-                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                        </>
-                      ) : (
-                        <span>En desarrollo</span>
-                      )}
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium transition-colors">
+                      <span>En desarrollo</span>
                     </span>
                   </div>
                 );
@@ -3067,78 +3016,36 @@ export default function DashboardPage() {
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {[
                 {
-                  name: "Impresión de etiquetas PDF",
-                  description: "Consulta y descarga del consolidado de etiquetas térmicas Techship por día operativo.",
+                  name: "Impresión de Etiquetas PDF",
+                  description: "Descarga directa del consolidado de etiquetas térmicas Techship para adherir a los paquetes.",
                   Icon: FileText,
-                  target: "historial" as const,
                   tone: "red" as const,
                 },
                 {
-                  name: "Despacho y salida a ruta",
-                  description: "Manifiesto de recolección, salida a ruta y seguimiento de guías de paquetería.",
-                  Icon: Truck,
-                  target: "rastreo_envios" as const,
-                  tone: "navy" as const,
-                },
-                {
-                  name: "Calendario de recolecciones",
-                  description: "Agenda de recolecciones programadas (Pickups), citas de entrega y salidas de almacén.",
-                  Icon: Calendar,
-                  target: "calendario" as const,
-                  tone: "red" as const,
-                },
-                {
-                  name: "Picking y preparación física",
-                  description: "Revisión física del equipo de cómputo según número de RITM y par de retorno (-1).",
+                  name: "Picking y Preparación Física",
+                  description: "Revisión física del equipo de computación según número de RITM y par de Retorno (-1).",
                   Icon: Package,
-                  target: undefined,
                   tone: "navy" as const,
                 },
                 {
-                  name: "Mesa de ayuda (SOP)",
-                  description: "Manuales de empaque, etiquetado y procedimientos operativos de Almacén Lerma.",
-                  Icon: HelpCircle,
-                  target: undefined,
-                  tone: "red" as const,
+                  name: "Despacho y Salida a Ruta",
+                  description: "Manifiesto de recolección y entrega a la unidad de transporte o paquetería local.",
+                  Icon: Truck,
+                  tone: "navy" as const,
                 },
-              ].map(({ name, description, Icon, target, tone }) => {
-                const isActive = Boolean(target);
+              ].map(({ name, description, Icon, tone }) => {
                 const iconTone =
                   tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39]" : "bg-[#EFF3F9] text-[#233762]";
                 return (
                   <div
                     key={name}
-                    onClick={() => {
-                      if (target === "historial") {
-                        setHistoryReturnTarget("almacen");
-                        setActiveModule("historial");
-                      } else if (target === "rastreo_envios") {
-                        setTrackingReturnTarget("almacen");
-                        setActiveModule("rastreo_envios");
-                      } else if (target === "calendario") {
-                        setCalendarReturnTarget("almacen");
-                        setActiveModule("calendario");
-                      } else {
-                        triggerToast(`Módulo ${name} en construcción`, "info");
-                      }
-                    }}
+                    onClick={() => triggerToast(`Módulo ${name} en construcción`, "info")}
                     className="bg-white rounded-xl border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-300 p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center cursor-pointer group relative overflow-hidden hover:-translate-y-1"
                   >
-                    <div
-                      className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${isActive
-                        ? "bg-[#233762] group-hover:bg-[#CE3A39]"
-                        : "bg-transparent group-hover:bg-[#233762]/30"
-                        }`}
-                    />
-                    {isActive ? (
-                      <span className={`absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${tone === "red" ? "bg-[#FDF2F2] text-[#CE3A39] border-[#CE3A39]/20" : "bg-[#EFF3F9] text-[#233762] border-[#233762]/20"}`}>
-                        Activo
-                      </span>
-                    ) : (
-                      <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                        En desarrollo
-                      </span>
-                    )}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 bg-transparent group-hover:bg-[#233762]/30" />
+                    <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                      En desarrollo
+                    </span>
                     <div className="flex flex-col items-center w-full mt-2">
                       <div
                         className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xs ${iconTone}`}
@@ -3148,18 +3055,8 @@ export default function DashboardPage() {
                       <h3 className="text-lg font-bold text-[#233762] group-hover:text-[#CE3A39] transition-colors mt-4">{name}</h3>
                       <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">{description}</p>
                     </div>
-                    <span
-                      className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${isActive ? "text-[#233762] group-hover:text-[#CE3A39]" : "text-slate-400 font-medium"
-                        }`}
-                    >
-                      {isActive ? (
-                        <>
-                          <span>Ingresar al módulo</span>
-                          <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
-                        </>
-                      ) : (
-                        <span>En desarrollo</span>
-                      )}
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium transition-colors">
+                      <span>En desarrollo</span>
                     </span>
                   </div>
                 );
