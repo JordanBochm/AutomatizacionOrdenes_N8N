@@ -573,7 +573,6 @@ export default function ReportesView({
                 ? "Outbound y despacho"
                 : "Reacondicionamiento (Refurb)"}
             </h1>
-            <ClientSwitcherPill value={activeClient} onChange={handleClientChange} />
           </div>
         </div>
       </header>
