@@ -575,6 +575,19 @@ export default function TransportTracker({
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
 
+  // Bloquear scroll del documento cuando el Drawer de detalle o la Vista Previa PDF estén abiertos
+  useEffect(() => {
+    if (!selectedGuideKey && !showPreviewModal) return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [selectedGuideKey, showPreviewModal]);
+
   // Historial reciente en localStorage
   const [recentGuides, setRecentGuides] = useState<RecentGuideItem[]>([]);
 

@@ -32,3 +32,19 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Bloqueo automático del scroll de fondo cuando cualquier modal, drawer o loader (fixed inset-0 z-50 / z-[100]) está abierto */
+html:has(.fixed.inset-0.z-50),
+body:has(.fixed.inset-0.z-50),
+html:has(.fixed.inset-0.z-\[100\]),
+body:has(.fixed.inset-0.z-\[100\]) {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+/* Evitar que el scroll con rueda o trackpad dentro de un modal se propague (scroll chaining) a la página de atrás */
+.fixed.inset-0.z-50,
+.fixed.inset-0.z-50 *,
+.fixed.inset-0.z-\[100\] {
+  overscroll-behavior: contain;
+}
