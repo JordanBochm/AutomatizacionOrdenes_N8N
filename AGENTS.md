@@ -37,17 +37,26 @@ ANTES DE REALIZAR CUALQUIER CAMBIO EN EL FRONTEND O CREAR UN COMPONENTE, LA IA D
    - **Gris (`slate-*`):** Todo lo demás. Badges de rol (`ASSET_MANAGER`, `ADMIN`), badges de cliente (`KYNDRYL & BASF`), badges de tipo (`ENTREGA`, `RETORNO`), badges de carrier (`FEDEX`, `ESTAFETA`), botones de descarga y contenedores secundarios deben ser neutros (`bg-slate-100 text-slate-600 border-slate-200` o `bg-slate-50 text-slate-700 border-slate-200`).
    - **Fondos y Sombras:** Fondo de página `bg-slate-50`; tarjetas principales blancas (`bg-white border border-slate-200 rounded-2xl p-5 shadow-sm`). Prohibido anidar sombras redundantes.
 
-2. **Cabecera, Franja Superior y Badges de Rol:**
-   - En vistas de selección (Hub / Módulos): logo oficial `/logo-supplychain.png` centrado (`h-20 sm:h-24 w-auto`, fallback `<AnimatedLogo />`) y franja bicolor superior de `6px` (`h-1.5`).
-   - En vistas operativas de Asset Management: franja superior bicolor de `3px` (`h-[3px]`, 50% `#233762` y 50% `#CE3A39`).
-   - Badge de rol de usuario en el header: siempre neutro (`bg-slate-100 text-slate-600`), nunca rojo.
-   - Botón de regreso con estilo píldora (`rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-[#233762] font-semibold`) y flecha roja (`<ArrowLeft className="w-3.5 h-3.5 text-[#CE3A39]" />`).
+2. **Encabezado Unificado Obligatorio (en todos los módulos, submódulos y vistas nuevas):**
+   - **Todo módulo, submódulo o vista interna nueva** (excepto el Hub Principal) DEBE incluir exactamente el mismo encabezado pegajoso (`sticky top-0 z-40` de `h-20`):
+     - `<header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">`
+     - Contenedor interno: `<div className="w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 h-20 flex items-center justify-between">`
+     - **Izquierda (`flex items-center gap-3 sm:gap-4`):** botón circular de regreso (`w-9 h-9 rounded-full flex items-center justify-center border border-slate-200 bg-white hover:bg-[#EFF3F9] text-[#233762] transition group cursor-pointer` con `<ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />`), separador vertical (`h-7 w-px bg-slate-200 hidden sm:block`), y el logo oficial horizontal clicable que regresa al Hub Principal (`<AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />`).
+     - **Derecha (`hidden sm:flex items-center gap-2.5`):** título de la vista (`text-base font-extrabold text-[#233762] tracking-wide`) acompañado de `<ClientSwitcherPill />` cuando el módulo opere por cliente.
+   - En el **Hub Principal** (`hub`): logo oficial `/logo-supplychain.png` centrado (fallback `<AnimatedLogo />`), franja superior bicolor institucional y badge de rol de usuario siempre neutro (`bg-slate-100`).
+   - En vistas operativas: franja superior bicolor institucional (`50% #233762` y `50% #CE3A39`).
 
-3. **Tarjetas de Módulos (Dimensiones Homogéneas Obligatorias en Hubs):**
+3. **Proporciones, Márgenes y Contenedor Estandarizado (Base: Automatizador de Operación — Obligatorio en Todo Módulo Nuevo):**
+   - CADA VEZ QUE SE AGREGUE UN MÓDULO, SUBMÓDULO O INTERFAZ NUEVA, DEBE REPLICAR EXACTAMENTE LOS MÁRGENES Y PROPORCIONES DEL **AUTOMATIZADOR DE OPERACIÓN**:
+     - **Contenedor principal de contenido (`<main>` o wrapper raíz):** `flex-1 w-full max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-5` (PROHIBIDO usar `max-w-7xl`, `max-w-6xl`, `max-w-4xl` o anchos libres sin `max-w-[1540px]`, para que los bordes izquierdo y derecho del contenido alineen al píxel con el encabezado).
+     - **Ritmo vertical entre secciones:** `space-y-4` o `flex flex-col gap-4` (`16px` uniformes; evitar `py-8`, `mb-8` o `gap-6` excesivos).
+     - **Contenedores y tarjetas operativas:** `bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm` y grillas de KPIs/bloques con `gap-4`.
+
+4. **Tarjetas de Módulos (Dimensiones Homogéneas Obligatorias en Hubs):**
    - CADA TARJETA DE MÓDULO O SUBMÓDULO DEBE MEDIR EXACTAMENTE LO MISMO EN TODAS LAS PANTALLAS:
      - Ancho exacto fijado: `w-[300px]` (PROHIBIDO usar anchos porcentuales o columnas grid que cambien el ancho de las tarjetas entre pantallas).
      - Altura exacta fijada: `h-[275px] min-h-[275px]`.
-   - Contenedor de módulos: `flex flex-wrap justify-center gap-6 max-w-5xl mx-auto` (o `max-w-7xl` para 4 módulos en desktop).
+   - Contenedor de módulos: `flex flex-wrap justify-center gap-6 max-w-5xl mx-auto` (o `max-w-7xl` para 4 módulos en desktop) dentro del marco general `max-w-[1540px]`.
    - Estructura interna estandarizada:
      - Badge superior derecha: `text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full` en tonos institucionales suaves (`#EFF3F9 text-[#233762]` / `#FDF2F2 text-[#CE3A39]`), nunca verde brillante.
      - Contenedor de icono centrado: `w-14 h-14 rounded-2xl` con zoom al hover.
@@ -56,17 +65,18 @@ ANTES DE REALIZAR CUALQUIER CAMBIO EN EL FRONTEND O CREAR UN COMPONENTE, LA IA D
      - Enlace inferior alineado: `Ingresar al módulo →` (`text-[#233762] group-hover:text-[#CE3A39]`).
      - Línea de base institucional de acento: `h-1 bg-[#233762] group-hover:bg-[#CE3A39]`.
 
-4. **Tarjetas KPI Operativas (Estándar Limpio):**
+5. **Tarjetas KPI Operativas (Estándar Limpio):**
    - Tarjeta blanca (`bg-white border border-slate-200 rounded-2xl p-5 shadow-sm`), **sin** franja superior de color y **sin** fondos de tarjeta coloreados (`bg-amber-50`, `bg-emerald-50`, `bg-red-50`, etc.).
    - Cabecera con título en `text-[11px] font-semibold uppercase tracking-wider text-slate-500` acompañado únicamente de un punto (`w-2 h-2 rounded-full`) del color semántico correspondiente.
    - Valor numérico en `text-3xl` o `text-4xl font-bold font-mono text-[#233762] mt-2` (siempre en azul marino `#233762`).
    - Subtítulo en `text-xs text-slate-400 mt-1`.
    - Si la tarjeta filtra la tabla, la tarjeta activa lleva anillo azul marino (`border-[#233762] ring-2 ring-[#233762]/15`).
 
-5. **Tablas, Filtros y Semáforos:**
+6. **Tablas, Filtros, Modales y Semáforos:**
    - Pestañas de filtro: la pestaña activa SIEMPRE va en azul marino (`bg-[#233762] text-white`), nunca en rojo, verde o morado.
    - Semáforo o estatus por fila: punto de color de `8px` (`w-2 h-2 rounded-full`) + texto corto legible, evitando píldoras saturadas de múltiples colores. Los detalles largos van en atributo `title` (tooltip).
    - Botones de descarga / exportación: estilo neutro unificado (`bg-slate-50 border border-slate-200 text-slate-700 hover:bg-[#EFF3F9] hover:text-[#233762] hover:border-[#233762]/30`), con icono `<Lock />` y `opacity-40` cuando no estén disponibles.
+   - Modales y paneles superpuestos: usar siempre overlay `.fixed.inset-0.z-50` para activar automáticamente el bloqueo global de scroll de fondo (`globals.css`).
 
 # Reglas críticas para agentes
 - NUNCA ejecutar timbrados reales ni llamar a Techship, Estafeta o FedEx en pruebas. En API usar siempre `dry_run: true`; en CLI usar `main.py` SIN `--live`.
