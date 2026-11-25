@@ -2249,10 +2249,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Asset Management
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2374,10 +2371,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Operación del día
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2524,10 +2518,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Generador de Tracking
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2593,10 +2584,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Transporte
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2727,10 +2715,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Rastreo de envíos
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2779,10 +2764,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Historial de trackings y cierres
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2831,10 +2813,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Calendario de planificaciones y citas
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2880,10 +2859,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Customer Service (CSM)
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -2989,10 +2965,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Almacén Lerma
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
@@ -3667,10 +3640,7 @@ export default function DashboardPage() {
                 <h1 className="text-base font-extrabold text-[#233762] tracking-wide">
                   Automatizador de operación
                 </h1>
-                <ClientSwitcherPill
-                  value={activeClient}
-                  onChange={(c) => handleSelectClient(c, false)}
-                />
+
               </div>
             </div>
           </header>
