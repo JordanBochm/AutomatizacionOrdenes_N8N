@@ -1621,6 +1621,37 @@ export default function DashboardPage() {
     },
   ].filter((m) => currentClientConfig.enabledTransporteSubmodules.includes(m.key));
 
+  const headerUserControls = (
+    <div className="flex items-center gap-2 sm:gap-3 text-xs">
+      <button
+        type="button"
+        onClick={() => setActiveModule("profile")}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700 hover:border-[#233762] transition cursor-pointer"
+        title="Ver Perfil"
+      >
+        <div className="w-5 h-5 rounded-full bg-[#233762] text-white flex items-center justify-center font-bold font-mono text-[10px]">
+          {userInitials}
+        </div>
+        <span className="font-medium text-slate-700 hidden md:inline truncate max-w-[180px]">
+          {currentUser?.name || userEmail}
+        </span>
+        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold uppercase bg-slate-100 text-slate-600">
+          {roleConfig.code}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-[#CE3A39] transition font-medium shadow-2xs cursor-pointer"
+        title="Cerrar sesión"
+      >
+        <LogOut className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Cerrar sesión</span>
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#233762] selection:text-white">
       {/* Franja Superior Bicolor Institucional (3px en módulos y submódulos, 6px en Login y Hub) */}
@@ -2137,6 +2168,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2238,6 +2271,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2353,6 +2388,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2493,6 +2530,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2552,6 +2591,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2676,6 +2717,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2718,6 +2761,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2760,6 +2805,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2799,6 +2846,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2898,6 +2947,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -2997,6 +3048,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -3295,6 +3348,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -3466,6 +3521,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
@@ -3548,6 +3605,8 @@ export default function DashboardPage() {
                   <AnimatedLogo className="h-9 sm:h-10 w-auto" horizontal staticOnly />
                 </button>
               </div>
+
+              {headerUserControls}
             </div>
           </header>
 
