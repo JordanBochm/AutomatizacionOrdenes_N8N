@@ -1864,7 +1864,7 @@ export default function DashboardPage() {
                 <span className="font-medium text-slate-700 hidden md:inline truncate max-w-[180px]">
                   {currentUser?.name || userEmail}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold uppercase bg-slate-100 text-[#CE3A39]">
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold uppercase bg-slate-100 text-slate-600">
                   {roleConfig.code}
                 </span>
               </button>
@@ -1909,11 +1909,11 @@ export default function DashboardPage() {
             {/* LAS TRES ÁREAS DEL HUB (Asset Management, CSM y Almacén)        */}
             {/* Con animación homologada y candados basados en el rol           */}
             {/* ================================================================ */}
-            <div className="flex flex-wrap justify-center gap-6 max-w-5xl w-full">
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-5xl mx-auto">
               {/* TARJETA 1: ASSET MANAGEMENT (Activo para ADMIN y ASSET_MANAGER) */}
               <div
                 onClick={() => handleHubNavigation("asset")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAsset
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAsset
                   ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
                   : "opacity-60 cursor-not-allowed hover:border-slate-300"
                   }`}
@@ -1927,7 +1927,7 @@ export default function DashboardPage() {
 
                 {/* Badge de Estado / Candado */}
                 {canEnterAsset ? (
-                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] border border-[#233762]/20">
                     Activo
                   </span>
                 ) : (
@@ -1937,17 +1937,19 @@ export default function DashboardPage() {
                   </span>
                 )}
 
-                <div className="flex flex-col items-center w-full">
+                <div className="flex flex-col items-center w-full mt-2">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAsset
-                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAsset
+                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110"
                       : "bg-slate-100 text-slate-400"
                       }`}
                   >
-                    {canEnterAsset ? <Laptop className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+                    {canEnterAsset ? <Laptop className="w-7 h-7" /> : <Lock className="w-7 h-7" />}
                   </div>
-                  <h3 className="text-lg font-bold text-[#233762] mt-4">Asset Management</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  <h3 className={`text-lg font-bold text-[#233762] mt-4 ${canEnterAsset ? "group-hover:text-[#CE3A39] transition-colors" : ""}`}>
+                    Asset Management
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
                     {canEnterAsset
                       ? "Operación del día, historial de cierres y generación de trackings."
                       : "Área exclusiva para Asset Management y Administrador."}
@@ -1955,14 +1957,14 @@ export default function DashboardPage() {
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAsset
+                  className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAsset
                     ? "text-[#233762] group-hover:text-[#CE3A39]"
                     : "text-slate-400"
                     }`}
                 >
                   {canEnterAsset ? (
                     <>
-                      <span>Ingresar</span>
+                      <span>Ingresar al módulo</span>
                       <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                     </>
                   ) : (
@@ -1974,7 +1976,7 @@ export default function DashboardPage() {
               {/* TARJETA 2: CSM (Activo para ADMIN y CSM) */}
               <div
                 onClick={() => handleHubNavigation("csm")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterCSM
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterCSM
                   ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
                   : "opacity-60 cursor-not-allowed hover:border-slate-300"
                   }`}
@@ -1988,7 +1990,7 @@ export default function DashboardPage() {
 
                 {/* Badge de Estado / Candado */}
                 {canEnterCSM ? (
-                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EFF3F9] text-[#233762] border border-[#233762]/20">
                     Activo
                   </span>
                 ) : (
@@ -1998,17 +2000,19 @@ export default function DashboardPage() {
                   </span>
                 )}
 
-                <div className="flex flex-col items-center w-full">
+                <div className="flex flex-col items-center w-full mt-2">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterCSM
-                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110 group-hover:bg-[#233762] group-hover:text-white"
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterCSM
+                      ? "bg-[#EFF3F9] text-[#233762] group-hover:scale-110"
                       : "bg-slate-100 text-slate-400"
                       }`}
                   >
-                    {canEnterCSM ? <Headset className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+                    {canEnterCSM ? <Headset className="w-7 h-7" /> : <Lock className="w-7 h-7" />}
                   </div>
-                  <h3 className="text-lg font-bold text-[#233762] mt-4">CSM</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  <h3 className={`text-lg font-bold text-[#233762] mt-4 ${canEnterCSM ? "group-hover:text-[#CE3A39] transition-colors" : ""}`}>
+                    CSM
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
                     {canEnterCSM
                       ? "Customer Service, auditoría de incidencias y conciliación de entregas."
                       : "Área exclusiva para CSM y Administrador."}
@@ -2016,14 +2020,14 @@ export default function DashboardPage() {
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterCSM
+                  className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterCSM
                     ? "text-[#233762] group-hover:text-[#CE3A39]"
                     : "text-slate-400"
                     }`}
                 >
                   {canEnterCSM ? (
                     <>
-                      <span>Ingresar</span>
+                      <span>Ingresar al módulo</span>
                       <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                     </>
                   ) : (
@@ -2035,21 +2039,21 @@ export default function DashboardPage() {
               {/* TARJETA 3: ALMACÉN (Activo para ADMIN y ALMACEN) */}
               <div
                 onClick={() => handleHubNavigation("almacen")}
-                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-8 w-72 min-h-[280px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAlmacen
+                className={`bg-white rounded-xl border border-slate-200/80 shadow-md p-6 w-[300px] h-[275px] min-h-[275px] flex flex-col items-center justify-between text-center relative overflow-hidden transition-all duration-300 group ${canEnterAlmacen
                   ? "cursor-pointer hover:shadow-xl hover:-translate-y-1"
                   : "opacity-60 cursor-not-allowed hover:border-slate-300"
                   }`}
               >
                 <div
                   className={`absolute bottom-0 left-0 right-0 h-1 transition-colors duration-300 ${canEnterAlmacen
-                    ? "bg-[#CE3A39] group-hover:bg-[#233762]"
+                    ? "bg-[#233762] group-hover:bg-[#CE3A39]"
                     : "bg-slate-300"
                     }`}
                 />
 
                 {/* Badge de Estado / Candado */}
                 {canEnterAlmacen ? (
-                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="absolute top-3.5 right-3.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FDF2F2] text-[#CE3A39] border border-[#CE3A39]/20">
                     Activo
                   </span>
                 ) : (
@@ -2059,17 +2063,19 @@ export default function DashboardPage() {
                   </span>
                 )}
 
-                <div className="flex flex-col items-center w-full">
+                <div className="flex flex-col items-center w-full mt-2">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAlmacen
-                      ? "bg-[#FDF2F2] text-[#CE3A39] group-hover:scale-110 group-hover:bg-[#CE3A39] group-hover:text-white"
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-2xs ${canEnterAlmacen
+                      ? "bg-[#FDF2F2] text-[#CE3A39] group-hover:scale-110"
                       : "bg-slate-100 text-slate-400"
                       }`}
                   >
-                    {canEnterAlmacen ? <Warehouse className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+                    {canEnterAlmacen ? <Warehouse className="w-7 h-7" /> : <Lock className="w-7 h-7" />}
                   </div>
-                  <h3 className="text-lg font-bold text-[#233762] mt-4">Almacén</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  <h3 className={`text-lg font-bold text-[#233762] mt-4 ${canEnterAlmacen ? "group-hover:text-[#CE3A39] transition-colors" : ""}`}>
+                    Almacén
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed px-1">
                     {canEnterAlmacen
                       ? "Operación Lerma, preparación de pedidos, empaque e impresión de guías."
                       : "Área exclusiva para Almacén y Administrador."}
@@ -2077,14 +2083,14 @@ export default function DashboardPage() {
                 </div>
 
                 <span
-                  className={`mt-5 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAlmacen
-                    ? "text-[#CE3A39] group-hover:text-[#233762]"
+                  className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${canEnterAlmacen
+                    ? "text-[#233762] group-hover:text-[#CE3A39]"
                     : "text-slate-400"
                     }`}
                 >
                   {canEnterAlmacen ? (
                     <>
-                      <span>Ingresar</span>
+                      <span>Ingresar al módulo</span>
                       <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
                     </>
                   ) : (
@@ -2872,19 +2878,24 @@ export default function DashboardPage() {
           </header>
 
           <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-extrabold text-[#233762]">Customer Service (CSM)</h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Mesa de atención para incidencias de entrega, conciliación de reportes y auditoría de servicio.
-                </p>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+                  <Headset className="w-5 h-5" />
+                </span>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">Customer Service (CSM)</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Mesa de atención para incidencias de entrega, conciliación de reportes y auditoría de servicio.
+                  </p>
+                </div>
               </div>
 
               {canEnterAsset && (
                 <button
                   type="button"
                   onClick={() => setActiveModule("asset_management")}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-sm cursor-pointer self-start sm:self-auto"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs cursor-pointer self-start sm:self-auto"
                 >
                   <Zap className="w-4 h-4" />
                   <span>Ver Asset Management</span>
@@ -2893,7 +2904,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
                   <Headset className="w-6 h-6" />
                 </div>
@@ -2903,8 +2914,8 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
                   <FileSpreadsheet className="w-6 h-6" />
                 </div>
                 <h3 className="font-bold text-slate-800 text-sm">Cierres Diarios ServiceNow</h3>
@@ -2913,8 +2924,8 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-red-50 text-[#CE3A39] flex items-center justify-center mb-4">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center mb-4">
                   <Truck className="w-6 h-6" />
                 </div>
                 <h3 className="font-bold text-slate-800 text-sm">Trazabilidad de Envíos</h3>
@@ -2964,19 +2975,24 @@ export default function DashboardPage() {
           </header>
 
           <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-extrabold text-[#233762]">Almacén Lerma</h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Operación física de empaque, picking, verificación de hardware e impresión de etiquetas de paquetería.
-                </p>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+                  <Warehouse className="w-5 h-5" />
+                </span>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">Almacén Lerma</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Operación física de empaque, picking, verificación de hardware e impresión de etiquetas de paquetería.
+                  </p>
+                </div>
               </div>
 
               {canEnterAsset && (
                 <button
                   type="button"
                   onClick={() => setActiveModule("asset_management")}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 cursor-pointer self-start sm:self-auto"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] hover:bg-[#1B2A4A] text-white text-xs font-bold shadow-xs cursor-pointer self-start sm:self-auto"
                 >
                   <FileText className="w-4 h-4" />
                   <span>Ver Asset Management</span>
@@ -2985,7 +3001,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-[#FDF2F2] text-[#CE3A39] flex items-center justify-center mb-4">
                   <FileText className="w-6 h-6" />
                 </div>
@@ -2995,7 +3011,7 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
                   <Package className="w-6 h-6" />
                 </div>
@@ -3005,8 +3021,8 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#EFF3F9] text-[#233762] flex items-center justify-center mb-4">
                   <Truck className="w-6 h-6" />
                 </div>
                 <h3 className="font-bold text-slate-800 text-sm">Despacho y Salida a Ruta</h3>
@@ -3056,46 +3072,67 @@ export default function DashboardPage() {
           </header>
 
           <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-extrabold text-[#233762]">Gestión de Usuarios y Accesos</h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Catálogo local de usuarios corporativos y asignación de roles RBAC en tiempo real.
-                </p>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+                  <Users className="w-5 h-5" />
+                </span>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">Gestión de Usuarios y Accesos</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Catálogo local de usuarios corporativos y asignación de roles RBAC en tiempo real.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowNewUserModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-md shadow-red-200 cursor-pointer self-start sm:self-auto"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#CE3A39] hover:bg-[#B02E2D] text-white text-xs font-bold shadow-xs cursor-pointer self-start sm:self-auto"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Nuevo Usuario</span>
+                <span>Nuevo Usuario</span>
               </button>
             </div>
 
-            {/* Tarjetas Métricas */}
+            {/* Tarjetas Métricas Estandarizadas */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                <span className="text-xs font-bold text-slate-400 uppercase font-mono">Total Cuentas</span>
-                <div className="text-2xl font-extrabold text-[#233762] mt-1 font-mono">{usersList.length}</div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Cuentas</span>
+                  <span className="w-2 h-2 rounded-full bg-[#233762]" />
+                </div>
+                <div className="text-3xl font-bold font-mono text-[#233762] mt-2">{usersList.length}</div>
+                <p className="text-xs text-slate-400 mt-1">Registradas en catálogo</p>
               </div>
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                <span className="text-xs font-bold text-emerald-600 uppercase font-mono">Activos</span>
-                <div className="text-2xl font-extrabold text-emerald-600 mt-1 font-mono">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Activos</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                </div>
+                <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
                   {usersList.filter((u) => u.isActive).length}
                 </div>
+                <p className="text-xs text-slate-400 mt-1">Con acceso habilitado</p>
               </div>
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                <span className="text-xs font-bold text-[#CE3A39] uppercase font-mono">Administradores</span>
-                <div className="text-2xl font-extrabold text-[#CE3A39] mt-1 font-mono">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Administradores</span>
+                  <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
+                </div>
+                <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
                   {usersList.filter((u) => u.role === "ADMIN").length}
                 </div>
+                <p className="text-xs text-slate-400 mt-1">Control global RBAC</p>
               </div>
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                <span className="text-xs font-bold text-blue-600 uppercase font-mono">Operativos</span>
-                <div className="text-2xl font-extrabold text-[#233762] mt-1 font-mono">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Operativos</span>
+                  <span className="w-2 h-2 rounded-full bg-[#233762]" />
+                </div>
+                <div className="text-3xl font-bold font-mono text-[#233762] mt-2">
                   {usersList.filter((u) => u.role !== "ADMIN").length}
                 </div>
+                <p className="text-xs text-slate-400 mt-1">Asset, CSM y Almacén</p>
               </div>
             </div>
 
@@ -3135,7 +3172,7 @@ export default function DashboardPage() {
                                 <div className="font-bold text-slate-800 flex items-center gap-1.5">
                                   <span>{usr.name}</span>
                                   {isSelf && (
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-mono font-bold">
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono font-bold">
                                       TÚ
                                     </span>
                                   )}
@@ -3148,16 +3185,7 @@ export default function DashboardPage() {
                           <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-600">{usr.email}</td>
 
                           <td className="py-3 px-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${usr.role === "ADMIN"
-                                ? "bg-red-50 text-[#CE3A39] border-[#CE3A39]/30"
-                                : usr.role === "ASSET_MANAGER"
-                                  ? "bg-blue-50 text-[#233762] border-[#233762]/30"
-                                  : usr.role === "CSM"
-                                    ? "bg-amber-50 text-amber-800 border-amber-300"
-                                    : "bg-slate-100 text-slate-700 border-slate-300"
-                                }`}
-                            >
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200">
                               {ROLES_CONFIG[usr.role]?.label || usr.role}
                             </span>
                           </td>
@@ -3166,7 +3194,7 @@ export default function DashboardPage() {
                             <select
                               value={usr.role}
                               onChange={(e) => handleChangeUserRole(usr.id, e.target.value as UserRole)}
-                              className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#233762] cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#233762] cursor-pointer"
                             >
                               <option value="ADMIN">ADMIN</option>
                               <option value="ASSET_MANAGER">ASSET_MANAGER</option>
@@ -3181,13 +3209,10 @@ export default function DashboardPage() {
                               onClick={() => handleToggleUserActive(usr.id)}
                               disabled={isSelf}
                               title={isSelf ? "No puedes desactivar tu cuenta" : "Alternar estado"}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${usr.isActive
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                                : "bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200"
-                                } ${isSelf ? "opacity-70 cursor-not-allowed" : ""}`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer ${isSelf ? "opacity-60 cursor-not-allowed" : ""}`}
                             >
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-emerald-500" : "bg-slate-400"
+                                className={`w-2 h-2 rounded-full ${usr.isActive ? "bg-emerald-500" : "bg-slate-400"
                                   }`}
                               />
                               <span>{usr.isActive ? "Activo" : "Inactivo"}</span>
@@ -3351,11 +3376,16 @@ export default function DashboardPage() {
           </header>
 
           <div className="space-y-4 py-5 px-4 sm:px-8 lg:px-12 xl:px-16 max-w-[1540px] mx-auto w-full">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[#233762]">Matriz de Roles y Permisos Operativos (RBAC)</h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Especificación del alcance operativo y accesos autorizados para cada perfil de la organización.
-              </p>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex items-center gap-3">
+              <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </span>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">Matriz de Roles y Permisos Operativos (RBAC)</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Especificación del alcance operativo y accesos autorizados para cada perfil de la organización.
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3363,18 +3393,12 @@ export default function DashboardPage() {
                 const cfg = ROLES_CONFIG[roleKey];
                 const perms = cfg.permissions;
                 const usersInRole = usersList.filter((u) => u.role === roleKey).length;
-                const isRed = roleKey === "ADMIN" || roleKey === "ALMACEN";
 
                 return (
                   <div
                     key={roleKey}
-                    className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition p-6 flex flex-col justify-between relative overflow-hidden"
+                    className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition p-5 flex flex-col justify-between relative overflow-hidden"
                   >
-                    <div
-                      className={`absolute top-0 left-0 w-full h-1.5 ${isRed ? "bg-[#CE3A39]" : "bg-[#233762]"
-                        }`}
-                    />
-
                     <div>
                       <div className="flex items-start justify-between gap-3">
                         <div>

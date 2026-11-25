@@ -129,14 +129,16 @@ export default function RefurbView({ onBack }: RefurbViewProps = {}) {
         </div>
       )}
 
-      {/* Header del Submódulo */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Cabecera Operativa Estandarizada del Submódulo */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex items-center gap-3">
+        <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+          <RefreshCw className="w-5 h-5" />
+        </span>
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-[#233762] flex items-center gap-3">
-            <RefreshCw className="w-8 h-8 text-[#CE3A39]" />
+          <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">
             Línea de Reacondicionamiento (Refurb) y Stock
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
             Borrado seguro de datos (NIST 800-88 / Blancco), reinstalación de imagen, auditoría cosmética y reingreso a almacén.
           </p>
         </div>
@@ -353,7 +355,7 @@ export default function RefurbView({ onBack }: RefurbViewProps = {}) {
       {/* Modal Detalle Refurb */}
       {selectedRecord && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
             <div className="bg-[#233762] text-white px-6 py-4 flex items-center justify-between">
               <div>
                 <div className="text-xs text-blue-200 font-bold uppercase tracking-wider">Auditoría Refurb & QC</div>

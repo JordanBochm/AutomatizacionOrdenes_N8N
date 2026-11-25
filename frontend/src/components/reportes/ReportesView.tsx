@@ -582,17 +582,17 @@ export default function ReportesView({
       {/* Toast Flotante */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-lg shadow-xl border text-sm font-medium flex items-center gap-3 transition-all transform translate-y-0 ${
+          className={`fixed bottom-6 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md text-xs font-semibold transition-all ${
             toast.type === "success"
-              ? "bg-emerald-900 text-emerald-100 border-emerald-700"
+              ? "bg-emerald-50 border-emerald-300 text-emerald-800"
               : toast.type === "error"
-              ? "bg-red-900 text-red-100 border-red-700"
-              : "bg-[#233762] text-white border-blue-900"
+              ? "bg-red-50 border-red-300 text-red-800"
+              : "bg-blue-50 border-blue-300 text-blue-900"
           }`}
         >
-          {toast.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-          {toast.type === "error" && <AlertTriangle className="w-5 h-5 text-red-400" />}
-          {toast.type === "info" && <Clock className="w-5 h-5 text-blue-300" />}
+          {toast.type === "success" && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+          {toast.type === "error" && <AlertTriangle className="w-4 h-4 text-[#CE3A39] shrink-0" />}
+          {toast.type === "info" && <Clock className="w-4 h-4 text-[#233762] shrink-0" />}
           <span>{toast.message}</span>
         </div>
       )}
@@ -772,63 +772,65 @@ export default function ReportesView({
       {activeSubmodulo === "devoluciones" && activeClient !== "ALL" && (
         <>
 
-          {/* Header Institucional de Devoluciones */}
-          <header className="mb-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Cabecera Operativa Estandarizada de Devoluciones */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="p-2 bg-[#EFF3F9] text-[#233762] rounded-lg shrink-0">
+                <FileSpreadsheet className="w-5 h-5" />
+              </span>
               <div>
-                <h1 className="text-2xl md:text-3xl font-extrabold text-[#233762] flex items-center gap-3">
-                  <FileSpreadsheet className="w-8 h-8 text-[#CE3A39]" />
+                <h2 className="text-base sm:text-lg font-bold text-[#233762] tracking-tight">
                   Reportes de Devoluciones de Equipos
-                </h1>
-                <p className="text-sm text-slate-500 mt-1">
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
                   Conciliación semanal Kyndryl / Seko, estatus ServiceNow, garantías y trazabilidad de retornos.
                 </p>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button
-                  onClick={handleBatchWarrantyCheck}
-                  disabled={isCheckingBatch}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#EFF3F9] border border-[#233762] text-[#233762] text-xs font-bold disabled:opacity-40 transition cursor-pointer"
-                  title="Consultar en los servidores de Lenovo y Dell las garantías de los equipos mostrados"
-                >
-                  {isCheckingBatch ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-[#233762]" />
-                      <span>Consultando Garantías...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-4 h-4 text-[#233762]" />
-                      <span>Verificar Garantías del Lote</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] text-white text-xs font-bold shadow-sm hover:bg-[#1b2b4d] transition cursor-pointer"
-                >
-                  <Upload className="w-4 h-4" />
-                  Actualizar / Cargar Excel
-                </button>
-                <button
-                  onClick={handleExportFiltered}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-[#EFF3F9] hover:border-[#233762]/30 hover:text-[#233762] transition cursor-pointer"
-                >
-                  <Download className="w-4 h-4 text-slate-500" />
-                  Descargar Excel Filtrado
-                </button>
-                <button
-                  onClick={() => setShowClearModal(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 hover:text-[#CE3A39] transition cursor-pointer"
-                  title="Limpiar toda la información de computadoras y números de serie"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Limpiar Información</span>
-                </button>
-              </div>
             </div>
-          </header>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleBatchWarrantyCheck}
+                disabled={isCheckingBatch}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-[#EFF3F9] border border-slate-200 hover:border-[#233762]/40 text-[#233762] text-xs font-bold disabled:opacity-40 transition cursor-pointer"
+                title="Consultar en los servidores de Lenovo y Dell las garantías de los equipos mostrados"
+              >
+                {isCheckingBatch ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#233762]" />
+                    <span>Consultando Garantías...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#233762]" />
+                    <span>Verificar Garantías del Lote</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#233762] text-white text-xs font-bold shadow-xs hover:bg-[#1b2b4d] transition cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Actualizar / Cargar Excel
+              </button>
+              <button
+                onClick={handleExportFiltered}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-[#EFF3F9] hover:border-[#233762]/30 hover:text-[#233762] transition cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                Descargar Excel Filtrado
+              </button>
+              <button
+                onClick={() => setShowClearModal(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 hover:text-[#CE3A39] transition cursor-pointer"
+                title="Limpiar toda la información de computadoras y números de serie"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Limpiar Información</span>
+              </button>
+            </div>
+          </div>
 
           {/* Tarjetas de KPIs */}
       <section className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
@@ -1330,7 +1332,7 @@ export default function ReportesView({
       {/* Modal Historial de Serial */}
       {selectedSerial && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
             <div className="bg-[#233762] text-white px-6 py-4 flex items-center justify-between">
               <div>
                 <div className="text-xs text-blue-200 font-bold uppercase tracking-wider">Historial de Serial</div>
@@ -1346,7 +1348,7 @@ export default function ReportesView({
 
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
               {/* Tarjeta de Garantía en Modal */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50/40">
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#233762]" />
@@ -1355,15 +1357,18 @@ export default function ReportesView({
                     </span>
                   </div>
                   {selectedSerialWarranty?.vigente ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
                       VIGENTE
                     </span>
                   ) : selectedSerialWarranty?.estado === "POR_VENCER" ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
                       POR VENCER
                     </span>
                   ) : selectedSerialWarranty?.estado === "EXPIRADA" ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
+                      <span className="w-2 h-2 rounded-full bg-[#CE3A39]" />
                       EXPIRADA
                     </span>
                   ) : (
@@ -1511,7 +1516,7 @@ export default function ReportesView({
       {/* Modal Carga de Excel (Actualizar / Cargar) */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
             <div className="bg-[#233762] text-white px-6 py-4 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold flex items-center gap-2">
