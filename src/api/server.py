@@ -1384,13 +1384,17 @@ async def get_tracking_config_status(
     """
     fedex_adapter = tracking_service.adapters.get("FEDEX")
     estafeta_adapter = tracking_service.adapters.get("ESTAFETA")
+    estafeta_configured = bool(estafeta_adapter and estafeta_adapter.is_configured())
+    estafeta_reason_fn = getattr(estafeta_adapter, "missing_config_reason", None)
+    estafeta_reason = estafeta_reason_fn() if (not estafeta_configured and callable(estafeta_reason_fn)) else None
     return {
         "carriers": {
             "FEDEX": {
                 "configured": bool(fedex_adapter and fedex_adapter.is_configured()),
             },
             "ESTAFETA": {
-                "configured": bool(estafeta_adapter and estafeta_adapter.is_configured()),
+                "configured": estafeta_configured,
+                "missing_reason": estafeta_reason,
             },
         },
         "mock_fallback_enabled": tracking_service.mock_fallback,
